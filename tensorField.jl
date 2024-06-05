@@ -125,28 +125,27 @@ function symmetricDeviator(tensor::FloatMatrix)
 end
 
 # we assume that the tensors are in counterclockwise direction
-function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
+function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix, verbose=false)
+
     D1 = symmetricDeviator(tensor1)
     D2 = symmetricDeviator(tensor2)
     D3 = symmetricDeviator(tensor3)
 
     sign1 = sign(D1[1,1]*D2[2,1] - D2[1,1]*D1[2,1])
     sign2 = sign(D2[1,1]*D3[2,1] - D3[1,1]*D2[2,1])
+    sign3 = sign(D3[1,1]*D1[2,1] - D1[1,1]*D3[2,1])
 
-    if sign1 == 0 || sign2 == 0
+    if sign1 == 0 || sign2 == 0 || sign3 == 0
         return CP_ERROR
     end
 
     if sign1 == sign2
-        sign3 = sign(D3[1,1]*D1[2,1] - D1[1,1]*D3[2,1])
         if sign3 == sign1
             if sign3 == 1
                 return CP_WEDGE
             else
                 return CP_TRISECTOR
             end
-        elseif sign3 == 0
-            return CP_ERROR
         else
             return CP_NORMAL
         end

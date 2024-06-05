@@ -92,26 +92,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
                     if classifyEdgeEigenvalue(t11, t21) == classifyEdgeEigenvalue(t12, t22)
                         result[1] += 1
                     else
-                        # println((t, i1,j1))
-                        # println((t, i2,j2))
-                        # println(classifyEdgeEigenvalue(t11, t21))
-                        # println(classifyEdgeEigenvalue(t21, t11))
-                        # println(classifyEdgeEigenvalue(t12, t22))
-                        # println(t11,t21)
-                        # println(t12,t22)
-                        # # exit()
-
-                        # result[2] += 1
-                        # println(t11)
-                        # println(t12)
-                        # println(t21)
-                        # println(t22)
-                        # println("========")
-                        if haskey(freqs, (class1, class2))
-                            freqs[(class1,class2)] += 1
-                        else
-                            freqs[(class1,class2)] = 1
-                        end
+                        result[2] += 1
                     end
 
                 end

@@ -13,20 +13,20 @@ using .decompress
 using .plotTensorField
 using .tensorField
 
-folder = "../data/2d/asym1"
-dims = (25, 65, 65)
+folder = "../data/2d/dampedOscillator"
+dims = (1, 128, 128)
 eb = 0.01
 naive = false
 
 symmetric_eval = false
-display_plots = 1
+display_plots = 0
 # 0 = No plots
 # 1 = eigenvector & dual eigenvector directions
 # 2 = eigenvector graph
 # 3 = eigenvalue graph
 
 # Plotting variables
-display_frame = 12
+display_frame = 1
 display_vector = 1 # 1 for major, 2 for minor
 show_borders = false
 show_points = false

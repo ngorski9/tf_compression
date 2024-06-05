@@ -37,6 +37,7 @@ export CODE_LOSSLESS_R
 export CODE_LOSSLESS_S
 export CODE_LOSSLESS_ANGLE
 export CODE_LOSSLESS_FULL
+export CODE_LOSSLESS_FULL_64
 const CODE_NO_CHANGE = 1
 const CODE_CHANGE_EIGENVECTOR = 2 # we take this code to the power of the class that we are going for.
 const CODE_CHANGE_EIGENVALUE = 3 # similarly, take this to the power of the class we are going for.
@@ -45,6 +46,7 @@ const CODE_LOSSLESS_R = 7
 const CODE_LOSSLESS_S = 11
 const CODE_LOSSLESS_ANGLE = 13
 const CODE_LOSSLESS_FULL = 17
+const CODE_LOSSLESS_FULL_64 = 19 # 💀
 
 export FloatMatrix
 export FloatVector

@@ -83,7 +83,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                 d, r, s, θ = decomposeTensor(tensor)
 
-                max_r = max(max_r, r)
+                max_r = max(max_r, abs(r))
 
                 d_ground[t,i,j] = d
                 r_ground[t,i,j] = r
@@ -108,7 +108,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     run(`../SZ3-master/build/bin/sz3 -f -i $output/d.dat -z $output/d.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/r.dat -z $output/r.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/s.dat -z $output/s.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)        
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/s.dat -z $output/s.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)          
     run(`../SZ3-master/build/bin/sz3 -f -i $output/theta.dat -z $output/theta.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $θ_bound`) 
 
     # Initial decompression
@@ -138,15 +138,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         for i_ in 1:x
             for t in 1:T
                 for k in 0:1
-
+                    #println("swapping to loop $((t,i_,j_,k))")
                     push!(cellsToVisit, (i_,j_,Bool(k)))
 
                     while length(cellsToVisit) != 0
 
                         cell_i, cell_j, cell_top = pop!(cellsToVisit)
+                        #println("cell $((t, cell_i, cell_j, cell_top))")
 
                         # Figure out which new vertices need to be processed for the given cell
                         vertexCoords = getCellVertexCoords(t, cell_i, cell_j, cell_top)
+                        #println(vertexCoords)
 
                         # Store which vertices we have altered on this pass.
                         modified_vertices = [false, false, false]
@@ -160,7 +162,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 newVertices = [2]
                             end
                         elseif cell_j == 1
-                            newVertices = [3]
+                            newVertices = [2]
                         else
                             newVertices = []
                         end
@@ -276,10 +278,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             if cell_j == 1
                                 newEdges = [(1,2), (2,3), (3,1)]
                             else
-                                newEdges = [(1,2), (2,3)]
+                                newEdges = [(2,3), (3,1)]
                             end
                         elseif cell_j == 1
-                            newEdges = [(2,3), (3,1)]
+                            newEdges = [(1,2), (2,3)]
                         else
                             newEdges = [(2,3)]
                         end
@@ -308,7 +310,24 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 modified_vertices[edge[1]] = true
                                 modified_vertices[edge[2]] = true
 
-                            end
+
+                                # Check again and store losslessly 64 bit if needed
+                                t12 = getTensor(tf_reconstructed, t, i1, j1)
+                                t22 = getTensor(tf_reconstructed, t, i2, j2)
+
+                                class1 = classifyEdgeEigenvalue(t11, t21)
+                                class2 = classifyEdgeEigenvalue(t12, t22)
+                                
+                                if class1 != class2
+                                    print("???")
+                                    exit()
+                                    codes[t,i1,j1] = CODE_LOSSLESS_FULL_64
+                                    codes[t,i2,j2] = CODE_LOSSLESS_FULL_64
+                                    setTensor(tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1))
+                                    setTensor(tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1))
+                                end
+
+                            end                            
 
                         end
 
@@ -317,6 +336,35 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         t2Ground = getTensor(tf, vertexCoords[2]...)
                         t3Ground = getTensor(tf, vertexCoords[3]...)
 
+                        # If any 2 adjacent tensors are equal, store them both losslessly :(
+                        groundTensors = [t1Ground, t2Ground, t3Ground]
+                        for pair in ((1,2), (1,3), (2,3))
+
+                            first, second = pair
+
+                            if Matrix{Float32}(groundTensors[first]) == Matrix{Float32}(groundTensors[second]) && (codes[vertexCoords[first]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64] || codes[vertexCoords[second]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64])
+                                storeArray1 = Matrix{Float32}(groundTensors[first])
+                                storeArray2 = Matrix{Float32}(groundTensors[second])
+
+                                codes[vertexCoords[first]...] = CODE_LOSSLESS_FULL
+                                codes[vertexCoords[second]...] = CODE_LOSSLESS_FULL
+
+                                setTensor(tf_reconstructed, vertexCoords[first]..., storeArray1)
+                                setTensor(tf_reconstructed, vertexCoords[second]..., storeArray2)
+                                modified_vertices[first] = true
+                                modified_vertices[second] = true
+                            end
+
+                        end
+
+                        # If any matrices are equal to 0, store them losslessly
+                        for i in 1:3
+                            if groundTensors[i] == [0.0 0.0 ; 0.0 0.0]
+                                codes[vertexCoords[i]...] = CODE_LOSSLESS_FULL
+                                setTensor(tf_reconstructed, vertexCoords[i]..., [0.0 0.0 ; 0.0 0.0])
+                            end
+                        end
+
                         t1Recon = getTensor(tf_reconstructed, vertexCoords[1]...)
                         t2Recon = getTensor(tf_reconstructed, vertexCoords[2]...)
                         t3Recon = getTensor(tf_reconstructed, vertexCoords[3]...)
@@ -324,13 +372,48 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         if getCircularPointType(t1Ground, t2Ground, t3Ground) != getCircularPointType(t1Recon, t2Recon, t3Recon)
                             for vertex in 1:3
                                 coords = vertexCoords[vertex]
-                                if codes[coords...] % CODE_LOSSLESS_FULL != 0 && codes[coords...] % CODE_LOSSLESS_ANGLE != 0
+                                code = codes[coords...]                                
+                                if code ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64, CODE_LOSSLESS_ANGLE]
                                     codes[coords...] *= CODE_LOSSLESS_ANGLE
-                                    reconstructedMatrix = getTensor(tf_reconstructed, coords...)
-                                    d, r, s, _ = decomposeTensor(reconstructedMatrix)
+
+                                    if code % CODE_LOSSLESS_D == 0
+                                        d = d_ground[coords...]
+                                    else
+                                        d = d_intermediate[coords...]
+                                    end
+
+                                    if code % CODE_LOSSLESS_R == 0
+                                        r = r_ground[coords...]
+                                    else
+                                        r = r_intermediate[coords...]
+                                    end
+
+                                    if code % CODE_LOSSLESS_S == 0
+                                        s = s_ground[coords...]
+                                    else
+                                        s = s_intermediate[coords...]
+                                        if s < 0
+                                            s += y_bound
+                                        end
+                                    end
+
                                     θ = θ_ground[coords...]
+
+                                    #println("cp: $coords")
+                                    d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, y_bound, Int64(code))
+
                                     reconstructedMatrix = recomposeTensor(d,r,s,θ)
                                     setTensor(tf_reconstructed, coords..., reconstructedMatrix)
+                                    modified_vertices[vertex] = true
+                                end
+                            end
+                        end
+
+                        if getCircularPointType(t1Ground, t2Ground, t3Ground) != getCircularPointType(getTensor(tf_reconstructed, vertexCoords[1]...), getTensor(tf_reconstructed, vertexCoords[2]...), getTensor(tf_reconstructed, vertexCoords[3]...))
+                            for vertex in 1:3
+                                if codes[vertexCoords[vertex]...] != CODE_LOSSLESS_FULL_64
+                                    codes[vertexCoords[vertex]...] = CODE_LOSSLESS_FULL_64
+                                    setTensor(tf_reconstructed, vertexCoords[vertex]..., groundTensors[vertex])
                                     modified_vertices[vertex] = true
                                 end
                             end
@@ -393,16 +476,23 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     # Prepare lossless storage
     lossless_storage::Array{Float32} = []
+    lossless_storage_64::Array{Float64} = []
     for j in 1:dims[3]
         for i in 1:dims[2]
             for t in 1:dims[1]
 
-                if codes[t,i,j] % CODE_LOSSLESS_FULL == 0
+                if codes[t,i,j] == CODE_LOSSLESS_FULL
                     groundTensor = Matrix{Float32}(getTensor(tf, t, i, j))
                     push!(lossless_storage, groundTensor[1,1])
                     push!(lossless_storage, groundTensor[1,2])
                     push!(lossless_storage, groundTensor[2,1])
                     push!(lossless_storage, groundTensor[2,2])
+                elseif codes[t,i,j] == CODE_LOSSLESS_FULL_64
+                    groundTensor = getTensor(tf, t, i, j)
+                    push!(lossless_storage_64, groundTensor[1,1])
+                    push!(lossless_storage_64, groundTensor[1,2])
+                    push!(lossless_storage_64, groundTensor[2,1])
+                    push!(lossless_storage_64, groundTensor[2,2])
                 else
                     if codes[t,i,j] % CODE_LOSSLESS_D == 0
                         push!(lossless_storage, d_ground[t,i,j])
@@ -446,6 +536,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, codesBytes)
     write(vals_file, length(lossless_storage))
     write(vals_file, lossless_storage)
+    write(vals_file, length(lossless_storage_64))
+    write(vals_file, lossless_storage_64)
 
     close(vals_file)
 

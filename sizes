@@ -1,0 +1,7 @@
+odd numbered stress tensors: 25, 65, 65
+even numbered stress tensors: 65, 65, 65
+
+wind1: 1, 200, 100
+cylinder: 1, 640, 80
+gyre: 1, 200, 100
+dampedOscillator: 1, 128, 128

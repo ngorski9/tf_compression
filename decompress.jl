@@ -72,6 +72,8 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     codes = huffmanDecode( read(vals_file, codes_huffman_length) )
     lossless_storage_length = reinterpret(Int64, read(vals_file, 8))[1]
     losslessStorage = reinterpret(Float32, read(vals_file, 4*lossless_storage_length))
+    lossless_storage_length_64 = reinterpret(Int64, read(vals_file,8))[1]
+    losslessStorage64 = reinterpret(Float64, read(vals_file, 8*lossless_storage_length_64))
 
     if type_indicator == 1
         dtype = Float64
@@ -88,7 +90,7 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     run(`../SZ3-master/build/bin/sz3 -f -z $output/theta.cmp -o $output/theta_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $θ_bound`)
 
     # Reconstruct
-    tf_entries = reconstructEntries2d(dtype, "$output/d_intermediate.dat", "$output/r_intermediate.dat", "$output/s_intermediate.dat", "$output/theta_intermediate.dat", dims, y_bound, codes, losslessStorage)
+    tf_entries = reconstructEntries2d(dtype, "$output/d_intermediate.dat", "$output/r_intermediate.dat", "$output/s_intermediate.dat", "$output/theta_intermediate.dat", dims, y_bound, codes, losslessStorage, losslessStorage64)
 
     # Save to file
     for row in 1:2
@@ -137,7 +139,7 @@ function decompress2dSymmetric(compressed_file, decompress_folder, output = "../
     trace_bound = reinterpret(Float64, read(vals_file, 8))[1]
     type_indicator = reinterpret(Int64, read(vals_file, 8))[1]
     num_lossless = reinterpret(Int64, read(vals_file, 8))[1]
-    println(num_lossless)
+
     if num_lossless != 0
         lossless_storage = reinterpret(Float32, read(vals_file, 4*num_lossless))
         quantization_codes = huffmanDecode(read(vals_file))
@@ -250,9 +252,9 @@ function adjustDecompositionEntries(d, r, s, θ, y_bound, code, decompressing=fa
     return (d,r,s,θ)
 end
 
-function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bound, codes, losslessStorage)
+function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bound, codes, losslessStorage, losslessStorage64)
 
-    tf_entries = Array{Array{dtype}}(undef, (2,2))
+    tf_entries = Array{Array{dtype}}(undef, (2,2))    
     numPoints = dims[1]*dims[2]*dims[3]
 
     for row in 1:2
@@ -267,6 +269,7 @@ function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bo
     θ = loadArray(θ_file, Float32)
 
     losslessIndex = 1
+    losslessIndex64 = 1
 
     for i in 1:numPoints
         code = codes[i]
@@ -276,6 +279,12 @@ function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bo
             tf_entries[2,1][i] = losslessStorage[losslessIndex+2]
             tf_entries[2,2][i] = losslessStorage[losslessIndex+3]
             losslessIndex += 4
+        elseif code % CODE_LOSSLESS_FULL_64 == 0
+            tf_entries[1,1][i] = losslessStorage64[losslessIndex64]
+            tf_entries[1,2][i] = losslessStorage64[losslessIndex64+1]
+            tf_entries[2,1][i] = losslessStorage64[losslessIndex64+2]
+            tf_entries[2,2][i] = losslessStorage64[losslessIndex64+3]
+            losslessIndex64 += 4
         else
 
             d_ = d[i]
