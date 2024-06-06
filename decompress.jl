@@ -65,8 +65,7 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     # Read in metadata
     vals_file = open("$output/vals.bytes")
     dims = reinterpret(Int64, read(vals_file, 24))
-    θ_bound = reinterpret(Float64, read(vals_file, 8))[1]
-    y_bound = reinterpret(Float64, read(vals_file, 8))[1]
+    aeb = reinterpret(Float64, read(vals_file, 8))[1]
     type_indicator = reinterpret(Int64, read(vals_file, 8))[1]
     codes_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
     codes = huffmanDecode( read(vals_file, codes_huffman_length) )
@@ -84,13 +83,13 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     close(vals_file)
 
     # Decompress
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/r.cmp -o $output/r_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/s.cmp -o $output/s_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)    
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/theta.cmp -o $output/theta_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $θ_bound`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/a.cmp -o $output/a_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/b.cmp -o $output/b_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/c.cmp -o $output/c_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)    
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
     # Reconstruct
-    tf_entries = reconstructEntries2d(dtype, "$output/d_intermediate.dat", "$output/r_intermediate.dat", "$output/s_intermediate.dat", "$output/theta_intermediate.dat", dims, y_bound, codes, losslessStorage, losslessStorage64)
+    tf_entries = reconstructEntries2d(dtype, "$output/a_intermediate.dat", "$output/b_intermediate.dat", "$output/c_intermediate.dat", "$output/d_intermediate.dat", dims, aeb, codes, losslessStorage, losslessStorage64)
 
     # Save to file
     for row in 1:2
@@ -100,15 +99,15 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     end
 
     # Cleanup
+    remove("$output/a.cmp")
+    remove("$output/b.cmp")
+    remove("$output/c.cmp")
     remove("$output/d.cmp")
-    remove("$output/r.cmp")
-    remove("$output/s.cmp")
-    remove("$output/theta.cmp")
 
+    remove("$output/a_intermediate.dat")
+    remove("$output/b_intermediate.dat")
+    remove("$output/c_intermediate.dat")
     remove("$output/d_intermediate.dat")
-    remove("$output/r_intermediate.dat")
-    remove("$output/s_intermediate.dat")
-    remove("$output/theta_intermediate.dat")
 
 end
 
@@ -183,22 +182,22 @@ function signedSwap(a,b)
     return (sign(a)*abs(b), sign(b)*abs(a))
 end
 
-function adjustDecompositionEntriesSigns(d_, r_, eVectorGround, eValueGround, y_bound)
+function adjustDecompositionEntriesSigns(d_, r_, eVectorGround, eValueGround, aeb)
     if (eValueGround == COUNTERCLOCKWISE_ROTATION || eVectorGround in [W_RN, PI_BY_4, W_CN]) && r_ < 0
-        r_ += y_bound
+        r_ += aeb
     elseif (eValueGround == CLOCKWISE_ROTATION || eVectorGround in [W_RS, MINUS_PI_BY_4, W_CS]) && r_ > 0
-        r_ -= y_bound
+        r_ -= aeb
     elseif eValueGround == POSITIVE_SCALING && d_ < 0
-        d_ += y_bound
+        d_ += aeb
     elseif eValueGround == NEGATIVE_SCALING && d_ > 0
-        d_ -= y_bound
+        d_ -= aeb
     end
     return d_, r_
 end
 
-function adjustDecompositionEntries(d, r, s, θ, y_bound, code, decompressing=false)
+function adjustDecompositionEntries(d, r, s, θ, aeb, code, decompressing=false)
     if s < 0
-        s += y_bound
+        s += aeb
     end
 
     code, eVectorGround = getCodeValue( code, CODE_CHANGE_EIGENVECTOR )
@@ -212,7 +211,7 @@ function adjustDecompositionEntries(d, r, s, θ, y_bound, code, decompressing=fa
         eValueGround = classifyTensorEigenvalue(d, r, s)
     end
 
-    d, r = adjustDecompositionEntriesSigns(d, r, eVectorGround, eValueGround, y_bound)
+    d, r = adjustDecompositionEntriesSigns(d, r, eVectorGround, eValueGround, aeb)
 
     if eValueGround == ANISOTROPIC_STRETCHING
         if s < abs(r)
@@ -252,7 +251,7 @@ function adjustDecompositionEntries(d, r, s, θ, y_bound, code, decompressing=fa
     return (d,r,s,θ)
 end
 
-function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bound, codes, losslessStorage, losslessStorage64)
+function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, codes, losslessStorage, losslessStorage64)
 
     tf_entries = Array{Array{dtype}}(undef, (2,2))    
     numPoints = dims[1]*dims[2]*dims[3]
@@ -263,10 +262,27 @@ function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bo
         end
     end
 
-    d = loadArray(d_file, Float32)
-    r = loadArray(r_file, Float32)
-    s = loadArray(s_file, Float32)
-    θ = loadArray(θ_file, Float32)
+    A = loadArray(a_file, Float32)
+    B = loadArray(b_file, Float32)
+    C = loadArray(c_file, Float32)
+    D = loadArray(d_file, Float32)
+
+    flatDims = size(A)
+
+    d = zeros(Float32, flatDims)
+    r = zeros(Float32, flatDims)
+    s = zeros(Float32, flatDims)
+    θ = zeros(Float32, flatDims)
+
+    for i in 1:numPoints
+        tensor = [A[i] B[i] ; C[i] D[i]]
+        d_, r_, s_, θ_ = decomposeTensor(tensor)
+
+        d[i] = d_
+        r[i] = r_
+        s[i] = s_
+        θ[i] = θ_
+    end
 
     losslessIndex = 1
     losslessIndex64 = 1
@@ -312,7 +328,7 @@ function reconstructEntries2d(dtype, d_file, r_file, s_file, θ_file, dims, y_bo
                 losslessIndex += 1
             end
 
-            d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_ , y_bound, code, true)
+            d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_ , aeb, code, true)
 
             recomposition = recomposeTensor(d_, r_, s_, θ_)
 

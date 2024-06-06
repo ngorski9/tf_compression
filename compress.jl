@@ -64,12 +64,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
 
+    A_ground = zeros(Float32, dims)
+    B_ground = zeros(Float32, dims)
+    C_ground = zeros(Float32, dims)
+    D_ground = zeros(Float32, dims)
+
+
     d_ground = zeros(Float32, dims)
     r_ground = zeros(Float32, dims)
     s_ground = zeros(Float32, dims)
     θ_ground = zeros(Float32, dims)
-
-    max_r = -Inf
+    
     max_entry = -Inf
     min_entry = Inf
 
@@ -78,12 +83,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             for t in 1:dims[1]
                 tensor = getTensor(tf, t, i, j)
 
+                A_ground[t,i,j] = tensor[1,1]
+                B_ground[t,i,j] = tensor[1,2]
+                C_ground[t,i,j] = tensor[2,1]
+                D_ground[t,i,j] = tensor[2,2]
+
                 max_entry = max(max_entry, maximum(tensor))
                 min_entry = min(min_entry, minimum(tensor))
 
                 d, r, s, θ = decomposeTensor(tensor)
-
-                max_r = max(max_r, abs(r))
 
                 d_ground[t,i,j] = d
                 r_ground[t,i,j] = r
@@ -94,34 +102,52 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         end
     end
 
-    absolute_error_bound = relative_error_bound * (max_entry - min_entry)
+    #aeb = absolute error bound
+    aeb = relative_error_bound * (max_entry - min_entry)
 
-    θ_bound = min( absolute_error_bound/(3*max_r), pi/180 )
-    y_bound = (absolute_error_bound - max_r*θ_bound)/3
-
-    saveArray("$output/d.dat", d_ground)
-    saveArray("$output/r.dat", r_ground)
-    saveArray("$output/s.dat", s_ground)
-    saveArray("$output/theta.dat", θ_ground)
+    saveArray("$output/a.dat", A_ground)
+    saveArray("$output/b.dat", B_ground)
+    saveArray("$output/c.dat", C_ground)
+    saveArray("$output/d.dat", D_ground)
 
     # Initial compression
 
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/d.dat -z $output/d.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/r.dat -z $output/r.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/s.dat -z $output/s.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)          
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/theta.dat -z $output/theta.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $θ_bound`) 
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/a.dat -z $output/a.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/b.dat -z $output/b.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/c.dat -z $output/c.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/d.dat -z $output/d.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
     # Initial decompression
 
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/r.cmp -o $output/r_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/s.cmp -o $output/s_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $y_bound`)    
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/theta.cmp -o $output/theta_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $θ_bound`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/a.cmp -o $output/a_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/b.cmp -o $output/b_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/c.cmp -o $output/c_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
-    d_intermediate = loadArray("$output/d_intermediate.dat", Float32, dims)
-    r_intermediate = loadArray("$output/r_intermediate.dat", Float32, dims)
-    s_intermediate = loadArray("$output/s_intermediate.dat", Float32, dims)
-    θ_intermediate = loadArray("$output/theta_intermediate.dat", Float32, dims)
+    A_intermediate = loadArray("$output/a_intermediate.dat", Float32, dims)
+    B_intermediate = loadArray("$output/b_intermediate.dat", Float32, dims)
+    C_intermediate = loadArray("$output/c_intermediate.dat", Float32, dims)
+    D_intermediate = loadArray("$output/d_intermediate.dat", Float32, dims)
+
+    d_intermediate = zeros(Float32, dims)
+    r_intermediate = zeros(Float32, dims)
+    s_intermediate = zeros(Float32, dims)
+    θ_intermediate = zeros(Float32, dims)
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                tensor = [A_intermediate[t,i,j] B_intermediate[t,i,j] ; C_intermediate[t,i,j] D_intermediate[t,i,j]]
+                d,r,s,θ = decomposeTensor(tensor)
+                
+                d_intermediate[t,i,j] = d
+                r_intermediate[t,i,j] = r
+                s_intermediate[t,i,j] = s
+                θ_intermediate[t,i,j] = θ
+
+            end
+        end
+    end
 
     tf_reconstructed = zeroTensorField(dtype, dims)
 
@@ -133,6 +159,16 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     cellsToVisit = Stack{Tuple{Int64, Int64, Bool}}()
     
     codes = zeros(dims)
+
+    bad_points = 0
+    checked_cells = Set()
+    bad_edges = 0
+    checked_edges = Set()
+    bad_cells = 0
+    checked_cells = Set()
+    total_points = 0
+    total_edges = 0
+    total_cells = 0
 
     for j_ in 1:y
         for i_ in 1:x
@@ -188,10 +224,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 s_ = s_intermediate[t, vertex_i, vertex_j]
                                 θ_ = θ_intermediate[t, vertex_i, vertex_j]
 
-                                if s_ < 0
-                                    s_ += y_bound
-                                end
-
                                 # Use these manipulations to avoid numerical precision issues
                                 d_ground64, r_ground64, s_ground64, θ_ground64 = decomposeTensor(groundTensor)
 
@@ -203,6 +235,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 
                                 eValueGround = classifyTensorEigenvalue(d_ground64, r_ground64, s_ground64)
                                 eValueIntermediate = classifyTensorEigenvalue(d_recompose, r_recompose, s_recompose)
+
+                                # update counter
+                                # if eVectorGround != eVectorIntermediate || eValueGround != eValueIntermediate
 
                                 # Modify vertex if either classification doesn't match
                                 if eVectorGround != eVectorIntermediate || eValueGround != eValueIntermediate
@@ -253,7 +288,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     end
 
                                     # Further adjust entries based on any lossless settings
-                                    d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_, y_bound, code)
+                                    d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_, aeb, code)
                                     reconstructedMatrix = recomposeTensor(d_, r_, s_, θ_)
                                     d_, r_, s_, θ_ = decomposeTensor(reconstructedMatrix)
 
@@ -393,14 +428,14 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     else
                                         s = s_intermediate[coords...]
                                         if s < 0
-                                            s += y_bound
+                                            s += aeb
                                         end
                                     end
 
                                     θ = θ_ground[coords...]
 
                                     #println("cp: $coords")
-                                    d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, y_bound, Int64(code))
+                                    d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, aeb, Int64(code))
 
                                     reconstructedMatrix = recomposeTensor(d,r,s,θ)
                                     setTensor(tf_reconstructed, coords..., reconstructedMatrix)
@@ -523,8 +558,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, dims[1])
     write(vals_file, dims[2])
     write(vals_file, dims[3])
-    write(vals_file, θ_bound)
-    write(vals_file, y_bound)
+    write(vals_file, aeb)
 
     if dtype == Float64
         write(vals_file, 1)
@@ -549,7 +583,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     removeIfExists("$output_file.tar")
     removeIfExists("$output_file.tar.xz")
 
-    run(`tar cvf $output_file.tar d.cmp r.cmp s.cmp theta.cmp vals.bytes`)
+    run(`tar cvf $output_file.tar a.cmp b.cmp c.cmp d.cmp vals.bytes`)
     run(`xz -v9 $output_file.tar`)
 
     removeIfExists("$output_file.tar")
@@ -557,15 +591,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     cd(cwd)
 
     # Cleanup all temporary files
+    remove("$output/a.dat")
+    remove("$output/b.dat")
+    remove("$output/c.dat")
     remove("$output/d.dat")
-    remove("$output/r.dat")
-    remove("$output/s.dat")
-    remove("$output/theta.dat")
 
+    remove("$output/a.cmp")
+    remove("$output/b.cmp")
+    remove("$output/c.cmp")
     remove("$output/d.cmp")
-    remove("$output/r.cmp")
-    remove("$output/s.cmp")
-    remove("$output/theta.cmp")
 
 end
 
