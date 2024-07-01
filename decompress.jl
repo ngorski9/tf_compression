@@ -246,8 +246,6 @@ function adjustDecompositionEntries(d, r, s, θ, aeb, code, decompressing=false)
         end
     end
 
-    eVectorClassification = classifyTensorEigenvector(r,s)
-
     return (d,r,s,θ)
 end
 

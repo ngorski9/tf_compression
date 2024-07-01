@@ -169,22 +169,19 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     total_points = 0
     total_edges = 0
     total_cells = 0
-
+    index = 0
     for j_ in 1:y
         for i_ in 1:x
             for t in 1:T
                 for k in 0:1
-                    #println("swapping to loop $((t,i_,j_,k))")
                     push!(cellsToVisit, (i_,j_,Bool(k)))
 
                     while length(cellsToVisit) != 0
-
+                        index += 1
                         cell_i, cell_j, cell_top = pop!(cellsToVisit)
-                        #println("cell $((t, cell_i, cell_j, cell_top))")
 
                         # Figure out which new vertices need to be processed for the given cell
                         vertexCoords = getCellVertexCoords(t, cell_i, cell_j, cell_top)
-                        #println(vertexCoords)
 
                         # Store which vertices we have altered on this pass.
                         modified_vertices = [false, false, false]
@@ -204,7 +201,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         # Process vertices
-                        for newVertex in newVertices
+                        for newVertex in 1:3
 
                             _, vertex_i, vertex_j = vertexCoords[newVertex]
 
@@ -296,6 +293,22 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     if classifyTensorEigenvector(r_, s_) != eVectorGround || classifyTensorEigenvalue(d_, r_, s_) != eValueGround
                                         code = CODE_LOSSLESS_FULL
                                         reconstructedMatrix = Matrix{Float32}(groundTensor)
+                                        d_ = d_ground32
+                                        r_ = r_ground32
+                                        s_ = s_ground32
+                                        θ_ = θ_ground[t, vertex_i, vertex_j]
+                                    end
+
+                                    if classifyTensorEigenvector(r_, s_) != eVectorGround || classifyTensorEigenvalue(d_, r_, s_) != eValueGround
+                                        println("problem!")
+                                        exit()
+                                    end
+
+                                    if code != 1
+                                        d_intermediate[t, vertex_i, vertex_j] = d_
+                                        r_intermediate[t, vertex_i, vertex_j] = r_
+                                        s_intermediate[t, vertex_i, vertex_j] = s_
+                                        θ_intermediate[t, vertex_i, vertex_j] = θ_
                                     end
 
                                 end
@@ -336,33 +349,44 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             class2 = classifyEdgeEigenvalue(t12, t22)
 
                             if class1 != class2
-
-                                codes[t,i1,j1] = CODE_LOSSLESS_FULL
-                                codes[t,i2,j2] = CODE_LOSSLESS_FULL
-                                setTensor(tf_reconstructed, t, i1, j1, Matrix{Float32}(getTensor(tf, t, i1, j1)))
-                                setTensor(tf_reconstructed, t, i2, j2, Matrix{Float32}(getTensor(tf, t, i2, j2)))
-
                                 modified_vertices[edge[1]] = true
                                 modified_vertices[edge[2]] = true
-
-
-                                # Check again and store losslessly 64 bit if needed
-                                t12 = getTensor(tf_reconstructed, t, i1, j1)
-                                t22 = getTensor(tf_reconstructed, t, i2, j2)
-
-                                class1 = classifyEdgeEigenvalue(t11, t21)
-                                class2 = classifyEdgeEigenvalue(t12, t22)
-                                
-                                if class1 != class2
-                                    print("???")
-                                    exit()
-                                    codes[t,i1,j1] = CODE_LOSSLESS_FULL_64
-                                    codes[t,i2,j2] = CODE_LOSSLESS_FULL_64
-                                    setTensor(tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1))
-                                    setTensor(tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1))
+                                code = codes[t,i1,j1]
+                                if code % CODE_LOSSLESS_ANGLE != 0 && code != CODE_LOSSLESS_FULL && code != CODE_LOSSLESS_FULL_64
+                                    codes[t, i1, j1] *= CODE_LOSSLESS_ANGLE
+                                    θ_intermediate[t,i1,j1] = θ_ground[t,i1,j1]
+                                    setTensor( tf_reconstructed, t, i1, j1, 
+                                        recomposeTensor( d_intermediate[t,i1,j1],
+                                                         r_intermediate[t,i1,j1],
+                                                         s_intermediate[t,i1,j1],
+                                                         θ_intermediate[t,i1,j1] )
+                                    )
                                 end
 
-                            end                            
+                                code = codes[t,i2,j2]
+                                if code % CODE_LOSSLESS_ANGLE != 0 && code != CODE_LOSSLESS_FULL && code != CODE_LOSSLESS_FULL_64
+                                    codes[t, i2, j2] *= CODE_LOSSLESS_ANGLE
+                                    θ_intermediate[t,i2,j2] = θ_ground[t,i2,j2]
+                                    setTensor( tf_reconstructed, t, i2, j2, 
+                                        recomposeTensor( d_intermediate[t,i2,j2],
+                                                         r_intermediate[t,i2,j2],
+                                                         s_intermediate[t,i2,j2],
+                                                         θ_intermediate[t,i2,j2] )
+                                    )
+                                end
+
+                                class2 = classifyEdgeEigenvalue(getTensor(tf_reconstructed, t, i1, j1), getTensor(tf_reconstructed, t, i2, j2))
+                                if class1 != class2
+
+                                    codes[t, i1, j1] = CODE_LOSSLESS_FULL_64
+                                    setTensor( tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1) )
+
+                                    codes[t, i2, j2] = CODE_LOSSLESS_FULL_64
+                                    setTensor( tf_reconstructed, t, i2, j2, getTensor(tf, t, i2, j2) )
+
+                                end
+
+                            end
 
                         end
 
@@ -374,7 +398,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         # If any 2 adjacent tensors are equal, store them both losslessly :(
                         groundTensors = [t1Ground, t2Ground, t3Ground]
                         for pair in ((1,2), (1,3), (2,3))
-
                             first, second = pair
 
                             if Matrix{Float32}(groundTensors[first]) == Matrix{Float32}(groundTensors[second]) && (codes[vertexCoords[first]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64] || codes[vertexCoords[second]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64])
@@ -407,8 +430,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         if getCircularPointType(t1Ground, t2Ground, t3Ground) != getCircularPointType(t1Recon, t2Recon, t3Recon)
                             for vertex in 1:3
                                 coords = vertexCoords[vertex]
-                                code = codes[coords...]                                
-                                if code ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64, CODE_LOSSLESS_ANGLE]
+                                code = codes[coords...]
+
+                                if code ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64, CODE_LOSSLESS_ANGLE] && code % CODE_LOSSLESS_ANGLE != 0
                                     codes[coords...] *= CODE_LOSSLESS_ANGLE
 
                                     if code % CODE_LOSSLESS_D == 0
@@ -434,9 +458,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                                     θ = θ_ground[coords...]
 
-                                    #println("cp: $coords")
                                     d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, aeb, Int64(code))
-
                                     reconstructedMatrix = recomposeTensor(d,r,s,θ)
                                     setTensor(tf_reconstructed, coords..., reconstructedMatrix)
                                     modified_vertices[vertex] = true
@@ -455,6 +477,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         # Alter any cells that may have been affected by modified points.
+
                         if cell_top
                             if modified_vertices[1] || modified_vertices[2]
                                 push!(cellsToVisit, (cell_i, cell_j, true))

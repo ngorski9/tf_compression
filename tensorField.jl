@@ -126,7 +126,6 @@ end
 
 # we assume that the tensors are in counterclockwise direction
 function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix, verbose=false)
-
     D1 = symmetricDeviator(tensor1)
     D2 = symmetricDeviator(tensor2)
     D3 = symmetricDeviator(tensor3)
