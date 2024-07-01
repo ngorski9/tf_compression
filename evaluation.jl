@@ -219,7 +219,7 @@ function maxError(tf_ground, tf_reconstructed)
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
     tf1, dtype = loadTensorField2dFromFolder(ground, dims)
     tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
 
@@ -256,6 +256,8 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
     println("\nmax error: $max_error")
     println("compression ratio: $ratio")
     println("bitrate: $bitrate")
+    println("\tentropy: $entropy")
+    println("\tlossless: $losslessBitrate")
     println("PSNR: $psnr")
     if compression_time != -1
         println("compression time: $compression_time")

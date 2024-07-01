@@ -11,6 +11,8 @@ export plotDegenerateLines
 export plotEigenvectorGraph
 export plotEigenvalueGraph
 
+gr()
+
 function plotShape(x, y, color, show_borders = false, linewidth=1)
     if show_borders
         return plot!(Shape(x, y), fill=color, legend=false)
@@ -20,14 +22,21 @@ function plotShape(x, y, color, show_borders = false, linewidth=1)
 end
 
 # which should take the value of 1 or 2
-function plotEigenFieldGlyphs2d(tf::TensorField2d, t::Int64, which::Int64, color="black")
-    x, y = tf.dims[2], tf.dims[3]
+function plotEigenFieldGlyphs2d(tf::TensorField2d, t::Int64, which::Int64, slice::Tuple{Int64, Int64, Int64, Int64} = (-1,-1,-1,-1), color="black")
+
+    if slice == (-1,-1,-1,-1)
+        xMax, yMax = tf.dims[2], tf.dims[3]
+        xMin = 1
+        yMin = 1
+    else
+        xMin, xMax, yMin, yMax = slice
+    end
 
     vecs = []
     p = plot([], [], legend=false, color=color)
 
-    for i in 1:x
-        for j in 1:y
+    for i in xMin:xMax
+        for j in yMin:yMax
             matrix = getTensor(tf, t, i, j)
             e_vecs = eigvecs(matrix)
             v = real.(e_vecs[:,which])
@@ -41,8 +50,8 @@ function plotEigenFieldGlyphs2d(tf::TensorField2d, t::Int64, which::Int64, color
     # Plot critical points
     x -= 1
     y -= 1
-    for i in 1:x
-        for j in 1:y
+    for i in xMin:xMax
+        for j in yMin:yMax
             for k in 0:1
                 cp_type = getCircularPointType(tf, t, i, j, Bool(k))
                 if cp_type == CP_TRISECTOR || cp_type == CP_WEDGE
@@ -68,11 +77,17 @@ function plotEigenFieldGlyphs2d(tf::TensorField2d, t::Int64, which::Int64, color
 
 end
 
-function plotEigenvectorGraph(tf::TensorField2d, t::Int64, show_borders=false, show_points = false)
+function plotEigenvectorGraph(tf::TensorField2d, t::Int64, slice::Tuple{Int64, Int64, Int64, Int64}, show_borders=false, show_points = false)
 
-    x, y = tf.dims[2], tf.dims[3]
-    x -= 1
-    y -= 1
+    if slice == (-1,-1,-1,-1)
+        xMax, yMax = tf.dims[2]-1, tf.dims[3]-1
+        xMin = 1
+        yMin = 1
+    else
+        xMin, xMax, yMin, yMax = slice
+        xMax -= 1
+        yMax -= 1
+    end
 
     p = plot([], [], legend=false, color="black")
 
@@ -83,8 +98,8 @@ function plotEigenvectorGraph(tf::TensorField2d, t::Int64, show_borders=false, s
     # array storing (x,y,color) of each individual point that we will plot.
     scatterPoints::Array{Tuple{Float64, Float64, String}} = []
 
-    for i in 1:x
-        for j in 1:y
+    for i in xMin:xMax
+        for j in yMin:yMax
             for k in 0:1
 
                 # Set up 
@@ -407,10 +422,17 @@ function plotEigenvectorGraph(tf::TensorField2d, t::Int64, show_borders=false, s
 
 end
 
-function plotEigenvalueGraph(tf::TensorField2d, t::Int64, show_borders = false, show_points = false)
-    _, x, y = tf.dims
-    x -= 1
-    y -= 1
+function plotEigenvalueGraph(tf::TensorField2d, t::Int64, slice::Tuple{Int64, Int64, Int64, Int64} = (-1,-1,-1,-1), show_borders = false, show_points = false)
+
+    if slice == (-1,-1,-1,-1)
+        xMax, yMax = tf.dims[2]-1, tf.dims[3]-1
+        xMin = 1
+        yMin = 1
+    else
+        xMin, xMax, yMin, yMax = slice
+        xMax -= 1
+        yMax -= 1
+    end
 
     p = plot([], [])
 
@@ -422,8 +444,8 @@ function plotEigenvalueGraph(tf::TensorField2d, t::Int64, show_borders = false, 
     # for i={1,2,3}, we say that edge i has the other 2 as vertices e.g. edge 2 has vertices 1 and 3
     edges = [ 2 3 ; 3 1 ; 1 2 ]
 
-    for i in 1:x
-        for j in 1:y
+    for i in xMin:xMax
+        for j in yMin:yMax
             for k in 0:1
 
                 positions = getCellVertexCoords(t, i, j, Bool(k))
@@ -835,8 +857,8 @@ function plotEigenvalueGraph(tf::TensorField2d, t::Int64, show_borders = false, 
     end
 
     if show_points
-        for i in 1:(x+1)
-            for j in 1:(y+1)
+        for i in xMin:(xMax+1)
+            for j in yMin:(yMax+1)
                 tensor = getTensor(tf, t, i, j)
                 classification = classifyTensorEigenvalue(tensor)
                 p = scatter!([i], [j], color=eigenvalueColors[classification], markersize=2 )

@@ -601,6 +601,36 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     remove("$output/c.cmp")
     remove("$output/d.cmp")
 
+    # calculate stats on compressed file size
+    # (could be removed in the final version of the program)
+
+    # used for bitrate statistics
+    totalTensors = length(codes)
+
+    # shannon entropy
+    frequenciesDict = Dict()
+    index = 0
+    for c in codes
+        if haskey(frequenciesDict, c)
+            frequenciesDict[c] += 1
+        else
+            frequenciesDict[c] = 1
+        end
+    end
+
+    logTotalTensors = log(2,totalTensors)
+    sum = 0
+    entropy = 0
+    for c in keys(frequenciesDict)
+        sum += frequenciesDict[c]
+        entropy -= (frequenciesDict[c]) * ( log(2, frequenciesDict[c]) - logTotalTensors )
+    end
+    entropy /= totalTensors
+
+    # bitrate of lossless storage:
+    losslessBitrate = (length(lossless_storage) * 32 + length(lossless_storage_64) * 64) / totalTensors
+
+    return (entropy, losslessBitrate)
 end
 
 # Error bound is relative
