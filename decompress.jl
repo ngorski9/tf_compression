@@ -70,7 +70,7 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     codes_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
     codes = huffmanDecode( read(vals_file, codes_huffman_length) )
     lossless_storage_length = reinterpret(Int64, read(vals_file, 8))[1]
-    losslessStorage = reinterpret(Float32, read(vals_file, 4*lossless_storage_length))
+    losslessStorage = reinterpret(Float16, read(vals_file, 2*lossless_storage_length))
     lossless_storage_length_64 = reinterpret(Int64, read(vals_file,8))[1]
     losslessStorage64 = reinterpret(Float64, read(vals_file, 8*lossless_storage_length_64))
 
@@ -140,7 +140,7 @@ function decompress2dSymmetric(compressed_file, decompress_folder, output = "../
     num_lossless = reinterpret(Int64, read(vals_file, 8))[1]
 
     if num_lossless != 0
-        lossless_storage = reinterpret(Float32, read(vals_file, 4*num_lossless))
+        lossless_storage = reinterpret(Float16, read(vals_file, 4*num_lossless))
         quantization_codes = huffmanDecode(read(vals_file))
     else
         lossless_storage = nothing

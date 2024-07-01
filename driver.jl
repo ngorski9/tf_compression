@@ -13,9 +13,9 @@ using .decompress
 using .plotTensorField
 using .tensorField
 
-folder = "../data/2d/dampedOscillator"
-dims = (1, 128, 128)
-eb = 0.01 * (2/3)
+folder = "../data/2d/gyre"
+dims = (1, 200, 100)
+eb = 0.01 * 0.5
 naive = false
 
 symmetric_eval = false
