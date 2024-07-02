@@ -93,6 +93,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[1] += 1
                     else
                         result[2] += 1
+                        println("$((t, i1, j1)) $((t, i2, j2))")                        
                     end
 
                 end

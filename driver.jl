@@ -13,13 +13,13 @@ using .decompress
 using .plotTensorField
 using .tensorField
 
-folder = "../data/2d/wind1"
-dims = (1, 200, 100)
-eb = 0.01 * (2/3)
-naive = false
+folder = "../data/2d/cylinder"
+dims = (1, 640, 80)
+eb = 0.005
+naive = true
 
 symmetric_eval = false
-display_plots = 0
+display_plots = 2
 # 0 = No plots
 # 1 = eigenvector & dual eigenvector directions
 # 2 = eigenvector graph

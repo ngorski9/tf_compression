@@ -104,6 +104,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     #aeb = absolute error bound
     aeb = relative_error_bound * (max_entry - min_entry)
+    #ceb = compressor error bound
+    ceb = aeb * (2/3)
 
     saveArray("$output/a.dat", A_ground)
     saveArray("$output/b.dat", B_ground)
@@ -112,17 +114,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     # Initial compression
 
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/a.dat -z $output/a.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/b.dat -z $output/b.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/c.dat -z $output/c.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/d.dat -z $output/d.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/a.dat -z $output/a.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/b.dat -z $output/b.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/c.dat -z $output/c.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -i $output/d.dat -z $output/d.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
 
     # Initial decompression
 
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/a.cmp -o $output/a_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/b.cmp -o $output/b_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/c.cmp -o $output/c_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/a.cmp -o $output/a_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/b.cmp -o $output/b_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/c.cmp -o $output/c_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $ceb`)
 
     A_intermediate = loadArray("$output/a_intermediate.dat", Float32, dims)
     B_intermediate = loadArray("$output/b_intermediate.dat", Float32, dims)
@@ -156,8 +158,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     T = dims[1]
     x = dims[2]-1
     y = dims[3]-1
-    cellsToVisit = Stack{Tuple{Int64, Int64, Bool}}()
-    
+    cellsToVisit::Array{Tuple{Int64, Int64, Bool}} = [] 
     codes = zeros(dims)
 
     for j_ in 1:y
@@ -190,7 +191,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         # Process vertices
-                        for newVertex in 1:3
+                        for newVertex in newVertices
 
                             _, vertex_i, vertex_j = vertexCoords[newVertex]
 
@@ -274,7 +275,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     end
 
                                     # Further adjust entries based on any lossless settings
-                                    d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_, aeb, code)
+                                    d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_, ceb, code)
                                     reconstructedMatrix = recomposeTensor(d_, r_, s_, θ_)
                                     d_, r_, s_, θ_ = decomposeTensor(reconstructedMatrix)
 
@@ -323,7 +324,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             newEdges = [(2,3)]
                         end
 
+                        keepChecking = true
+
                         # edges
+                        num = 0
+                        while keepChecking
+                            keepChecking = false
+                            num += 1
                         for edge in newEdges
 
                             _, i1,j1 = vertexCoords[edge[1]]
@@ -338,6 +345,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             class2 = classifyEdgeEigenvalue(t12, t22)
 
                             if class1 != class2
+                                keepChecking = true
                                 modified_vertices[edge[1]] = true
                                 modified_vertices[edge[2]] = true
                                 code = codes[t,i1,j1]
@@ -366,17 +374,28 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                                 class2 = classifyEdgeEigenvalue(getTensor(tf_reconstructed, t, i1, j1), getTensor(tf_reconstructed, t, i2, j2))
                                 if class1 != class2
-
                                     codes[t, i1, j1] = CODE_LOSSLESS_FULL_64
                                     setTensor( tf_reconstructed, t, i1, j1, getTensor(tf, t, i1, j1) )
 
                                     codes[t, i2, j2] = CODE_LOSSLESS_FULL_64
                                     setTensor( tf_reconstructed, t, i2, j2, getTensor(tf, t, i2, j2) )
-
                                 end
 
                             end
 
+                            t11 = getTensor(tf, t, i1, j1)
+                            t12 = getTensor(tf_reconstructed, t, i1, j1)
+                            t21 = getTensor(tf, t, i2, j2)
+                            t22 = getTensor(tf_reconstructed, t, i2, j2)
+
+                            class1 = classifyEdgeEigenvalue(t11, t21)
+                            class2 = classifyEdgeEigenvalue(t12, t22)
+
+                            if class1 != class2
+                                keepChecking = true
+                            end
+
+                        end
                         end
 
                         # cell
@@ -390,11 +409,11 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             first, second = pair
 
                             if Matrix{Float32}(groundTensors[first]) == Matrix{Float32}(groundTensors[second]) && (codes[vertexCoords[first]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64] || codes[vertexCoords[second]...] ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64])
-                                storeArray1 = Matrix{Float32}(groundTensors[first])
-                                storeArray2 = Matrix{Float32}(groundTensors[second])
+                                storeArray1 = Matrix{Float64}(groundTensors[first])
+                                storeArray2 = Matrix{Float64}(groundTensors[second])
 
-                                codes[vertexCoords[first]...] = CODE_LOSSLESS_FULL
-                                codes[vertexCoords[second]...] = CODE_LOSSLESS_FULL
+                                codes[vertexCoords[first]...] = CODE_LOSSLESS_FULL_64
+                                codes[vertexCoords[second]...] = CODE_LOSSLESS_FULL_64
 
                                 setTensor(tf_reconstructed, vertexCoords[first]..., storeArray1)
                                 setTensor(tf_reconstructed, vertexCoords[second]..., storeArray2)
@@ -424,30 +443,14 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 if code ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64, CODE_LOSSLESS_ANGLE] && code % CODE_LOSSLESS_ANGLE != 0
                                     codes[coords...] *= CODE_LOSSLESS_ANGLE
 
-                                    if code % CODE_LOSSLESS_D == 0
-                                        d = d_ground[coords...]
-                                    else
-                                        d = d_intermediate[coords...]
-                                    end
-
-                                    if code % CODE_LOSSLESS_R == 0
-                                        r = r_ground[coords...]
-                                    else
-                                        r = r_intermediate[coords...]
-                                    end
-
-                                    if code % CODE_LOSSLESS_S == 0
-                                        s = s_ground[coords...]
-                                    else
-                                        s = s_intermediate[coords...]
-                                        if s < 0
-                                            s += aeb
-                                        end
-                                    end
-
+                                    d = d_intermediate[coords...]
+                                    r = r_intermediate[coords...]
+                                    s = s_intermediate[coords...]
                                     θ = θ_ground[coords...]
 
-                                    d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, aeb, Int64(code))
+                                    θ_intermediate[coords...] = θ_ground[coords...]
+
+                                    d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, ceb, Int64(code))
                                     reconstructedMatrix = recomposeTensor(d,r,s,θ)
                                     setTensor(tf_reconstructed, coords..., reconstructedMatrix)
                                     modified_vertices[vertex] = true
@@ -459,59 +462,144 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             for vertex in 1:3
                                 if codes[vertexCoords[vertex]...] != CODE_LOSSLESS_FULL_64
                                     codes[vertexCoords[vertex]...] = CODE_LOSSLESS_FULL_64
-                                    setTensor(tf_reconstructed, vertexCoords[vertex]..., groundTensors[vertex])
+                                    setTensor(tf_reconstructed, vertexCoords[vertex]..., getTensor(tf, vertexCoords[vertex]...))
                                     modified_vertices[vertex] = true
                                 end
                             end
                         end
 
+                        # Check to see if modified points exceed the error bound. If they do, see if storing the angle losslessly
+                        # does it, and if not, then store the point losslessly.
+                        for newVertex in newVertices
+
+                            coords = vertexCoords[newVertex...]
+                            while maximum(abs.(getTensor(tf, coords...) - getTensor(tf_reconstructed, coords...))) > aeb
+
+                                modified_vertices[newVertex] = true
+                                code = codes[coords...]
+                                if code != CODE_LOSSLESS_FULL
+
+                                    if code % CODE_LOSSLESS_ANGLE != 0
+
+                                        codes[coords...] *= CODE_LOSSLESS_ANGLE
+
+                                        d = d_intermediate[coords...]
+                                        r = r_intermediate[coords...]
+                                        s = s_intermediate[coords...]
+                                        θ = θ_ground[coords...]
+    
+                                        θ_intermediate[coords...] = θ_ground[coords...]
+    
+                                        d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, ceb, Int64(code))
+                                        reconstructedMatrix = recomposeTensor(d,r,s,θ)
+                                        setTensor(tf_reconstructed, coords..., reconstructedMatrix)
+
+                                    else
+
+                                        codes[coords...] = CODE_LOSSLESS_FULL
+                                        setTensor(tf_reconstructed, coords..., Matrix{Float32}(getTensor(tf, coords...)))
+
+                                    end
+
+                                else
+                                    codes[coords...] = CODE_LOSSLESS_FULL_64
+                                    setTensor(tf_reconstructed, coords..., getTensor(tf, coords...))
+                                end
+
+                            end
+
+                        end # end of error bound checking
+
                         # Alter any cells that may have been affected by modified points.
+                        # add cells from low to high to minimize the amount of recursion needed.
 
                         if cell_top
-                            if modified_vertices[1] || modified_vertices[2]
-                                push!(cellsToVisit, (cell_i, cell_j, true))
-                                push!(cellsToVisit, (cell_i, cell_j, false))
+
+                            if (cell_j, cell_i) < (j_, i_)
+                                # add future cells if we are currently in a previous cell.
+
+                                if modified_vertices[3] && (cell_j+1, cell_i+1) < (j_, i_) && cell_i != x
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j+1, false))
+                                end
+
+                                if (modified_vertices[3] || modified_vertices[1]) && (cell_j+1, cell_i) < (j_, i_)
+                                    pushIfAbsent!(cellsToVisit, (cell_i, cell_j+1, true))
+                                    pushIfAbsent!(cellsToVisit, (cell_i, cell_j+1, false))
+                                end
+                                
+                                if modified_vertices[1] && (cell_j+1, cell_i-1) < (j_, i_) && cell_i != 1
+                                    pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j+1, true))
+                                    pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j+1, false))
+                                end
+
+                                if (modified_vertices[2] || modified_vertices[3]) && (cell_j, cell_i+1) < (j_, i_) && cell_i != x
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j, true))
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j, false))
+                                end
+
                             end
 
+                            # add current cell and cell below
+
+                            if (modified_vertices[1] || modified_vertices[2] || modified_vertices[3])
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j, false))
+                            end
+
+                            # add past cells
                             if modified_vertices[1] && cell_i != 1
-                                push!(cellsToVisit, (cell_i-1, cell_j, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j, true))
                             end
-                            
+
                             if modified_vertices[2] && cell_j != 1
-                                push!(cellsToVisit, (cell_i, cell_j-1, true))
                                 if cell_i != x
-                                    push!(cellsToVisit, (cell_i+1, cell_j-1, true))
-                                    push!(cellsToVisit, (cell_i+1, cell_j-1, false))
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j-1, true))
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j-1, false))
                                 end
+
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j-1, true))
                             end
+
                         else
-                            if (modified_vertices[1] && (cell_i != 1 || cell_j != 1)) || (modified_vertices[2] && cell_j != 1) || (modified_vertices[3] && cell_i != 1)
-                                push!(cellsToVisit, (cell_i, cell_j, false))
+
+                            if (cell_j, cell_i) < (j_, i_)
+                                if modified_vertices[3] && (cell_j+1,cell_i) < (j_, i_)
+                                    pushIfAbsent!(cellsToVisit, (cell_i, cell_j+1, false))
+                                end
+
+                                if modified_vertices[3] && (cell_j+1, cell_i-1) < (j_, i_) && cell_i != 1
+                                    pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j+1, true))
+                                    pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j+1, false))
+                                end
+
+                                if modified_vertices[2] && (cell_j, cell_i+1) < (j_, i_) && cell_i != x
+                                    pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j, true))
+                                end
+
+                                # as long as the main counter is on a higher cell than the current one, 
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j, true))
+
+                            end
+
+                            # add past cells
+
+                            if (modified_vertices[1] || modified_vertices[3]) && cell_i != 1
+                                pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j, false))                                
+                            end
+
+                            if modified_vertices[2] && cell_j != 1 && cell_i != x
+                                pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j-1, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i+1, cell_j-1, false))
                             end
 
                             if (modified_vertices[1] || modified_vertices[2]) && cell_j != 1
-                                push!(cellsToVisit, (cell_i, cell_j-1, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j-1, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j-1, false))
                             end
 
-                            if (modified_vertices[1] || modified_vertices[3]) && cell_i != 1
-                                push!(cellsToVisit, (cell_i-1, cell_j, true))
-                            end
-
-                            if modified_vertices[1]
-                                if cell_i != 1
-                                    push!(cellsToVisit, (cell_i-1, cell_j, false))
-                                    if cell_j != 1
-                                        push!(cellsToVisit, (cell_i-1, cell_j-1, true))
-                                        push!(cellsToVisit, (cell_i, cell_j-1, false))
-                                    end
-                                elseif cell_j != 1
-                                    push!(cellsToVisit, (cell_i, cell_j-1, false))
-                                end
-                            end
-
-                            if modified_vertices[2] && cell_i != x && cell_j != 1
-                                push!(cellsToVisit, (cell_i+1, cell_j-1, true))
-                                push!(cellsToVisit, (cell_i+1, cell_j-1, false))
+                            if modified_vertices[1] && cell_i != 1 && cell_j != 1
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j-1, true))
                             end
                         end
 
@@ -570,7 +658,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, dims[1])
     write(vals_file, dims[2])
     write(vals_file, dims[3])
-    write(vals_file, aeb)
+    write(vals_file, ceb)
 
     if dtype == Float64
         write(vals_file, 1)

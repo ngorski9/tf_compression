@@ -7,6 +7,7 @@ export loadArray
 export removeIfExists
 export remove
 export getCodeValue
+export pushIfAbsent!
 
 # Error
 
@@ -118,6 +119,13 @@ function getCodeValue(code::Int64, key::Int64)
         value += 1
     end
     return code, value
+end
+
+# Used for the previous check stack in compress
+function pushIfAbsent!(stack::Array{Tuple{Int64, Int64, Bool}}, elt::Tuple{Int64, Int64, Bool})
+    if elt ∉ stack
+        push!(stack, elt)
+    end
 end
 
 # Returns them in clockwise orientation
