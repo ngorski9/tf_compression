@@ -22,6 +22,28 @@ mutable struct ProcessDataSymmetric
     codes::Array{Int64}
 end
 
+struct ProcessData
+    aeb::Float64 # absolute error bound
+    ceb::Float64 # compressor error bound    
+    tf::TensorField2d
+    tf_reconstructed::TensorField2d
+    d_ground::Array{Float32} # These are always 32 bit conversions. For a 64 bit version, decompose a tensor in "tf"
+    r_ground::Array{Float32}
+    s_ground::Array{Float32}
+    θ_ground::Array{Float32}
+    d_intermediate::FloatArray
+    r_intermediate::FloatArray
+    s_intermediate::FloatArray
+    θ_intermediate::FloatArray
+    d_precision::Array{Int64}
+    r_precision::Array{Int64}
+    s_precision::Array{Int64}
+    d_quantization::Array{Int64}
+    r_quantization::Array{Int64}
+    s_quantization::Array{Int64}
+    codes::Array{Int64}
+end
+
 function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output")
     run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)
     run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)
@@ -55,7 +77,114 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     remove("$output/vals.bytes")
 end
 
-function processCell()
+# returns true if the point was processed (e.g. its code was 0 and then it was updated)
+# and false otherwise.
+function processPoint( pd::ProcessData, t::Int64, x::Int64, y::Int64 )
+
+    if pd.codes[t,x,y] == 0
+        processPointDRS( pd, t, x, y )
+        return true
+    else
+        return false
+    end
+
+end
+
+# process the d, r, and s values of a point
+function processPointDRS( pd::ProcessData, t::Int64, x::Int64, y::Int64 )
+
+    code = 1
+    groundTensor = getTensor(pd.tf, t, x, y)
+
+    d_ = pd.d_intermediate[t, x, y]
+    r_ = pd.r_intermediate[t, x, y]
+    s_ = pd.s_intermediate[t, x, y]
+    θ_ = pd.θ_intermediate[t, x, y]
+
+    # Use these manipulations to avoid numerical precision issues
+    d_ground64, r_ground64, s_ground64, θ_ground64 = decomposeTensor(groundTensor)
+
+    reconstructedMatrix = recomposeTensor(d_, r_, s_, θ_)
+    d_recompose, r_recompose, s_recompose, θ_recompose = decomposeTensor(reconstructedMatrix)
+
+    eVectorGround = classifyTensorEigenvector(r_ground64, s_ground64)
+    eVectorIntermediate = classifyTensorEigenvector(r_recompose, s_recompose)
+    
+    eValueGround = classifyTensorEigenvalue(d_ground64, r_ground64, s_ground64)
+    eValueIntermediate = classifyTensorEigenvalue(d_recompose, r_recompose, s_recompose)
+
+    # update counter
+    # if eVectorGround != eVectorIntermediate || eValueGround != eValueIntermediate
+
+    # Modify vertex if either classification doesn't match
+    if eVectorGround != eVectorIntermediate || eValueGround != eValueIntermediate
+
+        if eVectorGround != eVectorIntermediate
+            code *= CODE_CHANGE_EIGENVECTOR^eVectorGround
+        end
+
+        if eValueGround != eValueIntermediate
+            code *= CODE_CHANGE_EIGENVALUE^eValueGround
+        end
+
+        d_ground32 = pd.d_ground[t, vertex_i, vertex_j]
+        r_ground32 = pd.r_ground[t, vertex_i, vertex_j]
+        s_ground32 = pd.s_ground[t, vertex_i, vertex_j]
+
+        # Check if we have any values equal to each other, which causes the swapping algorithm to wig out on us.
+        if abs( abs(r_) - abs(s_) ) < ϵ && abs( abs(r_ground64) - abs(s_ground64) ) > ϵ
+            if abs(s_ground32) != abs(r_)
+                code *= CODE_LOSSLESS_S
+                s_ = s_ground32
+            else
+                code *= CODE_LOSSLESS_R
+                r_ = r_ground32
+            end
+        end
+
+        if eValueGround != CLOCKWISE_ROTATION && eValueGround != COUNTERCLOCKWISE_ROTATION &&
+            abs( abs(d_) - abs(s_) ) < ϵ && abs( abs(d_ground64) - abs(s_ground64) ) > ϵ
+            if abs(s_ground32) != abs(d_) && code % CODE_LOSSLESS_S != 0
+                code *= CODE_LOSSLESS_S
+                s_ = s_ground32
+            else
+                code *= CODE_LOSSLESS_D
+                d_ = d_ground32
+            end
+        end
+
+        if eValueGround != ANISOTROPIC_STRETCHING &&
+            abs( abs(d_) - abs(r_) ) < ϵ && abs( abs(d_ground64) - abs(r_ground64) ) > ϵ
+            if abs(r_ground32) != abs(d_) && code % CODE_LOSSLESS_R != 0
+                code *= CODE_LOSSLESS_R
+                r_ = r_ground32
+            elseif code % CODE_LOSSLESS_D != 0
+                code *= CODE_LOSSLESS_D
+                d_ = d_ground32
+            end
+        end
+
+        # Further adjust entries based on any lossless settings
+        d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_, pd.ceb, code)
+        reconstructedMatrix = recomposeTensor(d_, r_, s_, θ_)
+        d_, r_, s_, θ_ = decomposeTensor(reconstructedMatrix)
+
+        worked = true
+
+        # Check if these adjustments worked. If not, store all entries losslessly.
+        if classifyTensorEigenvector(r_, s_) != eVectorGround || classifyTensorEigenvalue(d_, r_, s_) != eValueGround
+            worked = false
+        end
+
+        return (worked, code, d_, r_, s_)
+
+    end
+
+    codes[t,vertex_i,vertex_j] = code
+    setTensor(tf_reconstructed, t, vertex_i, vertex_j, reconstructedMatrix)
+
+    return true
+
 end
 
 function compress2d(containing_folder, dims, output_file, relative_error_bound, output="../output")
@@ -619,6 +748,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         end
     end
 
+    numFullLossless = 0
+    numLosslessAngle = 0
+    
     # Prepare lossless storage
     lossless_storage::Array{Float32} = []
     lossless_storage_64::Array{Float64} = []
@@ -627,12 +759,14 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             for t in 1:dims[1]
 
                 if codes[t,i,j] == CODE_LOSSLESS_FULL
+                    numFullLossless += 1
                     groundTensor = Matrix{Float32}(getTensor(tf, t, i, j))
                     push!(lossless_storage, groundTensor[1,1])
                     push!(lossless_storage, groundTensor[1,2])
                     push!(lossless_storage, groundTensor[2,1])
                     push!(lossless_storage, groundTensor[2,2])
                 elseif codes[t,i,j] == CODE_LOSSLESS_FULL_64
+                    numFullLossless += 1
                     groundTensor = getTensor(tf, t, i, j)
                     push!(lossless_storage_64, groundTensor[1,1])
                     push!(lossless_storage_64, groundTensor[1,2])
@@ -652,6 +786,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     if codes[t,i,j] % CODE_LOSSLESS_ANGLE == 0
+                        numLosslessAngle += 1
                         push!(lossless_storage, θ_ground[t,i,j])
                     end
                 end

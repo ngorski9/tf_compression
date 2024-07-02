@@ -355,6 +355,7 @@ function classifyEdgeEigenvalue( d1::AbstractFloat, r1::AbstractFloat, s1::Abstr
     s_is_larger = [ intercept_categories[1] % 2 == 0, intercept_categories[2] % 2 == 0 ]
 
     for c in cross_values
+
         if c[1] == 0
             if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])
                 push!(edge, 0)

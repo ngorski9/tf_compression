@@ -15,11 +15,11 @@ using .tensorField
 
 folder = "../data/2d/wind1"
 dims = (1, 200, 100)
-eb = 0.005
+eb = 0.01
 naive = false
 
 symmetric_eval = false
-display_plots = 0
+display_plots = 3
 # 0 = No plots
 # 1 = eigenvector & dual eigenvector directions
 # 2 = eigenvector graph
@@ -28,9 +28,9 @@ display_plots = 0
 # Plotting variables
 display_frame = 1
 display_vector = 1 # 1 for major, 2 for minor
-show_borders = false
+show_borders = true
 show_points = false
-slice = (1,65,1,65)
+slice = (1,30,1,30)
 
 println("hi")
 
