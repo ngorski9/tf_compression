@@ -160,16 +160,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     
     codes = zeros(dims)
 
-    bad_points = 0
-    checked_cells = Set()
-    bad_edges = 0
-    checked_edges = Set()
-    bad_cells = 0
-    checked_cells = Set()
-    total_points = 0
-    total_edges = 0
-    total_cells = 0
-    index = 0
     for j_ in 1:y
         for i_ in 1:x
             for t in 1:T
@@ -177,7 +167,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     push!(cellsToVisit, (i_,j_,Bool(k)))
 
                     while length(cellsToVisit) != 0
-                        index += 1
                         cell_i, cell_j, cell_top = pop!(cellsToVisit)
 
                         # Figure out which new vertices need to be processed for the given cell
@@ -632,7 +621,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     # shannon entropy
     frequenciesDict = Dict()
-    index = 0
     for c in codes
         if haskey(frequenciesDict, c)
             frequenciesDict[c] += 1
