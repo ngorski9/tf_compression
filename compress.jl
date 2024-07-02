@@ -543,10 +543,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             if (modified_vertices[1] || modified_vertices[2] || modified_vertices[3])
                                 pushIfAbsent!(cellsToVisit, (cell_i, cell_j, true))
+                            end
+                            
+                            # add past cells
+                            if modified_vertices[1] || modified_vertices[2]
                                 pushIfAbsent!(cellsToVisit, (cell_i, cell_j, false))
                             end
 
-                            # add past cells
                             if modified_vertices[1] && cell_i != 1
                                 pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j, true))
                             end
@@ -577,8 +580,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 end
 
                                 # as long as the main counter is on a higher cell than the current one, 
-                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j, true))
+                                if modified_vertices[2] || modified_vertices[3]
+                                    pushIfAbsent!(cellsToVisit, (cell_i, cell_j, true))
+                                end
 
+                            end
+
+                            # add current cell
+                            if (modified_vertices[1] || modified_vertices[2] || modified_vertices[3])
+                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j, false))
                             end
 
                             # add past cells
@@ -599,7 +609,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             end
 
                             if modified_vertices[1] && cell_i != 1 && cell_j != 1
-                                pushIfAbsent!(cellsToVisit, (cell_i, cell_j-1, true))
+                                pushIfAbsent!(cellsToVisit, (cell_i-1, cell_j-1, true))
                             end
                         end
 
