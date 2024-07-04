@@ -40,13 +40,16 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
                     result[1,1] += 1
                 else
                     result[1,2] += 1
+                    println((t,i,j))
                 end
 
                 if classifyTensorEigenvalue(d1, r1, s1) == classifyTensorEigenvalue(d2, r2, s2)
                     result[2,1] += 1
                 else
                     result[2,2] += 1
+                    println((t,i,j))
                 end
+
             end
         end
     end
@@ -93,7 +96,6 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[1] += 1
                     else
                         result[2] += 1
-                        println("$((t, i1, j1)) $((t, i2, j2))")                        
                     end
 
                 end
@@ -107,9 +109,6 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
     end
 
     sort!(things, by=f(x)=x[2])
-    for t in things
-        println(t)
-    end
 
     return result
 

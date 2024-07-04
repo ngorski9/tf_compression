@@ -72,6 +72,8 @@ function huffmanEncode(symbols)
         end
     end
 
+    codes = getCodeList(frequencies)
+
     bitString = ""
     output::Array{UInt8} = []
     for s in symbols

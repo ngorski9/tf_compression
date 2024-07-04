@@ -19,7 +19,7 @@ eb = 0.01
 naive = false
 
 symmetric_eval = false
-display_plots = 3
+display_plots = 0
 # 0 = No plots
 # 1 = eigenvector & dual eigenvector directions
 # 2 = eigenvector graph

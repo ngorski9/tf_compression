@@ -69,6 +69,8 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     type_indicator = reinterpret(Int64, read(vals_file, 8))[1]
     codes_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
     codes = huffmanDecode( read(vals_file, codes_huffman_length) )
+    quantization_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
+    quantization = huffmanDecode( read(vals_file, quantization_huffman_length) )
     lossless_storage_length = reinterpret(Int64, read(vals_file, 8))[1]
     losslessStorage = reinterpret(Float32, read(vals_file, 4*lossless_storage_length))
     lossless_storage_length_64 = reinterpret(Int64, read(vals_file,8))[1]
@@ -89,7 +91,7 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
     # Reconstruct
-    tf_entries = reconstructEntries2d(dtype, "$output/a_intermediate.dat", "$output/b_intermediate.dat", "$output/c_intermediate.dat", "$output/d_intermediate.dat", dims, aeb, codes, losslessStorage, losslessStorage64)
+    tf_entries = reconstructEntries2d(dtype, "$output/a_intermediate.dat", "$output/b_intermediate.dat", "$output/c_intermediate.dat", "$output/d_intermediate.dat", dims, aeb, codes, quantization, losslessStorage, losslessStorage64)
 
     # Save to file
     for row in 1:2
@@ -196,9 +198,6 @@ function adjustDecompositionEntriesSigns(d_, r_, eVectorGround, eValueGround, ae
 end
 
 function adjustDecompositionEntries(d, r, s, θ, aeb, code, decompressing=false)
-    if s < 0
-        s += aeb
-    end
 
     code, eVectorGround = getCodeValue( code, CODE_CHANGE_EIGENVECTOR )
     code, eValueGround = getCodeValue( code, CODE_CHANGE_EIGENVALUE )
@@ -249,7 +248,7 @@ function adjustDecompositionEntries(d, r, s, θ, aeb, code, decompressing=false)
     return (d,r,s,θ)
 end
 
-function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, codes, losslessStorage, losslessStorage64)
+function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, codes, quantization, losslessStorage, losslessStorage64)
 
     tf_entries = Array{Array{dtype}}(undef, (2,2))    
     numPoints = dims[1]*dims[2]*dims[3]
@@ -278,12 +277,17 @@ function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, 
 
         d[i] = d_
         r[i] = r_
-        s[i] = s_
+        if s_ < 0
+            s[i] = s_ + aeb
+        else
+            s[i] = s_
+        end
         θ[i] = θ_
     end
 
     losslessIndex = 1
     losslessIndex64 = 1
+    numLossless64 = 0
 
     for i in 1:numPoints
         code = codes[i]
@@ -294,6 +298,7 @@ function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, 
             tf_entries[2,2][i] = losslessStorage[losslessIndex+3]
             losslessIndex += 4
         elseif code % CODE_LOSSLESS_FULL_64 == 0
+            numLossless64 += 1
             tf_entries[1,1][i] = losslessStorage64[losslessIndex64]
             tf_entries[1,2][i] = losslessStorage64[losslessIndex64+1]
             tf_entries[2,1][i] = losslessStorage64[losslessIndex64+2]
@@ -301,9 +306,9 @@ function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, 
             losslessIndex64 += 4
         else
 
-            d_ = d[i]
-            r_ = r[i]
-            s_ = s[i]
+            d_ = d[i] + 2 * aeb * quantization[i] / (2^MAX_PRECISION)
+            r_ = r[i] + 2 * aeb * quantization[numPoints + i] / (2^MAX_PRECISION)
+            s_ = s[i] + 2 * aeb * quantization[2*numPoints + i] / (2^MAX_PRECISION)
             θ_ = θ[i]
 
             if code % CODE_LOSSLESS_D == 0

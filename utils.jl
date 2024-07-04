@@ -9,10 +9,12 @@ export remove
 export getCodeValue
 export pushIfAbsent!
 
-# Error
+# Numerical constants
 
 export ϵ
+export MAX_PRECISION
 const ϵ = 1e-11
+const MAX_PRECISION = 20
 
 # cell types
 
