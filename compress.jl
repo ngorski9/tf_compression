@@ -87,7 +87,6 @@ function initialProcessPoint( pd::ProcessData, t::Int64, x::Int64, y::Int64 )
 end
 
 function raisePrecisionAndProcess( pd::ProcessData, t::Int64, x::Int64, y::Int64 )
-
     angleIsLossless = raisePrecision( pd, t, x, y, pd.codes[t,x,y]%CODE_LOSSLESS_ANGLE==0 )
     processPoint( pd, t, x, y, true, angleIsLossless )
 
@@ -99,6 +98,9 @@ function storeAngleLosslesslyAndProcess( pd::ProcessData, t::Int64, x::Int64, y:
 
     if pd.codes[t,x,y]%CODE_LOSSLESS_ANGLE != 0
         pd.codes[t,x,y] *= CODE_LOSSLESS_ANGLE
+        pd.d_precision[t,x,y] = 0
+        pd.r_precision[t,x,y] = 0
+        pd.s_precision[t,x,y] = 0
         processPoint( pd, t, x, y, true, true )
     end
 
@@ -110,10 +112,6 @@ function raisePrecision( pd::ProcessData, t::Int64, x::Int64, y::Int64, angleIsL
     pd.d_precision[t,x,y] += 1
     pd.r_precision[t,x,y] += 1
     pd.s_precision[t,x,y] += 1
-
-    println("**********")
-    println(angleIsLossless)
-    println("**********")    
 
     # because the precisions are all lock-step, we will do this.
     # change this if we ever decorrelate the precisions:
@@ -147,25 +145,24 @@ function processPoint( pd::ProcessData, t::Int64, x::Int64, y::Int64, passedAngl
     code = pd.codes[t,x,y]
 
     if !passedAngleIsLossless
-        angleIsLossless = code % CODE_LOSSLESS_ANGLE == 0
+        angleIsLossless = (code != 0) && (code % CODE_LOSSLESS_ANGLE == 0)
     end
 
     if code != CODE_LOSSLESS_FULL && code != CODE_LOSSLESS_FULL_64
         while !processPointDRS( pd, t, x, y, angleIsLossless )
-            angleIsLoessless = raisePrecision( pd, t, x, y, angleIsLossless )
+            angleIsLossless = raisePrecision( pd, t, x, y, angleIsLossless )
         end
-        println("====")
-        println(angleIsLossless)
-        println(pd.codes[t,x,y]%CODE_LOSSLESS_ANGLE == 0)
-        println("====")        
-    else
-        println("$((t,x,y)) lossless")
     end
 
 end
 
 # process the d, r, and s values of a point
 function processPointDRS( pd::ProcessData, t::Int64, x::Int64, y::Int64, losslessAngle::Bool )
+    code = pd.codes[t,x,y]
+    if code == CODE_LOSSLESS_FULL || code == CODE_LOSSLESS_FULL_64
+        return true
+    end
+
     groundTensor = getTensor(pd.tf, t, x, y)
 
     s_intermediate = pd.s_intermediate[t,x,y]
@@ -404,9 +401,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         for i_ in 1:x
             for t in 1:T
                 for k in 0:1
-                    println((t,i_,j_))
                     push!(cellsToVisit, (i_,j_,Bool(k)))
-
                     while length(cellsToVisit) != 0
                         cell_i, cell_j, cell_top = pop!(cellsToVisit)
 
@@ -485,9 +480,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 class2 = classifyEdgeEigenvalue(t12, t22)
 
                                 while class1 != class2
-                                    println(((i1,j1),(i2,j2)))
-
                                     keepChecking = true
+                                    modified_vertices[edge[1]] = true
+                                    modified_vertices[edge[2]] = true
 
                                     # also using "d" here since the precisions are all lock-step. But could
                                     # unlock them later maybe idk.
@@ -502,15 +497,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     end
 
                                     if precision1 < precision2 && !lossless1
-                                        println("raising 1")
                                         raisePrecisionAndProcess( pd, t, i1, j1 )
                                     elseif precision1 > precision2 && !lossless2
-                                        println("raising 2")
                                         raisePrecisionAndProcess( pd, t, i2, j2 )
                                     else
-                                        println("raising both")
-                                        println(precision1)
-                                        println(precision2)
                                         raisePrecisionAndProcess( pd, t, i1, j1 )
                                         raisePrecisionAndProcess( pd, t, i2, j2 )
                                     end
@@ -518,7 +508,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     t12 = getTensor(tf_reconstructed, t, i1, j1)       
                                     t22 = getTensor(tf_reconstructed, t, i2, j2)
                                     class2 = classifyEdgeEigenvalue(t12, t22)
-                                    println((class1, class2))
                                     
                                 end
 
@@ -759,13 +748,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             for t in 1:dims[1]
 
                 if codes[t,i,j] == CODE_LOSSLESS_FULL
+                    numFullLossless += 1                    
                     groundTensor = Matrix{Float32}(getTensor(tf, t, i, j))
                     push!(lossless_storage, groundTensor[1,1])
                     push!(lossless_storage, groundTensor[1,2])
                     push!(lossless_storage, groundTensor[2,1])
                     push!(lossless_storage, groundTensor[2,2])
                 elseif codes[t,i,j] == CODE_LOSSLESS_FULL_64
-                    numFullLossless += 1
                     groundTensor = getTensor(tf, t, i, j)
                     push!(lossless_storage_64, groundTensor[1,1])
                     push!(lossless_storage_64, groundTensor[1,2])
@@ -877,7 +866,29 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         sum += frequenciesDict[c]
         entropy -= (frequenciesDict[c]) * ( log(2, frequenciesDict[c]) - logTotalTensors )
     end
+
     entropy /= totalTensors
+
+    entropy2 = 0
+    sum2 = 0
+
+    frequenciesDict2 = Dict()
+    for c in quantization_codes
+        if haskey(frequenciesDict2, c)
+            frequenciesDict2[c] += 1
+        else
+            frequenciesDict2[c] = 1
+        end
+    end
+
+    for c in keys(frequenciesDict2)
+        sum2 += frequenciesDict2[c]
+        entropy2 -= (frequenciesDict2[c]) * ( log(2, frequenciesDict2[c]) - logTotalTensors - log(2,3) )
+    end
+
+    entropy2 /= totalTensors
+
+    entropy += entropy2
 
     # bitrate of lossless storage:
     losslessBitrate = (length(lossless_storage) * 32 + length(lossless_storage_64) * 64) / totalTensors
