@@ -34,9 +34,8 @@ struct ProcessData
     r_intermediate::FloatArray
     s_intermediate::FloatArray
     θ_intermediate::FloatArray
-    d_precision::Array{Int64}
-    r_precision::Array{Int64}
-    s_precision::Array{Int64}
+    precision::Array{Int64}
+    precisionStage::Array{Int64} # precision goes through a full set twice, the second time with a lossless angle. This keeps track of where in that process the precision is.
     d_quantization::Array{Int64}
     r_quantization::Array{Int64}
     s_quantization::Array{Int64}
@@ -98,9 +97,7 @@ function storeAngleLosslesslyAndProcess( pd::ProcessData, t::Int64, x::Int64, y:
 
     if pd.codes[t,x,y]%CODE_LOSSLESS_ANGLE != 0
         pd.codes[t,x,y] *= CODE_LOSSLESS_ANGLE
-        pd.d_precision[t,x,y] = 0
-        pd.r_precision[t,x,y] = 0
-        pd.s_precision[t,x,y] = 0
+        pd.precision[t,x,y] = 0
         processPoint( pd, t, x, y, true, true )
     end
 
@@ -109,17 +106,12 @@ end
 # passing if the angle is lossless helps prevent needing to modulo a million times
 # returns true if the angle is stored losslessly and false otherwise.
 function raisePrecision( pd::ProcessData, t::Int64, x::Int64, y::Int64, angleIsLossless::Bool )
-    pd.d_precision[t,x,y] += 1
-    pd.r_precision[t,x,y] += 1
-    pd.s_precision[t,x,y] += 1
+    pd.precisionStage[t,x,y] += 1
+    pd.precision[t,x,y] += 1
 
-    # because the precisions are all lock-step, we will do this.
-    # change this if we ever decorrelate the precisions:
-    if pd.d_precision[t,x,y] > MAX_PRECISION
+    if pd.precision[t,x,y] > MAX_PRECISION
 
-        pd.d_precision[t,x,y] = 0
-        pd.r_precision[t,x,y] = 0
-        pd.s_precision[t,x,y] = 0
+        pd.precision[t,x,y] = 0
 
         if angleIsLossless
             pd.codes[t,x,y] = CODE_LOSSLESS_FULL_64
@@ -170,17 +162,17 @@ function processPointDRS( pd::ProcessData, t::Int64, x::Int64, y::Int64, lossles
         s_intermediate += pd.aeb
     end
 
-    pd.d_quantization[t,x,y] = round( (pd.d_ground[t,x,y] - pd.d_intermediate[t,x,y]) * 2^(pd.d_precision[t,x,y]) / (2*pd.aeb) )
-    pd.r_quantization[t,x,y] = round( (pd.r_ground[t,x,y] - pd.r_intermediate[t,x,y]) * 2^(pd.r_precision[t,x,y]) / (2*pd.aeb) )
-    pd.s_quantization[t,x,y] = round( (pd.s_ground[t,x,y] - s_intermediate) * 2^(pd.s_precision[t,x,y]) / (2*pd.aeb) )
+    pd.d_quantization[t,x,y] = round( (pd.d_ground[t,x,y] - pd.d_intermediate[t,x,y]) * 2^(pd.precision[t,x,y]) / (2*pd.aeb) )
+    pd.r_quantization[t,x,y] = round( (pd.r_ground[t,x,y] - pd.r_intermediate[t,x,y]) * 2^(pd.precision[t,x,y]) / (2*pd.aeb) )
+    pd.s_quantization[t,x,y] = round( (pd.s_ground[t,x,y] - s_intermediate) * 2^(pd.precision[t,x,y]) / (2*pd.aeb) )
 
-    d_ = pd.d_intermediate[t, x, y] + 2 * pd.aeb * pd.d_quantization[t,x,y] / (2^(pd.d_precision[t,x,y]))
-    r_ = pd.r_intermediate[t, x, y] + 2 * pd.aeb * pd.r_quantization[t,x,y] / (2^(pd.r_precision[t,x,y]))
-    s_ = s_intermediate + 2 * pd.aeb * pd.s_quantization[t,x,y] / (2^(pd.s_precision[t,x,y]))
+    d_ = pd.d_intermediate[t, x, y] + 2 * pd.aeb * pd.d_quantization[t,x,y] / (2^(pd.precision[t,x,y]))
+    r_ = pd.r_intermediate[t, x, y] + 2 * pd.aeb * pd.r_quantization[t,x,y] / (2^(pd.precision[t,x,y]))
+    s_ = s_intermediate + 2 * pd.aeb * pd.s_quantization[t,x,y] / (2^(pd.precision[t,x,y]))
 
     while s_ < 0
         pd.s_quantization[t,x,y] += 1
-        s_ = s_intermediate + 2 * pd.aeb * pd.s_quantization[t,x,y] / (2^(pd.s_precision[t,x,y]))        
+        s_ = s_intermediate + 2 * pd.aeb * pd.s_quantization[t,x,y] / (2^(pd.precision[t,x,y]))        
     end
 
     if losslessAngle
@@ -393,7 +385,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         zeros(Int64, dims),
         zeros(Int64, dims),
         zeros(Int64, dims),
-        zeros(Int64, dims),
         codes
     )
 
@@ -488,8 +479,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     # unlock them later maybe idk.
                                     lossless1 = pd.codes[t, i1, j1] in [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64]
                                     lossless2 = pd.codes[t, i2, j2] in [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64]
-                                    precision1 = pd.d_precision[t, i1, j1]
-                                    precision2 = pd.d_precision[t, i2, j2]
+                                    precision1 = pd.precisionStage[t, i1, j1]
+                                    precision2 = pd.precisionStage[t, i2, j2]
 
                                     if lossless1 && lossless2
                                         println("something is wrong")
@@ -515,10 +506,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                         end
 
-                        # # cell
-                        # t1Ground = getTensor(tf, vertexCoords[1]...)
-                        # t2Ground = getTensor(tf, vertexCoords[2]...)
-                        # t3Ground = getTensor(tf, vertexCoords[3]...)
+                        # cell
 
                         # # If any 2 adjacent tensors are equal, store them both losslessly :(
                         # groundTensors = [t1Ground, t2Ground, t3Ground]
@@ -548,32 +536,48 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         #     end
                         # end
 
-                        # t1Recon = getTensor(tf_reconstructed, vertexCoords[1]...)
-                        # t2Recon = getTensor(tf_reconstructed, vertexCoords[2]...)
-                        # t3Recon = getTensor(tf_reconstructed, vertexCoords[3]...)
+                        t1Ground = getTensor(tf, vertexCoords[1]...)
+                        t2Ground = getTensor(tf, vertexCoords[2]...)
+                        t3Ground = getTensor(tf, vertexCoords[3]...)
 
-                        # if getCircularPointType(t1Ground, t2Ground, t3Ground) != getCircularPointType(t1Recon, t2Recon, t3Recon)
-                        #     for vertex in 1:3
-                        #         coords = vertexCoords[vertex]
-                        #         code = codes[coords...]
+                        t1Recon = getTensor(tf_reconstructed, vertexCoords[1]...)
+                        t2Recon = getTensor(tf_reconstructed, vertexCoords[2]...)
+                        t3Recon = getTensor(tf_reconstructed, vertexCoords[3]...)
 
-                        #         if code ∉ [CODE_LOSSLESS_FULL, CODE_LOSSLESS_FULL_64, CODE_LOSSLESS_ANGLE] && code % CODE_LOSSLESS_ANGLE != 0
-                        #             codes[coords...] *= CODE_LOSSLESS_ANGLE
+                        groundCellType = getCircularPointType(t1Ground, t2Ground, t3Ground)
+                        reconCellType = getCircularPointType(t1Recon, t2Recon, t3Recon)
 
-                        #             d = d_intermediate[coords...]
-                        #             r = r_intermediate[coords...]
-                        #             s = s_intermediate[coords...]
-                        #             θ = θ_ground[coords...]
+                        while groundCellType != reconCellType
 
-                        #             θ_intermediate[coords...] = θ_ground[coords...]
+                            ps1 = pd.precisionStage[vertexCoords[1]...]
+                            ps2 = pd.precisionStage[vertexCoords[2]...]
+                            ps3 = pd.precisionStage[vertexCoords[3]...]
 
-                        #             d,r,s,θ = adjustDecompositionEntries(d,r,s,θ, ceb, Int64(code))
-                        #             reconstructedMatrix = recomposeTensor(d,r,s,θ)
-                        #             setTensor(tf_reconstructed, coords..., reconstructedMatrix)
-                        #             modified_vertices[vertex] = true
-                        #         end
-                        #     end
-                        # end
+                            minPrecisionStage = min(ps1, ps2, ps3)
+
+                            if ps1 == minPrecisionStage
+                                raisePrecisionAndProcess(pd, vertexCoords[1]...)
+                            end
+
+                            if ps2 == minPrecisionStage
+                                raisePrecisionAndProcess(pd, vertexCoords[2]...)
+                            end
+
+                            if ps3 == minPrecisionStage
+                                raisePrecisionAndProcess(pd, vertexCoords[3]...)
+                            end
+
+                            t1Recon = getTensor(tf_reconstructed, vertexCoords[1]...)
+                            t2Recon = getTensor(tf_reconstructed, vertexCoords[2]...)
+                            t3Recon = getTensor(tf_reconstructed, vertexCoords[3]...)
+
+                            reconCellType = getCircularPointType(t1Recon, t2Recon, t3Recon)
+
+                            modified_vertices[1] = true
+                            modified_vertices[2] = true
+                            modified_vertices[3] = true
+
+                        end
 
                         # if getCircularPointType(t1Ground, t2Ground, t3Ground) != getCircularPointType(getTensor(tf_reconstructed, vertexCoords[1]...), getTensor(tf_reconstructed, vertexCoords[2]...), getTensor(tf_reconstructed, vertexCoords[3]...))
                         #     for vertex in 1:3
@@ -784,9 +788,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     end
 
     # precisions:
-    d_quantization_final = vec(pd.d_quantization .* ( 2 .^ (MAX_PRECISION .- pd.d_precision) ))
-    r_quantization_final = vec(pd.r_quantization .* ( 2 .^ (MAX_PRECISION .- pd.r_precision) ))
-    s_quantization_final = vec(pd.s_quantization .* ( 2 .^ (MAX_PRECISION .- pd.s_precision) ))
+    d_quantization_final = vec(pd.d_quantization .* ( 2 .^ (MAX_PRECISION .- pd.precision) ))
+    r_quantization_final = vec(pd.r_quantization .* ( 2 .^ (MAX_PRECISION .- pd.precision) ))
+    s_quantization_final = vec(pd.s_quantization .* ( 2 .^ (MAX_PRECISION .- pd.precision) ))
     quantization_codes = vcat(d_quantization_final, r_quantization_final, s_quantization_final)
 
     # Save metadata and codes

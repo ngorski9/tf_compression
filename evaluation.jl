@@ -40,14 +40,12 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
                     result[1,1] += 1
                 else
                     result[1,2] += 1
-                    println((t,i,j))
                 end
 
                 if classifyTensorEigenvalue(d1, r1, s1) == classifyTensorEigenvalue(d2, r2, s2)
                     result[2,1] += 1
                 else
                     result[2,2] += 1
-                    println((t,i,j))
                 end
 
             end

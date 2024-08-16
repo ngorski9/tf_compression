@@ -11,8 +11,6 @@ export plotDegenerateLines
 export plotEigenvectorGraph
 export plotEigenvalueGraph
 
-gr()
-
 function plotShape(x, y, color, show_borders = false, linewidth=1)
     if show_borders
         return plot!(Shape(x, y), fill=color, legend=false)
