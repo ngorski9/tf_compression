@@ -271,7 +271,7 @@ function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims:
     tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
 
     if symmetric
-        psnr = symmetricPSNR(tf1, tf2)        
+        psnr = symmetricPSNR(tf1, tf2)
     else
         psnr = asymmetricPSNR(tf1, tf2)
     end

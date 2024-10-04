@@ -16,10 +16,10 @@ using .tensorField
 folder = "../data/3d/tf_3"
 dims = (25, 65, 65)
 eb = 0.002
-naive = true
+naive = false
 
 symmetric_eval = false
-display_plots = 1
+display_plots = 0
 # 0 = No plots
 # 1 = eigenvector & dual eigenvector directions
 # 2 = eigenvector graph (all blue)

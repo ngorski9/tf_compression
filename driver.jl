@@ -15,20 +15,20 @@ using .tensorField
 
 function main()
 
-    folder = "../data/2d/asym1"
-    dims = (25, 65, 65)
-    eb = 0.01
-    naive = false
+    folder = "../data/2d/wind1"
+    dims = (1, 200, 100)
+    # was 0.01 cr 26.1
+    eb = 0.0039
+    naive = true
 
-    symmetric_eval = false
-    display_plots = 2
+    display_plots = 0
     # 0 = No plots
     # 1 = eigenvector & dual eigenvector directions
     # 2 = eigenvector graph
     # 3 = eigenvalue graph
 
     # Plotting variables
-    display_frame = 15
+    display_frame = 0
     display_vector = 1 # 1 for major, 2 for minor
     show_borders = true
     show_points = false
