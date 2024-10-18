@@ -144,6 +144,8 @@ function tensorFieldMatchSymmetric(tf1::SymmetricTensorField2d, tf2::SymmetricTe
         return false
     end
 
+    numFC = 0
+
     T,x,y = tf1.dims
     for t in 1:T
         for i in 1:(x-1)
@@ -152,14 +154,18 @@ function tensorFieldMatchSymmetric(tf1::SymmetricTensorField2d, tf2::SymmetricTe
                     type1 = getCircularPointType(tf1, t, i, j, Bool(k))
                     type2 = getCircularPointType(tf2, t, i, j, Bool(k))
                     if type1 != type2
-                        println("bad at $t,$i,$j,$k")
-                        return false
+                        numFC += 1
                     end
                 end
             end
         end
     end
     
+    if numFC != 0
+        println("$numFC false cases")
+        return false
+    end
+
     return true
 
 end

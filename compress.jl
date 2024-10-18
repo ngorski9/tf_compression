@@ -11,6 +11,9 @@ using ..utils
 export compress2d
 export compress2dNaive
 export compress2dSymmetric
+export compress2dSymmetricOld
+export compress2dSymmetricSimple
+export compress2dSymmetricNaive
 
 mutable struct ProcessDataSymmetric
     tf_ground::SymmetricTensorField2d
@@ -43,10 +46,31 @@ struct ProcessData
 end
 
 function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output")
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_1.dat -z $output/row_2_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)    
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M REL $relative_error_bound`)
+    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+
+    # prepare derived attributes for compression
+
+    max_entry = -Inf
+    min_entry = Inf
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                matrix = getTensor(tf, t, i, j)
+
+                max_entry = max(max_entry, maximum(matrix))
+                min_entry = min(min_enSimpletry, minimum(matrix))
+
+            end
+        end
+    end
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_1.dat -z $output/row_2_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)    
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
@@ -71,6 +95,58 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     remove("$output/row_1_col_1.cmp")
     remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_1.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/vals.bytes")
+end
+
+function compress2dSymmetricNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+
+    # prepare derived attributes for compression
+
+    max_entry = -Inf
+    min_entry = Inf
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                matrix = getTensor(tf, t, i, j)
+
+                max_entry = max(max_entry, maximum(matrix))
+                min_entry = min(min_entry, minimum(matrix))
+
+            end
+        end
+    end
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+
+    vals_file = open("$output/vals.bytes", "w")
+    write(vals_file, dims[1])
+    write(vals_file, dims[2])
+    write(vals_file, dims[3])        
+    write(vals_file, relative_error_bound)
+    close(vals_file)
+
+    cwd = pwd()
+    cd(output)
+
+    removeIfExists("$output_file.tar")
+    removeIfExists("$output_file.tar.xz")
+
+    run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
+    run(`xz -v9 $output_file.tar`)
+
+    removeIfExists("$output_file.tar")
+
+    cd(cwd)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/vals.bytes")
 end
@@ -815,7 +891,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, length(quantizationBytes))
     write(vals_file, quantizationBytes)
     write(vals_file, length(lossless_storage))
-    write(vals_file, lossless_storage)
+    write(vals_file, lossless_storage)Simple
     write(vals_file, length(lossless_storage_64))
     write(vals_file, lossless_storage_64)
 
@@ -901,7 +977,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 end
 
 # Error bound is relative
-function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+function compress2dSymmetricOld(containing_folder, dims, output_file, relative_error_bound, output = "../output")
     tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -939,8 +1015,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     absolute_error_bound = relative_error_bound * (max_entry - min_entry)
 
     θ_bound = min( absolute_error_bound/(3*max_r), pi/180 )
-    println( θ_bound )
-    exit()
     remaining_absolute_bound = absolute_error_bound - max_r*θ_bound
     trace_bound = remaining_absolute_bound
     r_bound = remaining_absolute_bound/2
@@ -1133,6 +1207,318 @@ function process_cell_symmetric(t::Int64, x::Int64, y::Int64, top::Bool, pd::Pro
         exit()
     end    
 
+end
+
+function compress2dSymmetricSimple(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+
+    # prepare derived attributes for compression
+
+    max_entry = -Inf
+    min_entry = Inf
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                matrix = getTensor(tf, t, i, j)
+
+                max_entry = max(max_entry, maximum(matrix))
+                min_entry = min(min_entry, minimum(matrix))
+
+            end
+        end
+    end
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`cp $output/row_1_col_2.dat $output/row_2_col_1.dat`)
+
+    tf2, dtype2 = loadTensorField2dFromFolder(output, dims)
+    numf = 0
+    stack::Array{Tuple{Int64,Int64,Bool}} = []
+
+    lossless_tensor = zeros(Int64, dims)
+
+    for j in 1:dims[3]-1
+        for i in 1:dims[2]-1
+            for k in 0:1
+
+                push!(stack, (i,j,Bool(k)))
+
+                while length(stack) > 0
+
+                    x,y,top = pop!(stack)
+
+                    crit_ground = getCircularPointType(tf, 1, x, y, top)
+                    crit_intermediate = getCircularPointType(tf2, 1, x, y, top)
+
+                    if crit_ground != crit_intermediate
+
+                        vertexCoords = getCellVertexCoords(1,x,y,top)
+
+                        setTensor(tf2, 1, vertexCoords[1][2], vertexCoords[1][3], getTensor(tf, vertexCoords[1]...))
+                        setTensor(tf2, 1, vertexCoords[2][2], vertexCoords[2][3], getTensor(tf, vertexCoords[2]...))
+                        setTensor(tf2, 1, vertexCoords[3][2], vertexCoords[3][3], getTensor(tf, vertexCoords[3]...))
+
+                        lossless_tensor[vertexCoords[1]...] = 1
+                        lossless_tensor[vertexCoords[2]...] = 1
+                        lossless_tensor[vertexCoords[3]...] = 1
+
+                        # requeue up any cells that must be hit after edits
+
+                        if top
+                            push!(stack, (x,y,false))
+                            if x != 1
+                                push!(stack, (x-1,y,true))
+                            end
+                            if y != 1
+                                if x != dims[2]-1
+                                    push!(stack, (x+1,y-1,true))
+                                    push!(stack, (x+1,y-1,false))
+                                end
+
+                                push!(stack, (x,y-1,true))
+
+                            end
+                        else
+
+                            if x != 1
+                                push!(stack, (x-1,y,true))
+                                push!(stack, (x-1,y,false))
+                            end
+
+                            if y != 1
+                                if x != dims[2]-1
+                                    push!(stack, (x+1,y-1,true))
+                                    push!(stack, (x+1,y-1,false))
+                                end
+
+                                push!(stack, (x,y-1,true))
+                                push!(stack, (x,y-1,false))
+
+                                if x != 1
+                                    push!(stack, (x-1,y-1,true))
+                                end
+                            end
+
+                        end
+
+                        push!(stack, (x,y,top))
+
+                    end # end if crit_ground != crit_intermediate
+
+                end # end while length(stack) > 0
+
+            end # end for k in 0:1
+        end # end for i
+    end # end for j
+
+    losslessValues::Vector{Float64} = []
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            if lossless_tensor[1,i,j] == 1
+                next_lossless = getTensor(tf, 1, i, j)
+                push!(losslessValues, next_lossless[1,1])
+                push!(losslessValues, next_lossless[1,2])
+                push!(losslessValues, next_lossless[2,2])
+            end
+        end
+    end
+
+    codeBytes = huffmanEncode(vec(lossless_tensor))
+
+    vals_file = open("$output/vals.bytes", "w")
+    write(vals_file, dims[1])
+    write(vals_file, dims[2])
+    write(vals_file, dims[3])        
+    write(vals_file, aeb)
+    write(vals_file, length(codeBytes))
+    write(vals_file, codeBytes)
+    write(vals_file, losslessValues)
+    close(vals_file)
+
+    cwd = pwd()
+    cd(output)
+
+    removeIfExists("$output_file.tar")
+    removeIfExists("$output_file.tar.xz")
+
+    run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
+    run(`xz -v9 $output_file.tar`)
+
+    removeIfExists("$output_file.tar")
+
+    cd(cwd)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/row_1_col_1.dat")
+    remove("$output/row_1_col_2.dat")
+    remove("$output/row_2_col_1.dat")
+    remove("$output/row_2_col_2.dat")
+    remove("$output/vals.bytes")
+end
+
+function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+
+    # prepare derived attributes for compression
+
+    max_entry = -Inf
+    min_entry = Inf
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                matrix = getTensor(tf, t, i, j)
+
+                max_entry = max(max_entry, maximum(matrix))
+                min_entry = min(min_entry, minimum(matrix))
+
+            end
+        end
+    end
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`cp $output/row_1_col_2.dat $output/row_2_col_1.dat`)
+
+    tf2, dtype2 = loadTensorField2dFromFolder(output, dims)
+    numf = 0
+    stack::Array{Tuple{Int64,Int64,Bool}} = []
+
+    lossless_tensor = zeros(Int64, dims)
+
+    numProcess = 0
+
+    for j in 1:dims[3]-1
+        for i in 1:dims[2]-1
+            for k in 0:1
+
+                push!(stack, (i,j,Bool(k)))
+
+                while length(stack) > 0
+                    numProcess += 1
+                    x,y,top = pop!(stack)
+
+                    crit_ground = getCircularPointType(tf, 1, x, y, top)
+                    crit_intermediate = getCircularPointType(tf2, 1, x, y, top)
+
+                    if crit_ground != crit_intermediate
+
+                        vertexCoords = getCellVertexCoords(1,x,y,top)
+
+                        setTensor(tf2, 1, vertexCoords[1][2], vertexCoords[1][3], getTensor(tf, vertexCoords[1]...))
+                        setTensor(tf2, 1, vertexCoords[2][2], vertexCoords[2][3], getTensor(tf, vertexCoords[2]...))
+                        setTensor(tf2, 1, vertexCoords[3][2], vertexCoords[3][3], getTensor(tf, vertexCoords[3]...))
+
+                        lossless_tensor[vertexCoords[1]...] = 1
+                        lossless_tensor[vertexCoords[2]...] = 1
+                        lossless_tensor[vertexCoords[3]...] = 1
+
+                        # requeue up any cells that must be hit after edits
+
+                        if top
+                            push!(stack, (x,y,false))
+                            if x != 1
+                                push!(stack, (x-1,y,true))
+                            end
+                            if y != 1
+                                if x != dims[2]-1
+                                    push!(stack, (x+1,y-1,true))
+                                    push!(stack, (x+1,y-1,false))
+                                end
+
+                                push!(stack, (x,y-1,true))
+
+                            end
+                        else
+
+                            if x != 1
+                                push!(stack, (x-1,y,true))
+                                push!(stack, (x-1,y,false))
+                            end
+
+                            if y != 1
+                                if x != dims[2]-1
+                                    push!(stack, (x+1,y-1,true))
+                                    push!(stack, (x+1,y-1,false))
+                                end
+
+                                push!(stack, (x,y-1,true))
+                                push!(stack, (x,y-1,false))
+
+                                if x != 1
+                                    push!(stack, (x-1,y-1,true))
+                                end
+                            end
+
+                        end
+
+                        push!(stack, (x,y,top))
+
+                    end # end if crit_ground != crit_intermediate
+
+                end # end while length(stack) > 0
+
+            end # end for k in 0:1
+        end # end for i
+    end # end for j
+
+    losslessValues::Vector{Float64} = []
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            if lossless_tensor[1,i,j] == 1
+                next_lossless = getTensor(tf, 1, i, j)
+                push!(losslessValues, next_lossless[1,1])
+                push!(losslessValues, next_lossless[1,2])
+                push!(losslessValues, next_lossless[2,2])
+            end
+        end
+    end
+
+    codeBytes = huffmanEncode(vec(lossless_tensor))
+
+    vals_file = open("$output/vals.bytes", "w")
+    write(vals_file, dims[1])
+    write(vals_file, dims[2])
+    write(vals_file, dims[3])        
+    write(vals_file, aeb)
+    write(vals_file, length(codeBytes))
+    write(vals_file, codeBytes)
+    write(vals_file, losslessValues)
+    close(vals_file)
+
+    cwd = pwd()
+    cd(output)
+
+    removeIfExists("$output_file.tar")
+    removeIfExists("$output_file.tar.xz")
+
+    run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
+    run(`xz -v9 $output_file.tar`)
+
+    removeIfExists("$output_file.tar")
+
+    cd(cwd)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/row_1_col_1.dat")
+    remove("$output/row_1_col_2.dat")
+    remove("$output/row_2_col_1.dat")
+    remove("$output/row_2_col_2.dat")
+    remove("$output/vals.bytes")
 end
 
 end

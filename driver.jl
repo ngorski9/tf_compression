@@ -18,8 +18,8 @@ function main()
     folder = "../data/2d/wind1"
     dims = (1, 200, 100)
     # was 0.01 cr 26.1
-    eb = 0.0039
-    naive = true
+    eb = 0.01
+    naive = false
 
     display_plots = 0
     # 0 = No plots

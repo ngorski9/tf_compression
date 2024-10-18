@@ -7,6 +7,9 @@ using ..huffman
 export decompress2d
 export decompress2dNaive
 export decompress2dSymmetric
+export decompress2dSymmetricOld
+export decompress2dSymmetricNaive
+export decompress2dSymmetricSimple
 export reconstructSymmetricEntries2d
 export adjustDecompositionEntries
 export adjustDecompositionEntriesSigns
@@ -40,6 +43,39 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
     remove("$output/row_1_col_1.cmp")
     remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_1.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/$compressed_file.tar")
+
+end
+
+function decompress2dSymmetricNaive(compressed_file, decompress_folder, output = "../output")
+    try
+        run(`mkdir $output/$decompress_folder`)
+    catch
+    end
+
+    # Un XZ the compressed file and undo the tar
+
+    cwd = pwd()
+    cd(output)
+
+    run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`tar xvf $output/$compressed_file.tar`)
+
+    cd(cwd)
+    
+    vals_file = open("$output/vals.bytes", "r")
+    dims = reinterpret(Int64, read(vals_file, 24))
+    bound = reinterpret(Float64, read(vals_file, 8))[1]
+    close(vals_file)
+
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/$compressed_file.tar")
 
@@ -113,7 +149,7 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
 
 end
 
-function decompress2dSymmetric(compressed_file, decompress_folder, output = "../output")
+function decompress2dSymmetricOld(compressed_file, decompress_folder, output = "../output")
 
     # Make output folder for decompression
 
@@ -445,6 +481,128 @@ function reconstructSymmetricEntries2d(dtype, theta_file, r_file, trace_file, di
     end
 
     return tf_entries
+end
+
+function decompress2dSymmetricSimple(compressed_file, decompress_folder, output = "../output")
+    try
+        run(`mkdir $output/$decompress_folder`)
+    catch
+    end
+
+    # Un XZ the compressed file and undo the tar
+
+    cwd = pwd()
+    cd(output)
+
+    run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`tar xvf $output/$compressed_file.tar`)
+
+    cd(cwd)
+    
+    vals_file = open("$output/vals.bytes", "r")
+    dims = reinterpret(Int64, read(vals_file, 24))
+    bound = reinterpret(Float64, read(vals_file, 8))[1]
+    codeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    codeBytes = read(vals_file, codeBytesLength)
+    losslessValues = reinterpret(Float64, read(vals_file))
+    close(vals_file)
+
+    lossless_tensors = reshape(huffmanDecode(codeBytes),Tuple(dims))
+
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/$compressed_file.tar")
+    dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
+    tf, dtype = loadTensorField2dFromFolder("$output/$decompress_folder", dims_tuple)
+
+    # adjust
+
+    next_lossless = 1
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            if lossless_tensors[1,i,j] == 1
+                nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless + 1] ; losslessValues[next_lossless + 1] losslessValues[next_lossless + 2] ]
+                setTensor(tf, 1, i, j, nextTensor)
+                next_lossless += 3
+            end
+        end
+    end
+
+    # Save to file
+    for row in 1:2
+        for col in 1:2
+            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf.entries[row, col])
+        end
+    end
+
+end
+
+function decompress2dSymmetric(compressed_file, decompress_folder, output = "../output")
+    try
+        run(`mkdir $output/$decompress_folder`)
+    catch
+    end
+
+    # Un XZ the compressed file and undo the tar
+
+    cwd = pwd()
+    cd(output)
+
+    run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`tar xvf $output/$compressed_file.tar`)
+
+    cd(cwd)
+    
+    vals_file = open("$output/vals.bytes", "r")
+    dims = reinterpret(Int64, read(vals_file, 24))
+    bound = reinterpret(Float64, read(vals_file, 8))[1]
+    codeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    codeBytes = read(vals_file, codeBytesLength)
+    losslessValues = reinterpret(Float64, read(vals_file))
+    close(vals_file)
+
+    lossless_tensors = reshape(huffmanDecode(codeBytes),Tuple(dims))
+
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/$compressed_file.tar")
+    dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
+    tf, dtype = loadTensorField2dFromFolder("$output/$decompress_folder", dims_tuple)
+
+    # adjust
+
+    next_lossless = 1
+
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            if lossless_tensors[1,i,j] == 1
+                nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless + 1] ; losslessValues[next_lossless + 1] losslessValues[next_lossless + 2] ]
+                setTensor(tf, 1, i, j, nextTensor)
+                next_lossless += 3
+            end
+        end
+    end
+
+    # Save to file
+    for row in 1:2
+        for col in 1:2
+            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf.entries[row, col])
+        end
+    end
+
 end
 
 end
