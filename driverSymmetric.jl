@@ -13,9 +13,9 @@ using .decompress
 using .plotTensorField
 using .tensorField
 
-folder = "../data/3d/tf_3"
-dims = (25, 65, 65)
-eb = 0.002
+folder = "../data/fakeSym/wind1"
+dims = (1,200,100)
+eb = 0.01
 naive = false
 
 symmetric_eval = false

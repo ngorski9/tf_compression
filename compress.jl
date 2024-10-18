@@ -939,6 +939,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     absolute_error_bound = relative_error_bound * (max_entry - min_entry)
 
     θ_bound = min( absolute_error_bound/(3*max_r), pi/180 )
+    println( θ_bound )
+    exit()
     remaining_absolute_bound = absolute_error_bound - max_r*θ_bound
     trace_bound = remaining_absolute_bound
     r_bound = remaining_absolute_bound/2
