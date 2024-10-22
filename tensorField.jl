@@ -15,6 +15,8 @@ export getCircularPointType
 export deviator
 export decomposeTensor
 export recomposeTensor
+export decomposeTensorSymmetric
+export recomposeTensorSymmetric
 export classifyTensorEigenvector
 export classifyTensorEigenvalue
 export classifyEdgeEigenvalue
@@ -173,6 +175,18 @@ function recomposeTensor(y_d::AbstractFloat, y_r::AbstractFloat, y_s::AbstractFl
 
     return[ y_d+y_s*cos_ -y_r+y_s*sin_ ; y_r+y_s*sin_ y_d-y_s*cos_ ]
 
+end
+
+function decomposeTensorSymmetric(T::Matrix{Float64})
+    trace = (T[1,1] + T[2,2]) / 2
+    cplx = (T[1,1] - T[2,2])/2 + T[1,2]*im
+    r = abs(cplx)
+    θ = angle(cplx)
+    return (trace,r,θ)
+end
+
+function recomposeTensorSymmetric(trace,r,θ)
+    return [ trace + r*cos(θ) r*sin(θ) ; r*sin(θ) trace - r*cos(θ) ]
 end
 
 function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)

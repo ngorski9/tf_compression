@@ -544,7 +544,7 @@ function decompress2dSymmetricSimple(compressed_file, decompress_folder, output 
 
 end
 
-function decompress2dSymmetric(compressed_file, decompress_folder, output = "../output")
+function decompress2dSymmetric(compressed_file, decompress_folder, bits, output = "../output")
     try
         run(`mkdir $output/$decompress_folder`)
     catch
@@ -568,7 +568,7 @@ function decompress2dSymmetric(compressed_file, decompress_folder, output = "../
     losslessValues = reinterpret(Float64, read(vals_file))
     close(vals_file)
 
-    lossless_tensors = reshape(huffmanDecode(codeBytes),Tuple(dims))
+    codes = reshape(huffmanDecode(codeBytes),Tuple(dims))
 
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
@@ -585,17 +585,19 @@ function decompress2dSymmetric(compressed_file, decompress_folder, output = "../
     # adjust
 
     next_lossless = 1
-
     for j in 1:dims[3]
         for i in 1:dims[2]
-            if lossless_tensors[1,i,j] == 1
+            if codes[1,i,j] == 2^bits-1
                 nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless + 1] ; losslessValues[next_lossless + 1] losslessValues[next_lossless + 2] ]
                 setTensor(tf, 1, i, j, nextTensor)
                 next_lossless += 3
+            elseif codes[1,i,j] != 0
+                t, r, θ = decomposeTensorSymmetric( getTensor( tf, 1, i, j ) )
+                θ += 2pi/(2^bits-1)*codes[1,i,j]
+                setTensor(tf, 1, i, j, recomposeTensorSymmetric( t, r, θ ))
             end
         end
     end
-
     # Save to file
     for row in 1:2
         for col in 1:2

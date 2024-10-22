@@ -891,7 +891,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, length(quantizationBytes))
     write(vals_file, quantizationBytes)
     write(vals_file, length(lossless_storage))
-    write(vals_file, lossless_storage)Simple
+    write(vals_file, lossless_storage)
     write(vals_file, length(lossless_storage_64))
     write(vals_file, lossless_storage_64)
 
@@ -1364,7 +1364,7 @@ function compress2dSymmetricSimple(containing_folder, dims, output_file, relativ
     remove("$output/vals.bytes")
 end
 
-function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, bits, output = "../output")
     tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -1392,10 +1392,9 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     run(`cp $output/row_1_col_2.dat $output/row_2_col_1.dat`)
 
     tf2, dtype2 = loadTensorField2dFromFolder(output, dims)
-    numf = 0
     stack::Array{Tuple{Int64,Int64,Bool}} = []
 
-    lossless_tensor = zeros(Int64, dims)
+    codes = zeros(UInt64, dims)
 
     numProcess = 0
 
@@ -1416,13 +1415,97 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                         vertexCoords = getCellVertexCoords(1,x,y,top)
 
-                        setTensor(tf2, 1, vertexCoords[1][2], vertexCoords[1][3], getTensor(tf, vertexCoords[1]...))
-                        setTensor(tf2, 1, vertexCoords[2][2], vertexCoords[2][3], getTensor(tf, vertexCoords[2]...))
-                        setTensor(tf2, 1, vertexCoords[3][2], vertexCoords[3][3], getTensor(tf, vertexCoords[3]...))
+                        tensor1Ground = getTensor(tf, vertexCoords[1]...)
+                        tensor2Ground = getTensor(tf, vertexCoords[2]...)
+                        tensor3Ground = getTensor(tf, vertexCoords[3]...)
 
-                        lossless_tensor[vertexCoords[1]...] = 1
-                        lossless_tensor[vertexCoords[2]...] = 1
-                        lossless_tensor[vertexCoords[3]...] = 1
+                        tensor1Recon = getTensor(tf2, vertexCoords[1]...)
+                        tensor2Recon = getTensor(tf2, vertexCoords[2]...)
+                        tensor3Recon = getTensor(tf2, vertexCoords[3]...)
+
+                        t1g, r1g, θ1g = decomposeTensorSymmetric(tensor1Ground)
+                        t2g, r2g, θ2g = decomposeTensorSymmetric(tensor2Ground)
+                        t3g, r3g, θ3g = decomposeTensorSymmetric(tensor3Ground)
+                        t1r, r1r, θ1r = decomposeTensorSymmetric(tensor1Recon)
+                        t2r, r2r, θ2r = decomposeTensorSymmetric(tensor2Recon)
+                        t3r, r3r, θ3r = decomposeTensorSymmetric(tensor3Recon)
+
+                        θe1 = abs( θ1g - θ1r )
+                        θe2 = abs( θ2g - θ2r )
+                        θe3 = abs( θ3g - θ3r )
+
+                        θg = [θ1g, θ2g, θ3g]
+                        θr = [θ1r, θ2r, θ3r]
+                        tr = [t1r, t2r, t3r]
+                        rr = [r1r, r2r, r3r]
+                        tensors = [tensor1Ground, tensor2Ground, tensor3Ground]
+
+                        while crit_ground != crit_intermediate
+
+                            if θe1 >= θe2 && θe1 >= θe3
+                                idx = 1
+                            elseif θe2 >= θe1 && θe2 >= θe3
+                                idx = 2
+                            else
+                                idx = 3
+                            end
+
+                            lossless = (codes[vertexCoords[idx]...] != 0)
+
+                            # that is, it hasn't been touched yet
+                            if !lossless
+
+                                θdif = θg[idx] - θr[idx]
+                                if θdif < 0
+                                    θdif += 2pi
+                                end
+
+                                code = round( θdif * ( (2^bits-1) / 2pi ) )
+                                if code == 2^bits-1
+                                    code = 0.0
+                                end
+
+                                θnew = θr[idx] + 2pi/(2^bits-1)*code
+                                tnew = recomposeTensorSymmetric(tr[idx], rr[idx], θnew)
+                                
+                                if maximum(abs.(tnew - tensors[idx])) > aeb || code == 0
+                                    lossless = true
+                                else
+                                    codes[vertexCoords[idx]...] = code
+                                    setTensor(tf2, vertexCoords[idx]..., tnew)
+
+                                    if idx == 1
+                                        θe1 = abs(θnew - θg[idx])
+                                    elseif idx == 2
+                                        θe2 = abs(θnew - θg[idx])
+                                    else
+                                        θe3 = abs(θnew - θg[idx])
+                                    end
+
+                                    # no need to update the other values because the only other place this can go is lossless...
+
+                                end
+
+                            end
+
+                            if lossless
+                                codes[vertexCoords[idx]...] = 2^bits-1
+                                setTensor(tf2, vertexCoords[idx]..., tensors[idx])
+
+                                if idx == 1
+                                    θe1 = 0
+                                elseif idx == 2
+                                    θe2 = 0
+                                else
+                                    θe3 = 0
+                                end
+
+                                # no need to update the other values because we're not going to touch this again.
+                            end
+
+                            crit_intermediate = getCircularPointType(tf2, 1, x, y, top)
+
+                        end
 
                         # requeue up any cells that must be hit after edits
 
@@ -1473,11 +1556,32 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
         end # end for i
     end # end for j
 
-    losslessValues::Vector{Float64} = []
+    # for j in 1:dims[3]-1
+    #     for i in 1:dims[2]-1
+    #         for k in 0:1
 
+    #             push!(stack, (i,j,Bool(k)))
+
+    #             while length(stack) > 0
+    #                 numProcess += 1
+    #                 x,y,top = pop!(stack)
+
+    #                 crit_ground = getCircularPointType(tf, 1, x, y, top)
+    #                 crit_intermediate = getCircularPointType(tf2, 1, x, y, top)
+
+    #                 if crit_ground != crit_intermediate
+    #                     println("middle error")
+    #                     exit()
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
+
+    losslessValues::Vector{Float64} = []
     for j in 1:dims[3]
         for i in 1:dims[2]
-            if lossless_tensor[1,i,j] == 1
+            if codes[1,i,j] == 2^bits-1
                 next_lossless = getTensor(tf, 1, i, j)
                 push!(losslessValues, next_lossless[1,1])
                 push!(losslessValues, next_lossless[1,2])
@@ -1485,13 +1589,12 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
             end
         end
     end
-
-    codeBytes = huffmanEncode(vec(lossless_tensor))
+    codeBytes = huffmanEncode(vec(codes))
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
     write(vals_file, dims[2])
-    write(vals_file, dims[3])        
+    write(vals_file, dims[3])     
     write(vals_file, aeb)
     write(vals_file, length(codeBytes))
     write(vals_file, codeBytes)

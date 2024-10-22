@@ -18,6 +18,7 @@ function main()
     dims = (1,200,100)
     eb = 0.01
     naive = false
+    bits = 8 # number of bits used for quantization
 
     symmetric_eval = false
     display_plots = 0
@@ -33,12 +34,11 @@ function main()
     show_points = false
 
     println("hi")
-
     compression_start = time()
     if naive
         compress2dSymmetricNaive(folder, dims, "compressed_output", eb)    
     else
-        compress2dSymmetric(folder, dims, "compressed_output", eb)
+        compress2dSymmetric(folder, dims, "compressed_output", eb, bits)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -49,7 +49,7 @@ function main()
     if naive
         decompress2dSymmetricNaive("compressed_output", "reconstructed")
     else
-        decompress2dSymmetric("compressed_output", "reconstructed")
+        decompress2dSymmetric("compressed_output", "reconstructed", bits)
     end    
     decompression_end = time()
     dt = decompression_end - decompression_start
