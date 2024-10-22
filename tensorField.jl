@@ -60,9 +60,14 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
     if num_bytes == 8
         entries = Array{Array{Float64}}(undef, (2,2))
         dtype = Float64
+    elseif num_bytes == 4
+        entries = Array{Array{Float64}}(undef, (2,2))
+        println("loading from 32 bits to 64")
+        dtype = Float32
+        num_bytes = 8
     else
         println("The file that you specified is $num_bytes bytes per point")
-        println("only 64 bits is currently supported")
+        println("only 32 and 64 bits are currently supported")
         exit(1)
     end
 
@@ -72,6 +77,10 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
             arr = reshape( reinterpret( dtype, read(byte_file)), dims ) 
             entries[row,col] = arr
         end
+    end
+
+    if dtype == Float32
+        dtype = Float64
     end
 
     sym = true
