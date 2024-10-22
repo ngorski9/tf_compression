@@ -18,7 +18,7 @@ function main()
     dims = (1,200,100)
     eb = 0.01
     naive = false
-    bits = 8 # number of bits used for quantization
+    bits = 6 # number of bits used for quantization
 
     symmetric_eval = false
     display_plots = 0
