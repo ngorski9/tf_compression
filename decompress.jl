@@ -7,12 +7,7 @@ using ..huffman
 export decompress2d
 export decompress2dNaive
 export decompress2dSymmetric
-export decompress2dSymmetricOld
 export decompress2dSymmetricNaive
-export decompress2dSymmetricSimple
-export reconstructSymmetricEntries2d
-export adjustDecompositionEntries
-export adjustDecompositionEntriesSigns
 
 function decompress2dNaive(compressed_file, decompress_folder, output = "../output")
     try
@@ -81,7 +76,7 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
 
 end
 
-function decompress2d(compressed_file, decompress_folder, output="../output")
+function decompress2d(compressed_file, decompress_folder, output = "../output")
 
     try
         run(`mkdir $output/$decompress_folder`)
@@ -102,277 +97,230 @@ function decompress2d(compressed_file, decompress_folder, output="../output")
     vals_file = open("$output/vals.bytes")
     dims = reinterpret(Int64, read(vals_file, 24))
     aeb = reinterpret(Float64, read(vals_file, 8))[1]
-    type_indicator = reinterpret(Int64, read(vals_file, 8))[1]
-    codes_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
-    codes = huffmanDecode( read(vals_file, codes_huffman_length) )
-    quantization_huffman_length = reinterpret(Int64, read(vals_file, 8))[1]
-    quantization = huffmanDecode( read(vals_file, quantization_huffman_length) )
-    lossless_storage_length = reinterpret(Int64, read(vals_file, 8))[1]
-    losslessStorage = reinterpret(Float32, read(vals_file, 4*lossless_storage_length))
-    lossless_storage_length_64 = reinterpret(Int64, read(vals_file,8))[1]
-    losslessStorage64 = reinterpret(Float64, read(vals_file, 8*lossless_storage_length_64))
 
-    if type_indicator == 1
-        dtype = Float64
-    else
-        dtype = Float32
-    end
+    # Read in quantization bytes
+    baseCodeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    baseCodeBytes = read(vals_file, baseCodeBytesLength)
+    θAndSFixBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    θAndSFixBytes = read(vals_file, θAndSFixBytesLength)
+    dBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    dBytes = read(vals_file, dBytesLength)
+    rBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    rBytes = read(vals_file, rBytesLength)
+    sBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    sBytes = read(vals_file, sBytesLength)
+    eigenvectorSpecialCaseLength = reinterpret(Int64, read(vals_file, 8))[1]
+    eigenvectorSpecialCaseBytes = read(vals_file, eigenvectorSpecialCaseLength)
+
+    # Read in various lossless lists
+    losslessdLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_d = reinterpret(Float64, read(vals_file, losslessdLength))
+    losslessrLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_r = reinterpret(Float64, read(vals_file, losslessrLength))
+    losslesssLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_s = reinterpret(Float64, read(vals_file, losslesssLength))
+    losslessθLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_θ = reinterpret(Float64, read(vals_file, losslessθLength))
+    losslessALength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_A = reinterpret(Float64, read(vals_file, losslessALength))
+    losslessBLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_B = reinterpret(Float64, read(vals_file, losslessBLength))
+    losslessCLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_C = reinterpret(Float64, read(vals_file, losslessCLength))
+    losslessDLength = reinterpret(Int64, read(vals_file, 8))[1]*8
+    lossless_D = reinterpret(Float64, read(vals_file, losslessDLength))
 
     close(vals_file)
 
-    # Decompress
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/a.cmp -o $output/a_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/b.cmp -o $output/b_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/c.cmp -o $output/c_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)    
-    run(`../SZ3-master/build/bin/sz3 -f -z $output/d.cmp -o $output/d_intermediate.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    # De-Huffman the codes
+    baseCodes = reshape(huffmanDecode(baseCodeBytes),Tuple(dims))
+    θAndSFixCodes = reshape(huffmanDecode(θAndSFixBytes),Tuple(dims))
+    dCodes = reshape(huffmanDecode(dBytes),Tuple(dims))
+    rCodes = reshape(huffmanDecode(rBytes),Tuple(dims))
+    sCodes = reshape(huffmanDecode(sBytes),Tuple(dims))
 
-    # Reconstruct
-    tf_entries = reconstructEntries2d(dtype, "$output/a_intermediate.dat", "$output/b_intermediate.dat", "$output/c_intermediate.dat", "$output/d_intermediate.dat", dims, aeb, codes, quantization, losslessStorage, losslessStorage64)
+    eigenvectorSpecialCaseArray = huffmanDecode(eigenvectorSpecialCaseBytes)
+    if length(eigenvectorSpecialCaseArray) == 0
+        eigenvectorSpecialCaseCodes = zeros(Int64, Tuple(dims))
+    else
+        eigenvectorSpecialCaseCodes = reshape(eigenvectorSpecialCaseArray,Tuple(dims))
+    end
+
+    # Decompress from SZ and load into a tensor field
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)    
+    run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+
+    dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
+    tf, dtype = loadTensorField2dFromFolder("$output", dims_tuple)
+
+    next_lossless_full = 1
+    next_lossless_d = 1
+    next_lossless_r = 1
+    next_lossless_s = 1
+    next_lossless_θ = 1
+
+    tfTest, dtype2 = loadTensorField2dFromFolder("$output/test", dims_tuple)
+
+    # Iterate through the cells and adjust accordingly.
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+
+                # Make sure that a change must actually be applied in the first place.
+                if !(baseCodes[t,i,j] == 0 && θAndSFixCodes[t,i,j] == 0 && dCodes[t,i,j] == 127 && rCodes[t,i,j] == 127 && sCodes[t,i,j] == 127)
+                    precision::UInt8 = baseCodes[t,i,j] >> 4
+
+                    if precision >= 8
+                        
+                        setTensor( tf, t, i, j, [ lossless_A[next_lossless_full] lossless_B[next_lossless_full] ; lossless_C[next_lossless_full] lossless_D[next_lossless_full] ] )
+                        next_lossless_full += 1
+
+                    else
+                        swapCode::UInt8 = baseCodes[t,i,j] & (2^4-1)
+                        θCode::UInt8 = θAndSFixCodes[t,i,j] & (2^6-1)
+                        sFix::UInt8 = ( θAndSFixCodes[t,i,j] & (2^6+2^7) ) >> 6
+                        eigenvectorSpecialCaseCode::UInt8 = eigenvectorSpecialCaseCodes[t,i,j]
+
+                        tensor = getTensor(tf, t, i, j)
+                        d,r,s,θ = decomposeTensor(tensor)
+
+                        if dCodes[t,i,j] == 255
+                            d = lossless_d[next_lossless_d]
+                            next_lossless_d += 1
+                        else
+                            d = d + aeb * (dCodes[t,i,j] - 127) / (2^precision)
+                        end
+
+                        if rCodes[t,i,j] == 255
+                            r = lossless_r[next_lossless_r]
+                            next_lossless_r += 1
+                        else
+                            r = r + aeb * (rCodes[t,i,j] - 127) / (2^precision)
+                        end
+
+                        if sCodes[t,i,j] == 255
+                            s = lossless_s[next_lossless_s]
+                            next_lossless_s += 1
+                        else
+                            s = s + sqrt(2) * aeb * (sCodes[t,i,j] - 127) / (2^precision)
+                        end
+
+                        if θCode == 2^6-1
+                            θ = lossless_θ[next_lossless_θ]
+                            next_lossless_θ += 1
+                        else
+                            θ = θ + 2pi / (2^6-1) * θCode
+                        end
+
+                        # apply the various s fixes
+                        if s < -(sqrt(2)-1)*aeb
+                            s += sqrt(2)*aeb
+                        elseif s < 0
+                            s += (sqrt(2)-1)*aeb
+                        end
+
+                        if sFix == 1
+                            s -= (sqrt(2)-1)*aeb
+                        elseif sFix == 2
+                            s += (sqrt(2)-1)*aeb
+                        end
+
+                        # apply the swapping
+                        d_sign_swap = Bool((swapCode & (1 << 3)) >> 3)
+                        r_sign_swap = Bool((swapCode & (1 << 2)) >> 2)
+                        d_largest_swap = Bool((swapCode & (1 << 1)) >> 1)
+                        r_over_s_swap = Bool(swapCode & 1)
+
+                        if d_sign_swap
+                            if d < 0
+                                d += aeb
+                            else
+                                d -= aeb
+                            end
+                        end
+
+                        if r_sign_swap
+                            if r < 0
+                                r += aeb
+                            else
+                                r -= aeb
+                            end
+                        end
+
+                        if d_largest_swap
+                            # swap d with the larger of r or s
+                            if abs(r) > s
+                                sign_d = (d >= 0) ? 1 : -1
+                                sign_r = (r >= 0) ? 1 : -1
+                                temp = d
+                                d = sign_d * abs(r)
+                                r = sign_r * abs(temp)
+                            else
+                                sign_d = (d >= 0) ? 1 : -1
+                                temp = d
+                                d = sign_d * s
+                                s = abs(temp)
+                            end
+                        end
+
+                        if eigenvectorSpecialCaseCode == 0
+                            if r_over_s_swap
+                                sign_r = (r >= 0) ? 1 : -1
+                                temp = r
+                                r = sign_r * s
+                                s = abs(temp)
+                            end
+                        elseif eigenvectorSpecialCaseCode == 1
+                            sign_r = (r >= 0) ? 1 : -1
+                            r = sign_r * s
+                        else
+                            r = 0
+                        end
+
+                        setTensor(tf, t, i, j, recomposeTensor(d, r, s, θ))
+
+                    end # end if precision >= 8 (then else for the main reconstruction)
+
+                end # end if not all of the base codes are 0
+
+            end # end for
+        end # end for 
+    end # end for
+
+    numMatchFinal = 0
+    for j in 1:dims[3]
+        for i in 1:dims[2]
+            for t in 1:dims[1]
+                if getTensor(tfTest, t, i, j) != getTensor(tf, t, i, j)
+                    println((t,i,j))
+                    println(getTensor(tfTest, t, i, j))
+                    println(getTensor(tf, t, i, j))
+                    # exit()
+                else
+                    numMatchFinal += 1
+                end
+            end
+        end
+    end
 
     # Save to file
     for row in 1:2
         for col in 1:2
-            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf_entries[row, col])
+            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf.entries[row, col])
         end
     end
 
-    # Cleanup
-    remove("$output/a.cmp")
-    remove("$output/b.cmp")
-    remove("$output/c.cmp")
-    remove("$output/d.cmp")
-
-    remove("$output/a_intermediate.dat")
-    remove("$output/b_intermediate.dat")
-    remove("$output/c_intermediate.dat")
-    remove("$output/d_intermediate.dat")
-
-end
-
-# Swaps the magnitude of two numbers but preserves their signs.
-function signedSwap(a,b)
-    return (sign(a)*abs(b), sign(b)*abs(a))
-end
-
-function adjustDecompositionEntriesSigns(d_, r_, eVectorGround, eValueGround, aeb)
-    if (eValueGround == COUNTERCLOCKWISE_ROTATION || eVectorGround in [W_RN, PI_BY_4, W_CN]) && r_ < 0
-        r_ += aeb
-    elseif (eValueGround == CLOCKWISE_ROTATION || eVectorGround in [W_RS, MINUS_PI_BY_4, W_CS]) && r_ > 0
-        r_ -= aeb
-    elseif eValueGround == POSITIVE_SCALING && d_ < 0
-        d_ += aeb
-    elseif eValueGround == NEGATIVE_SCALING && d_ > 0
-        d_ -= aeb
-    end
-    return d_, r_
-end
-
-function adjustDecompositionEntries(d, r, s, θ, aeb, code, decompressing=false)
-
-    code, eVectorGround = getCodeValue( code, CODE_CHANGE_EIGENVECTOR )
-    code, eValueGround = getCodeValue( code, CODE_CHANGE_EIGENVALUE )
-
-    if eVectorGround == 0
-        eVectorGround = classifyTensorEigenvector(r, s)
-    end
-
-    if eValueGround == 0
-        eValueGround = classifyTensorEigenvalue(d, r, s)
-    end
-
-    d, r = adjustDecompositionEntriesSigns(d, r, eVectorGround, eValueGround, aeb)
-
-    if eValueGround == ANISOTROPIC_STRETCHING
-        if s < abs(r)
-            r,s = signedSwap(r,s)
-        end
-
-        if s < abs(d)
-            d,s = signedSwap(d,s)
-        end
-    elseif eValueGround == CLOCKWISE_ROTATION || eValueGround == COUNTERCLOCKWISE_ROTATION
-        if abs(r) < abs(s)
-            r,s = signedSwap(r,s)
-        end
-
-        if abs(r) < abs(d)
-            d,r = signedSwap(d,r)
-        end
-    else
-        # In this case, we have d as the largest of the 3,
-        # and the order of the other 2 depends on eigenvector classification
-       
-        if abs(d) < s
-            d,s = signedSwap(d,s)
-        end
-
-        if abs(d) < abs(r)
-            d,r = signedSwap(d,r)
-        end
-
-        if ((eVectorGround == W_RN || eVectorGround == W_RS) && s < abs(r)) || ((eVectorGround == W_CN || eVectorGround == W_CS) && abs(r) < s)
-            r,s = signedSwap(r,s)
-        end
-    end
-
-    return (d,r,s,θ)
-end
-
-function reconstructEntries2d(dtype, a_file, b_file, c_file, d_file, dims, aeb, codes, quantization, losslessStorage, losslessStorage64)
-
-    tf_entries = Array{Array{dtype}}(undef, (2,2))    
-    numPoints = dims[1]*dims[2]*dims[3]
-
-    for row in 1:2
-        for col in 1:2
-            tf_entries[row,col] = Array{dtype}(undef, (dims...))
-        end
-    end
-
-    A = loadArray(a_file, Float32)
-    B = loadArray(b_file, Float32)
-    C = loadArray(c_file, Float32)
-    D = loadArray(d_file, Float32)
-
-    flatDims = size(A)
-
-    d = zeros(Float32, flatDims)
-    r = zeros(Float32, flatDims)
-    s = zeros(Float32, flatDims)
-    θ = zeros(Float32, flatDims)
-
-    for i in 1:numPoints
-        tensor = [A[i] B[i] ; C[i] D[i]]
-        d_, r_, s_, θ_ = decomposeTensor(tensor)
-
-        d[i] = d_
-        r[i] = r_
-        if s_ < 0
-            s[i] = s_ + aeb
-        else
-            s[i] = s_
-        end
-        θ[i] = θ_
-    end
-
-    losslessIndex = 1
-    losslessIndex64 = 1
-    numLossless64 = 0
-
-    for i in 1:numPoints
-        code = codes[i]
-        if code % CODE_LOSSLESS_FULL == 0
-            tf_entries[1,1][i] = losslessStorage[losslessIndex]
-            tf_entries[1,2][i] = losslessStorage[losslessIndex+1]
-            tf_entries[2,1][i] = losslessStorage[losslessIndex+2]
-            tf_entries[2,2][i] = losslessStorage[losslessIndex+3]
-            losslessIndex += 4
-        elseif code % CODE_LOSSLESS_FULL_64 == 0
-            numLossless64 += 1
-            tf_entries[1,1][i] = losslessStorage64[losslessIndex64]
-            tf_entries[1,2][i] = losslessStorage64[losslessIndex64+1]
-            tf_entries[2,1][i] = losslessStorage64[losslessIndex64+2]
-            tf_entries[2,2][i] = losslessStorage64[losslessIndex64+3]
-            losslessIndex64 += 4
-        else
-
-            d_ = d[i] + 2 * aeb * quantization[i] / (2^MAX_PRECISION)
-            r_ = r[i] + 2 * aeb * quantization[numPoints + i] / (2^MAX_PRECISION)
-            s_ = s[i] + 2 * aeb * quantization[2*numPoints + i] / (2^MAX_PRECISION)
-            θ_ = θ[i]
-
-            if code % CODE_LOSSLESS_D == 0
-                d_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-
-            if code % CODE_LOSSLESS_R == 0
-                r_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-        
-            if code % CODE_LOSSLESS_S == 0
-                s_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-
-            if code % CODE_LOSSLESS_ANGLE == 0
-                θ_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-
-            d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_ , aeb, code, true)
-
-            recomposition = recomposeTensor(d_, r_, s_, θ_)
-
-            tf_entries[1,1][i] = recomposition[1,1]
-            tf_entries[1,2][i] = recomposition[1,2]
-            tf_entries[2,1][i] = recomposition[2,1]
-            tf_entries[2,2][i] = recomposition[2,2]
-        end
-
-    end
-
-    return tf_entries
-
-end
-
-function reconstructEntries2dEigenvector(dtype, d_file, r_file, s_file, θ_file, dims, y_bound, codes, losslessStorage)
-
-    tf_entries = Array{Array{dtype}}(undef, (2,2))
-    numPoints = dims[1]*dims[2]*dims[3]
-
-    for row in 1:2
-        for col in 1:2
-            tf_entries[row,col] = Array{dtype}(undef, (dims...))
-        end
-    end
-
-    d = loadArray(d_file, Float32)
-    r = loadArray(r_file, Float32)
-    s = loadArray(s_file, Float32)
-    θ = loadArray(θ_file, Float32)
-
-    losslessIndex = 1
-
-    for i in 1:numPoints
-        code = codes[i]
-        if code % CODE_LOSSLESS_FULL == 0
-            tf_entries[1,1][i] = losslessStorage[losslessIndex]
-            tf_entries[1,2][i] = losslessStorage[losslessIndex+1]
-            tf_entries[2,1][i] = losslessStorage[losslessIndex+2]
-            tf_entries[2,2][i] = losslessStorage[losslessIndex+3]
-        else
-
-            d_ = d[i]
-            r_ = r[i]
-            s_ = s[i]
-            θ_ = θ[i]
-
-            if code % CODE_LOSSLESS_R == 0
-                r_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-        
-            if code % CODE_LOSSLESS_S == 0
-                s_ = losslessStorage[losslessIndex]
-                losslessIndex += 1
-            end
-
-            d_, r_, s_, θ_ = adjustDecompositionEntries(d_, r_, s_, θ_ , y_bound, code)
-
-            recomposition = recomposeTensor(d_, r_, s_, θ_)
-
-            tf_entries[1,1][i] = recomposition[1,1]
-            tf_entries[1,2][i] = recomposition[1,2]
-            tf_entries[2,1][i] = recomposition[2,1]
-            tf_entries[2,2][i] = recomposition[2,2]
-        end
-
-    end
-
-    return tf_entries
-
+    remove("$output/row_1_col_1.dat")
+    remove("$output/row_1_col_2.dat")
+    remove("$output/row_2_col_1.dat")
+    remove("$output/row_2_col_2.dat")
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_1.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/vals.bytes")
 end
 
 function decompress2dSymmetric(compressed_file, decompress_folder, bits, output = "../output")
@@ -419,9 +367,11 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     for j in 1:dims[3]
         for i in 1:dims[2]
             if codes[1,i,j] == 2^bits-1
-                nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless + 1] ; losslessValues[next_lossless + 1] losslessValues[next_lossless + 2] ]
+                intermediateTensor = getTensor(tf, 1, i, j)
+                t = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
+                nextTensor = [ losslessValues[next_lossless]+t losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] -losslessValues[next_lossless]+t ]
                 setTensor(tf, 1, i, j, nextTensor)
-                next_lossless += 3
+                next_lossless += 2
             elseif codes[1,i,j] != 0
                 t, r, θ = decomposeTensorSymmetric( getTensor( tf, 1, i, j ) )
                 θ += 2pi/(2^bits-1)*codes[1,i,j]
