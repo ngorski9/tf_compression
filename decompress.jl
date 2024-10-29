@@ -164,47 +164,47 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
     tfTest, dtype2 = loadTensorField2dFromFolder("$output/test", dims_tuple)
 
     # Iterate through the cells and adjust accordingly.
-    for j in 1:dims[3]
-        for i in 1:dims[2]
-            for t in 1:dims[1]
+    for t in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
 
                 # Make sure that a change must actually be applied in the first place.
-                if !(baseCodes[t,i,j] == 0 && θAndSFixCodes[t,i,j] == 0 && dCodes[t,i,j] == 127 && rCodes[t,i,j] == 127 && sCodes[t,i,j] == 127)
-                    precision::UInt8 = baseCodes[t,i,j] >> 4
+                if !(baseCodes[i,j,t] == 0 && θAndSFixCodes[i,j,t] == 0 && dCodes[i,j,t] == 127 && rCodes[i,j,t] == 127 && sCodes[i,j,t] == 127)
+                    precision::UInt8 = baseCodes[i,j,t] >> 4
 
                     if precision >= 8
                         
-                        setTensor( tf, t, i, j, [ lossless_A[next_lossless_full] lossless_B[next_lossless_full] ; lossless_C[next_lossless_full] lossless_D[next_lossless_full] ] )
+                        setTensor( tf, i, j, t, [ lossless_A[next_lossless_full] lossless_B[next_lossless_full] ; lossless_C[next_lossless_full] lossless_D[next_lossless_full] ] )
                         next_lossless_full += 1
 
                     else
-                        swapCode::UInt8 = baseCodes[t,i,j] & (2^4-1)
-                        θCode::UInt8 = θAndSFixCodes[t,i,j] & (2^6-1)
-                        sFix::UInt8 = ( θAndSFixCodes[t,i,j] & (2^6+2^7) ) >> 6
-                        eigenvectorSpecialCaseCode::UInt8 = eigenvectorSpecialCaseCodes[t,i,j]
+                        swapCode::UInt8 = baseCodes[i,j,t] & (2^4-1)
+                        θCode::UInt8 = θAndSFixCodes[i,j,t] & (2^6-1)
+                        sFix::UInt8 = ( θAndSFixCodes[i,j,t] & (2^6+2^7) ) >> 6
+                        eigenvectorSpecialCaseCode::UInt8 = eigenvectorSpecialCaseCodes[i,j,t]
 
-                        tensor = getTensor(tf, t, i, j)
+                        tensor = getTensor(tf, i, j, t)
                         d,r,s,θ = decomposeTensor(tensor)
 
-                        if dCodes[t,i,j] == 255
+                        if dCodes[i,j,t] == 255
                             d = lossless_d[next_lossless_d]
                             next_lossless_d += 1
                         else
-                            d = d + aeb * (dCodes[t,i,j] - 127) / (2^precision)
+                            d = d + aeb * (dCodes[i,j,t] - 127) / (2^precision)
                         end
 
-                        if rCodes[t,i,j] == 255
+                        if rCodes[i,j,t] == 255
                             r = lossless_r[next_lossless_r]
                             next_lossless_r += 1
                         else
-                            r = r + aeb * (rCodes[t,i,j] - 127) / (2^precision)
+                            r = r + aeb * (rCodes[i,j,t] - 127) / (2^precision)
                         end
 
-                        if sCodes[t,i,j] == 255
+                        if sCodes[i,j,t] == 255
                             s = lossless_s[next_lossless_s]
                             next_lossless_s += 1
                         else
-                            s = s + sqrt(2) * aeb * (sCodes[t,i,j] - 127) / (2^precision)
+                            s = s + sqrt(2) * aeb * (sCodes[i,j,t] - 127) / (2^precision)
                         end
 
                         if θCode == 2^6-1
@@ -279,7 +279,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
                             r = 0
                         end
 
-                        setTensor(tf, t, i, j, recomposeTensor(d, r, s, θ))
+                        setTensor(tf, i, j, t, recomposeTensor(d, r, s, θ))
 
                     end # end if precision >= 8 (then else for the main reconstruction)
 
@@ -288,22 +288,6 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
             end # end for
         end # end for 
     end # end for
-
-    numMatchFinal = 0
-    for j in 1:dims[3]
-        for i in 1:dims[2]
-            for t in 1:dims[1]
-                if getTensor(tfTest, t, i, j) != getTensor(tf, t, i, j)
-                    println((t,i,j))
-                    println(getTensor(tfTest, t, i, j))
-                    println(getTensor(tf, t, i, j))
-                    # exit()
-                else
-                    numMatchFinal += 1
-                end
-            end
-        end
-    end
 
     # Save to file
     for row in 1:2
@@ -364,18 +348,20 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     # adjust
 
     next_lossless = 1
-    for j in 1:dims[3]
-        for i in 1:dims[2]
-            if codes[1,i,j] == 2^bits-1
-                intermediateTensor = getTensor(tf, 1, i, j)
-                t = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
-                nextTensor = [ losslessValues[next_lossless]+t losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] -losslessValues[next_lossless]+t ]
-                setTensor(tf, 1, i, j, nextTensor)
-                next_lossless += 2
-            elseif codes[1,i,j] != 0
-                t, r, θ = decomposeTensorSymmetric( getTensor( tf, 1, i, j ) )
-                θ += 2pi/(2^bits-1)*codes[1,i,j]
-                setTensor(tf, 1, i, j, recomposeTensorSymmetric( t, r, θ ))
+    for t in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
+                if codes[i,j,t] == 2^bits-1
+                    intermediateTensor = getTensor(tf, i, j, t)
+                    trace = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
+                    nextTensor = [ losslessValues[next_lossless]+trace losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] -losslessValues[next_lossless]+trace ]
+                    setTensor(tf, i, j, t, nextTensor)
+                    next_lossless += 2
+                elseif codes[i,j,t] != 0
+                    trace, r, θ = decomposeTensorSymmetric( getTensor( tf, i, j, t ) )
+                    θ += 2pi/(2^bits-1)*codes[i,j,t]
+                    setTensor(tf, i, j, t, recomposeTensorSymmetric( trace, r, θ ))
+                end
             end
         end
     end

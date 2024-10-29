@@ -15,7 +15,7 @@ def convert(datFile, dims, vtiFile):
     dat.close()
 
 if __name__ == "__main__":
-    dims = (1,200,100)
+    dims = (200,100,1)
     convert("../output/d.dat", dims, "../output/d")
     convert("../output/r.dat", dims, "../output/r")
     convert("../output/s.dat", dims, "../output/s")

@@ -4,34 +4,21 @@ include("huffman.jl")
 include("decompress.jl")
 include("compress.jl")
 include("evaluation.jl")
-include("plot.jl")
 
 using Plots
 
 using .compress
 using .decompress
-using .plotTensorField
 using .tensorField
 
 function main()
-    folder = "../data/fakeSym/wind1"
-    dims = (1,200,100)
+    folder = "../data/fakeSym/stress"
+    dims = (25,65,65)
     eb = 0.01
     naive = false
     bits = 6 # number of bits used for quantization
 
     symmetric_eval = false
-    display_plots = 0
-    # 0 = No plots
-    # 1 = eigenvector & dual eigenvector directions
-    # 2 = eigenvector graph (all blue)
-    # 3 = eigenvalue graph
-
-    # Plotting variables
-    display_frame = 12
-    display_vector = 1 # 1 for major, 2 for minor
-    show_borders = false
-    show_points = false
 
     println("hi")
     compression_start = time()
@@ -56,26 +43,6 @@ function main()
 
     printEvaluation2dSymmetric(folder,  "../output/reconstructed", dims, symmetric_eval, compressed_size, ct, dt)
 
-    if display_plots != 0
-        tf1 = loadTensorField2dFromFolder(folder, dims)[1]
-        tf2 = loadTensorField2dFromFolder("../output/reconstructed", dims)[1]
-
-        if display_plots == 1
-            plot1 = plotEigenFieldGlyphs2d(tf1, display_frame, display_vector)
-            plot2 = plotEigenFieldGlyphs2d(tf2, display_frame, display_vector)
-        elseif display_plots == 2
-            plot1 = plotEigenvectorGraph(tf1, display_frame, show_borders, show_points)
-            plot2 = plotEigenvectorGraph(tf2, display_frame, show_borders, show_points)
-        elseif display_plots == 3
-            plot1 = plotEigenvalueGraph(tf1, display_frame, show_borders, show_points)
-            plot2 = plotEigenvalueGraph(tf2, display_frame, show_borders, show_points)
-        end
-
-        combined = plot(plot1, plot2, layout=(1,2))
-        display(combined)
-        println("Press a key to exit")    
-        readline()    
-    end
 end
 
 main()

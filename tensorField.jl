@@ -106,26 +106,26 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
 
 end
 
-function getTensor(tf::TensorField2d, t::Int64, x::Int64, y::Int64)
-    return [ tf.entries[1,1][t,x,y] tf.entries[1,2][t,x,y] ; tf.entries[2,1][t,x,y] tf.entries[2,2][t,x,y] ]
+function getTensor(tf::TensorField2d, x::Int64, y::Int64, t::Int64)
+    return [ tf.entries[1,1][x,y,t] tf.entries[1,2][x,y,t] ; tf.entries[2,1][x,y,t] tf.entries[2,2][x,y,t] ]
 end
 
-function setTensor(tf::TensorField2d, t, x, y, tensor::FloatMatrix)
+function setTensor(tf::TensorField2d, x, y, t, tensor::FloatMatrix)
     for row in 1:2
         for col in 1:2
-            tf.entries[row, col][t,x,y] = tensor[row,col]
+            tf.entries[row, col][x,y,t] = tensor[row,col]
         end
     end
 end
 
 # returns in counterclockwise orientation, consistent with getCellVertexCoords
-function getTensorsAtCell(tf::TensorField2d, t::Int64, x::Int64, y::Int64, top::Bool)
-    points = getCellVertexCoords(t,x,y,top)
+function getTensorsAtCell(tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool)
+    points = getCellVertexCoords(x,y,t,top)
     return [ getTensor(tf, points[1]...), getTensor(tf, points[2]...), getTensor(tf, points[3]...) ]
 end
 
-function getCircularPointType( tf::TensorField2d, t::Int64, x::Int64, y::Int64, top::Bool )
-    return getCircularPointType( getTensorsAtCell( tf, t, x, y, top )... )
+function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
+    return getCircularPointType( getTensorsAtCell( tf, x, y, t, top )... )
 end
 
 function deviator(tensor::FloatMatrix)

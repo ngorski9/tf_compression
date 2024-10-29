@@ -4,38 +4,20 @@ include("huffman.jl")
 include("decompress.jl")
 include("compress.jl")
 include("evaluation.jl")
-include("plot.jl")
 
 using Plots
 
 using .compress
 using .decompress
-using .plotTensorField
 using .tensorField
 
 function main()
 
     folder = "../data/2d/wind1"
-    dims = (1, 200, 100)
-    # was 0.01 cr 26.1
+    dims = (200, 100, 1)
     eb = 0.01
     edgeError = 1.0
-    naive = false
-
-    display_plots = 0
-    # 0 = No plots
-    # 1 = eigenvector & dual eigenvector directions
-    # 2 = eigenvector graph
-    # 3 = eigenvalue graph
-
-    # Plotting variables
-    display_frame = 0
-    display_vector = 1 # 1 for major, 2 for minor
-    show_borders = true
-    show_points = false
-    slice = (1,65,1,65)
-
-    println("hi")
+    naive = true
 
     compression_start = time()
     entropy::Float64 = 0.0
@@ -61,27 +43,6 @@ function main()
     dt = decompression_end - decompression_start
 
     printEvaluation2d(folder,  "../output/reconstructed", dims, entropy, losslessBitrate, compressed_size, ct, dt, edgeError)
-
-    if display_plots != 0
-        tf1 = loadTensorField2dFromFolder(folder, dims)[1]
-        tf2 = loadTensorField2dFromFolder("../output/reconstructed", dims)[1]
-
-        if display_plots == 1
-            plot1 = plotEigenFieldGlyphs2d(tf1, display_frame, slice, display_vector)
-            plot2 = plotEigenFieldGlyphs2d(tf2, display_frame, slice, display_vector)
-        elseif display_plots == 2
-            plot1 = plotEigenvectorGraph(tf1, display_frame, slice, show_borders, show_points)
-            plot2 = plotEigenvectorGraph(tf2, display_frame, slice, show_borders, show_points)
-        elseif display_plots == 3
-            plot1 = plotEigenvalueGraph(tf1, display_frame, slice, show_borders, show_points)
-            plot2 = plotEigenvalueGraph(tf2, display_frame, slice, show_borders, show_points)
-        end
-
-        combined = plot(plot1, plot2, layout=(1,2))
-        display(combined)
-        println("Press a key to exit")    
-        readline()    
-    end
 end
 
 main()

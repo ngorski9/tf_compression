@@ -1,13 +1,13 @@
 using ..tensorField
 
 function getTypeFrequencies(tf::SymmetricTensorField2d)
-    T,x,y = tf.dims
+    x,y,T = tf.dims
     types = [0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
                 for k in 0:1
-                    type = getCircularPointType(tf, t, i, j, Bool(k))
+                    type = getCircularPointType(tf, i, j, t, Bool(k))
                     types[type+1] += 1
                 end
             end
@@ -25,13 +25,13 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
     # col 1: match
     # col 2: miss
 
-    T,x,y = tf1.dims
-    for j in 1:y
-        for i in 1:x
-            for t in 1:T
+    x,y,T = tf1.dims
+    for t in 1:T
+        for j in 1:y
+            for i in 1:x
 
-                t1 = getTensor(tf1, t, i, j)
-                t2 = getTensor(tf2, t, i, j)
+                t1 = getTensor(tf1, i, j, t)
+                t2 = getTensor(tf2, i, j, t)
 
                 d1, r1, s1, _ = decomposeTensor(t1)
                 d2, r2, s2, _ = decomposeTensor(t2)
@@ -62,7 +62,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
     result = [0, 0]
     freqs = Dict()
 
-    T, x, y = tf1.dims
+    x, y, T = tf1.dims
 
     for t in 1:T
         for i1 in 1:x
@@ -82,10 +82,10 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
                         continue
                     end
 
-                    t11 = getTensor(tf1, t, i1, j1)
-                    t12 = getTensor(tf2, t, i1, j1)
-                    t21 = getTensor(tf1, t, i2, j2)
-                    t22 = getTensor(tf2, t, i2, j2)
+                    t11 = getTensor(tf1, i1, j1, t)
+                    t12 = getTensor(tf2, i1, j1, t)
+                    t21 = getTensor(tf1, i2, j2, t)
+                    t22 = getTensor(tf2, i2, j2, t)
 
                     if edgesMatchEigenvalue( t11, t21, t12, t22, edgeEB )
                         result[1] += 1
@@ -113,7 +113,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
     result = [0,0]
 
-    T, x, y = tf1.dims
+    x, y, T = tf1.dims
     x -= 1
     y -= 1
     for t in 1:T
@@ -121,7 +121,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
             for j in 1:y
                 for k in 0:1
 
-                    if getCircularPointType(tf1, t, i, j, Bool(k)) == getCircularPointType(tf2, t, i, j, Bool(k))
+                    if getCircularPointType(tf1, i, j, t, Bool(k)) == getCircularPointType(tf2, i, j, t, Bool(k))
                         result[1] += 1
                     else
                         result[2] += 1
@@ -143,13 +143,13 @@ function tensorFieldMatchSymmetric(tf1::SymmetricTensorField2d, tf2::SymmetricTe
 
     numFC = 0
 
-    T,x,y = tf1.dims
+    x,y,T = tf1.dims
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
                 for k in 0:1
-                    type1 = getCircularPointType(tf1, t, i, j, Bool(k))
-                    type2 = getCircularPointType(tf2, t, i, j, Bool(k))
+                    type1 = getCircularPointType(tf1, i, j, t, Bool(k))
+                    type2 = getCircularPointType(tf2, i, j, t, Bool(k))
                     if type1 != type2
                         numFC += 1
                     end

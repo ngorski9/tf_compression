@@ -131,11 +131,11 @@ function pushIfAbsent!(stack::Array{Tuple{Int64, Int64, Bool}}, elt::Tuple{Int64
 end
 
 # Returns them in clockwise orientation
-function getCellVertexCoords(t::Int64, x::Int64, y::Int64, top::Bool)
+function getCellVertexCoords(x::Int64, y::Int64, t::Int64, top::Bool)
     if top
-        return [(t,x,y+1), (t,x+1,y), (t,x+1,y+1)]
+        return [(x,y+1,t), (x+1,y,t), (x+1,y+1,t)]
     else
-        return [(t,x,y), (t,x+1,y), (t,x,y+1)]
+        return [(x,y,t), (x+1,y,t), (x,y+1,t)]
     end
 end
 
