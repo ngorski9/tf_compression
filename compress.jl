@@ -122,7 +122,7 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
     remove("$output/vals.bytes")
 end
 
-function compress2d(containing_folder, dims, output_file, relative_error_bound, output="../output")
+function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output")
     tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -192,55 +192,68 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     sfix_codes = zeros(UInt8, dims)
     eigenvector_special_cases = zeros(UInt8, dims)
 
+    function quantize_angle(t,i,j)
+        θ_dif = θ_ground[t,i,j] - θ_intermediate[t,i,j]
+        if θ_dif < 0
+            θ_dif += 2pi
+        end
+
+        θ_code = UInt8(round( θ_dif * (2^6-1) / 2pi ))
+        if θ_code == 2^6-1
+            θ_code = 0
+        end
+        θ_codes[t,i,j] = θ_code
+        θ_quantized[t,i,j] = θ_intermediate[t,i,j] + 2pi/(2^6-1)*θ_code
+    end
+
     # nested function to raise the precision of a 
     function raise_precision(t,i,j)
         if θ_final[t,i,j] == θ_quantized[t,i,j]
-            precisions[t,i,j] += 1
 
-            d_code = Int64(round((d_ground[t,i,j]-d_intermediate[t,i,j])*(2^precisions[t,i,j])/aeb))
-            r_code = Int64(round((r_ground[t,i,j]-r_intermediate[t,i,j])*(2^precisions[t,i,j])/aeb))
-            s_code = Int64(round((s_ground[t,i,j]-s_intermediate[t,i,j])*(2^precisions[t,i,j])/(sqrt(2)*aeb)))
-
-            if d_code < -127 || d_code > 127
-                d_code = 128
+            if precisions[t,i,j] >= 7
+                precisions[t,i,j] = 8
                 d_final[t,i,j] = d_ground[t,i,j]
-            else
-                d_final[t,i,j] = d_intermediate[t,i,j] + aeb * d_code / (2^precisions[t,i,j])
-            end
-            d_codes[t,i,j] = d_code + 127
-
-            if r_code < -127 || r_code > 127
-                r_code = 128
                 r_final[t,i,j] = r_ground[t,i,j]
-            else
-                r_final[t,i,j] = r_intermediate[t,i,j] + aeb * r_code / (2^precisions[t,i,j])
-            end
-            r_codes[t,i,j] = r_code + 127
-
-            if s_code < -127 || s_code > 127
-                s_code = 255
                 s_final[t,i,j] = s_ground[t,i,j]
+                θ_final[t,i,j] = θ_ground[t,i,j]
+                setTensor(tf2, t,i,j, getTensor(tf,t,i,j))
             else
-                s_final[t,i,j] = s_intermediate[t,i,j] + sqrt(2) * aeb * s_code / (2^precisions[t,i,j])
-            end
-            s_codes[t,i,j] = s_code + 127
+                precisions[t,i,j] += 1
+                d_code = Int64(round((d_ground[t,i,j]-d_intermediate[t,i,j])*(2^precisions[t,i,j])/aeb))
+                r_code = Int64(round((r_ground[t,i,j]-r_intermediate[t,i,j])*(2^precisions[t,i,j])/aeb))
+                s_code = Int64(round((s_ground[t,i,j]-s_intermediate[t,i,j])*(2^precisions[t,i,j])/(sqrt(2)*aeb)))
 
-            if !angles_mandatory[t,i,j]
-                θ_final[t,i,j] = θ_intermediate[t,i,j]
+                if d_code < -127 || d_code > 127
+                    d_code = 128
+                    d_final[t,i,j] = d_ground[t,i,j]
+                else
+                    d_final[t,i,j] = d_intermediate[t,i,j] + aeb * d_code / (2^precisions[t,i,j])
+                end
+                d_codes[t,i,j] = d_code + 127
+
+                if r_code < -127 || r_code > 127
+                    r_code = 128
+                    r_final[t,i,j] = r_ground[t,i,j]
+                else
+                    r_final[t,i,j] = r_intermediate[t,i,j] + aeb * r_code / (2^precisions[t,i,j])
+                end
+                r_codes[t,i,j] = r_code + 127
+
+                if s_code < -127 || s_code > 127
+                    s_code = 255
+                    s_final[t,i,j] = s_ground[t,i,j]
+                else
+                    s_final[t,i,j] = s_intermediate[t,i,j] + sqrt(2) * aeb * s_code / (2^precisions[t,i,j])
+                end
+                s_codes[t,i,j] = s_code + 127
+
+                if !angles_mandatory[t,i,j]
+                    θ_final[t,i,j] = θ_intermediate[t,i,j]
+                end
             end
         else
             if θ_quantized[t,i,j] == Inf
-                θ_dif = θ_ground[t,i,j] - θ_intermediate[t,i,j]
-                if θ_dif < 0
-                    θ_dif += 2pi
-                end
-
-                θ_code = UInt8(round( θ_dif * (2^6-1) / 2pi ))
-                if θ_code == 2^6-1
-                    θ_code = 0
-                end
-                θ_codes[t,i,j] = θ_code
-                θ_quantized[t,i,j] = θ_intermediate[t,i,j] + 2pi/(2^6-1)*θ_code
+                quantize_angle(t,i,j)
             end
 
             θ_final[t,i,j] = θ_quantized[t,i,j]
@@ -276,13 +289,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
             # Check whether any modifications need to take place at all.
             modifications = false
-
-            if precisions[coords...] != 0
-                reconstructed = recomposeTensor(d_swap, r_swap, s_swap, θ_swap)
-                d2, r2, s2, θ2 = decomposeTensor(reconstructed)
-            else
-                d2, r2, s2, θ2 = d_swap, r_swap, s_swap, θ_swap
-            end
 
             eigenvectorRecon = classifyTensorEigenvector(r_swap, s_swap)
             eigenvectorGround = classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])
@@ -378,7 +384,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             # then, tighten or terminate accordingly.
             if degenerateCase
                 raise_precision(coords...)
-            elseif !modifications && precisions[coords...] == 0 && θ_final[coords...] == θ_intermediate[coords...]
+            elseif precisions[coords...] >= 8 || (!modifications && precisions[coords...] == 0 && θ_final[coords...] == θ_intermediate[coords...])
                 pending = false
             else
                 reconstructed = recomposeTensor(d_swap, r_swap, s_swap, θ_swap)
@@ -424,7 +430,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     stack = []
 
-    visited = zeros(Int64, dims)
+    lastValue = nothing
 
     for j in 1:dims[3]-1
         for i in 1:dims[2]-1
@@ -435,41 +441,210 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 while length(stack) > 0
                     x,y,top,processNewVertices = pop!(stack)
 
-                    # bottom left, bottom right, top left (corresponds to coords of bottom in order)
-                    vertices_modified = [false,false,false]
-
-                    crit_ground = getCircularPointType(tf, 1, x, y, top)
-                    crit_intermediate = getCircularPointType(tf2, 1, x, y, top)
+                    # bottom left, bottom right, top left (corresponds to coords of bottom in order) then top right
+                    vertices_modified = [false,false,false,false]
 
                     vertexCoords = getCellVertexCoords(1,x,y,top)
 
+                    if processNewVertices
+                        if top
+                            newVertices = [3]
+                        else
+                            if x == 1
+                                if y == 1
+                                    newVertices = [1,2,3]
+                                else
+                                    newVertices = [3]
+                                end
+                            elseif y == 1
+                                newVertices = [2]
+                            else
+                                newVertices = []
+                            end
+                        end
+
+
+                        # Single vertex: swap values into place.
+                        for v in newVertices
+                            processPoint(vertexCoords[v])
+                        end
+
+                    end
+
+                    # Edges
                     if top
-                        newVertices = [3]
+                        newEdges = [(1,3), (2,3)]
                     else
                         if x == 1
                             if y == 1
-                                newVertices = [1,2,3]
+                                newEdges = [(1,2), (1,3), (2,3)]
                             else
-                                newVertices = [3]
+                                newEdges = [(1,3), (2,3)]
                             end
                         elseif y == 1
-                            newVertices = [2]
+                            newEdges = [(1,2), (2,3)]
                         else
-                            newVertices = []
+                            newEdges = [(2,3)]
                         end
                     end
 
-
-                    # Single vertex: swap values into place.
-                    for v in newVertices
-
-                        processPoint(vertexCoords[v])
-
-                    end # end for v in newVertices
-
-                    # Edges
+                    # cells
 
 
+                    for e in newEdges
+                        while !edgesMatchEigenvalue( getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), edgeEB )
+                            raise_precision(vertexCoords[e[1]]...)
+                            processPoint(vertexCoords[e[1]])
+
+                            raise_precision(vertexCoords[e[2]]...)
+                            processPoint(vertexCoords[e[2]])
+
+                            # record which vertices was modified in order to check previous cells.
+                            if top
+                                if e[1] == 1 || e[2] == 1
+                                    vertices_modified[3] = true
+                                end
+
+                                if e[1] == 2 || e[2] == 2
+                                    vertices_modified[2] = true
+                                end
+
+                                if e[1] == 3 || e[2] == 3
+                                    vertices_modified[4] = true
+                                end
+                            else
+                                vertices_modified[e[1]] = true
+                                vertices_modified[e[2]] = true
+                            end
+                        end
+
+                    end
+
+                    # Process individual cells to check circular points.
+                    if getCircularPointType(tf, 1, x, y, top) != getCircularPointType(tf2, 1, x, y, top)
+
+                        θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
+                        θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
+                        θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
+
+                        if θe1 > pi
+                            θe1 = abs(θe1-2pi)
+                        end
+
+                        if θe2 > pi
+                            θe2 = abs(θe2-2pi)
+                        end
+
+                        if θe3 > pi
+                            θe3 = abs(θe3-2pi)
+                        end
+
+                        θe = [θe1, θe2, θe3]
+
+                        while getCircularPointType(tf, 1, x, y, top) != getCircularPointType(tf2, 1, x, y, top)
+                            changeTensor = findmax(θe)[2]
+
+                            if angles_mandatory[vertexCoords[changeTensor]...]
+                                θ_quantized[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
+                                θ_codes[vertexCoords[changeTensor]...] = 2^6-1
+                            else
+                                angles_mandatory[vertexCoords[changeTensor]...] = true
+                                if θ_quantized[vertexCoords[changeTensor]...] == Inf
+                                    quantize_angle(vertexCoords[changeTensor]...)
+                                end
+                            end
+                            
+                            θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
+
+                            setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
+                                                                                          r_final[vertexCoords[changeTensor]...],
+                                                                                          s_final[vertexCoords[changeTensor]...],
+                                                                                          θ_final[vertexCoords[changeTensor]...]))
+
+                            processPoint(vertexCoords[changeTensor])
+                            θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
+
+                            if θe[changeTensor] > pi
+                                θe[changeTensor] = abs(θe[changeTensor]-2pi)
+                            end
+
+                            if top
+                                if changeTensor == 1
+                                    vertices_modified[3] = true
+                                elseif changeTensor == 2
+                                    vertices_modified[2] = true
+                                else
+                                    vertices_modified[4] = true
+                                end
+                            else
+                                vertices_modified[changeTensor] = true
+                            end
+                        end
+
+                    end
+
+                    if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
+                        push!(stack, (x,y,top,false))
+                    end
+
+                    # queue up all cells that will be affected by any current changes.
+                    if vertices_modified[4] && x != dims[2] - 1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
+                        push!(stack, (x+1,y+1,false,false))
+                    end
+
+                    if vertices_modified[4] && ((y+1 < j) || (y+1 == j && x <= i))
+                        push!(stack, (x,y+1,true,false))
+                    end
+
+                    if (vertices_modified[3] || vertices_modified[4]) && ((y+1 < j) || (y+1 == j && x <= i))
+                        push!(stack, (x,y+1,false,false))
+                    end
+
+                    if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
+                        push!(stack, (x-1,y+1,true,false))
+                        push!(stack, (x-1,y+1,false,false))
+                    end
+
+                    if (vertices_modified[4]) && x != dims[2] - 1 && ((y < j) || (y == j && x+1 <= i))
+                        push!(stack, (x+1,y,true,false))
+                    end
+
+                    if (vertices_modified[2] || vertices_modified[4]) && x != dims[2] - 1 && ((y < j) || (y == j && x+1 <= i))
+                        push!(stack, (x+1,y,false,false))
+                    end
+
+                    if (vertices_modified[2] || vertices_modified[3]) && ( (y < j) || (y == j && x < i) || (y == j && x == i && k==1) )
+                        push!(stack,(x,y,true,false))
+                    end
+
+                    if (vertices_modified[2] || vertices_modified[3])
+                        push!(stack, (x,y,false,false))
+                    end
+
+                    if (vertices_modified[1] || vertices_modified[3]) && x != 1
+                        push!(stack, (x-1,y,true,false))
+                    end
+
+                    if vertices_modified[1] && x != 1
+                        push!(stack, (x-1,y,false,false))
+                    end
+
+                    if vertices_modified[2] && x != dims[2]-1 && y != 1
+                        push!(stack, (x+1,y-1,true,false))
+                        push!(stack, (x+1,y-1,false,false))
+                    end
+
+                    if (vertices_modified[1] || vertices_modified[2]) && y != 1
+                        push!(stack, (x,y-1,true,false))
+                    end
+
+                    if vertices_modified[1] && y != 1
+                        push!(stack, (x,y-1,false,false))
+                    end
+
+                    if vertices_modified[1] && x != 1 && y != 1
+                        push!(stack, (x-1,y-1,true,false))
+                    end
 
                 end # end while length(stack) > 0
 
@@ -508,6 +683,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                 if precisions[t,i,j] >= 8
                     θ_and_sfix_codes[t,i,j] = 0
+                    d_codes[t,i,j] = 127
+                    r_codes[t,i,j] = 127
+                    s_codes[t,i,j] = 127
 
                     tensor = getTensor(tf, t, i, j)
                     push!(lossless_A, tensor[1,1])
@@ -715,6 +893,18 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                         θe2 = abs( θ2g - θ2r )
                         θe3 = abs( θ3g - θ3r )
 
+                        if θe1 > pi
+                            θe1 = abs(θe1 - 2pi)
+                        end
+
+                        if θe2 > pi
+                            θe2 = abs(θe2 - 2pi)
+                        end
+
+                        if θe3 > pi
+                            θe3 = abs(θe3 - 2pi)
+                        end
+
                         θg = [θ1g, θ2g, θ3g]
                         θr = [θ1r, θ2r, θ3r]
                         tg = [t1g, t2g, t3g]
@@ -758,10 +948,22 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                                     if idx == 1
                                         θe1 = abs(θnew - θg[idx])
+
+                                        if θe1 > pi
+                                            θe1 = θe1 - 2pi
+                                        end
                                     elseif idx == 2
                                         θe2 = abs(θnew - θg[idx])
+
+                                        if θe2 > pi
+                                            θe2 = θe2 - 2pi
+                                        end                                        
                                     else
                                         θe3 = abs(θnew - θg[idx])
+
+                                        if θe3 > pi
+                                            θe3 = θe3 - 2pi
+                                        end
                                     end
 
                                     # no need to update the other values because the only other place this can go is lossless...

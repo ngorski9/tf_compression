@@ -16,6 +16,7 @@ export deviator
 export decomposeTensor
 export recomposeTensor
 export decomposeTensorSymmetric
+export edgesMatchEigenvalue
 export recomposeTensorSymmetric
 export classifyTensorEigenvector
 export classifyTensorEigenvalue
@@ -164,6 +165,35 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
     end
 end
 
+# we assume that the tensors are in counterclockwise direction
+function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix, verbose=false)
+    D1 = symmetricDeviator(tensor1)
+    D2 = symmetricDeviator(tensor2)
+    D3 = symmetricDeviator(tensor3)
+
+    sign1 = sign(D1[1,1]*D2[2,1] - D2[1,1]*D1[2,1])
+    sign2 = sign(D2[1,1]*D3[2,1] - D3[1,1]*D2[2,1])
+    sign3 = sign(D3[1,1]*D1[2,1] - D1[1,1]*D3[2,1])
+
+    if sign1 == 0 || sign2 == 0 || sign3 == 0
+        return CP_ERROR
+    end
+
+    if sign1 == sign2
+        if sign3 == sign1
+            if sign3 == 1
+                return CP_WEDGE
+            else
+                return CP_TRISECTOR
+            end
+        else
+            return CP_NORMAL
+        end
+    else
+        return CP_NORMAL
+    end
+end
+
 function decomposeTensor(tensor::FloatMatrix)
 
     y_d::Float64 = (tensor[1,1] + tensor[2,2])/2
@@ -252,6 +282,12 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
 
 end
 
+function edgesMatchEigenvalue( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64 )
+    class1, x1 = classifyEdgeEigenvalue( t11, t21 )
+    class2, x2 = classifyEdgeEigenvalue( t12, t22 )
+    return class1 == class2 && (length(x1) == 0 || maximum( abs.(x1-x2) ) <= eb)
+end
+
 function classifyEdgeEigenvalue( t1::FloatMatrix, t2::FloatMatrix )
     decomp1 = decomposeTensor(t1)
     decomp2 = decomposeTensor(t2)
@@ -264,6 +300,7 @@ end
 #             1 signifying r=d
 #             0 signifying anisotropic stretching starts or ends being dominant
 # these correspond to vertex patterns from the visualization.
+# The fourth number corresponds to the bin number when using the bin method.
 function classifyEdgeEigenvalue( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, θ1::AbstractFloat, d2::AbstractFloat, r2::AbstractFloat, s2::AbstractFloat, θ2::AbstractFloat )
 
     y1 = (d2-r2) / ( (d2-r2) - (d1 - r1) )
@@ -280,7 +317,7 @@ function classifyEdgeEigenvalue( d1::AbstractFloat, r1::AbstractFloat, s1::Abstr
             cross_values = [(1,y1,0)]
         end
     else
-        if 0 <= y1 <= 1
+        if 0 <= y2 <= 1
             cross_values = [(-1,y2,0)]
         else
             cross_values = []
@@ -371,7 +408,8 @@ function classifyEdgeEigenvalue( d1::AbstractFloat, r1::AbstractFloat, s1::Abstr
 
     # from the array of cross values, generate the edge class
     sort!(cross_values, by=f(x)=x[2])
-    edge = []
+    edgeClass = []
+    edgeLocations = []
     
     # 1st entry - s is larger than d
     # 2nd entry - s is larger than r
@@ -381,15 +419,18 @@ function classifyEdgeEigenvalue( d1::AbstractFloat, r1::AbstractFloat, s1::Abstr
 
         if c[1] == 0
             if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])
-                push!(edge, 0)
+                push!(edgeClass, 0)
+                push!(edgeLocations, c[2])
             end
             s_is_larger[c[3]] ⊻= true            
         elseif !( s_is_larger[1] && s_is_larger[2] )
-            push!(edge, 0)
+            push!(edgeClass, c[1])
+            push!(edgeLocations, c[2])
         end
+
     end
 
-    return edge
+    return edgeClass, edgeLocations
 
 end
 

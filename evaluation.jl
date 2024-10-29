@@ -56,7 +56,7 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
 end
 
 # edge iteration is hardcoded for the specific mesh
-function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
+function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
 
     # hit edges & miss edges
     result = [0, 0]
@@ -87,10 +87,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d)
                     t21 = getTensor(tf1, t, i2, j2)
                     t22 = getTensor(tf2, t, i2, j2)
 
-                    class1 = classifyEdgeEigenvalue(t11, t21)
-                    class2 = classifyEdgeEigenvalue(t12, t22)
-
-                    if classifyEdgeEigenvalue(t11, t21) == classifyEdgeEigenvalue(t12, t22)
+                    if edgesMatchEigenvalue( t11, t21, t12, t22, edgeEB )
                         result[1] += 1
                     else
                         result[2] += 1
@@ -223,12 +220,12 @@ function maxError(tf_ground, tf_reconstructed)
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0 )
     tf1, dtype = loadTensorField2dFromFolder(ground, dims)
     tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
     cellMatching = topologyCellMatching(tf1, tf2)
 
     if vertexMatching[1,2] == 0 && vertexMatching[2,2] == 0 && edgeMatching[2] == 0 && cellMatching[2] == 0

@@ -19,6 +19,7 @@ function main()
     dims = (1, 200, 100)
     # was 0.01 cr 26.1
     eb = 0.01
+    edgeError = 1.0
     naive = false
 
     display_plots = 0
@@ -43,7 +44,7 @@ function main()
     if naive
         compress2dNaive(folder, dims, "compressed_output", eb)
     else
-        entropy, losslessBitrate = compress2d(folder, dims, "compressed_output", eb)
+        entropy, losslessBitrate = compress2d(folder, dims, "compressed_output", eb, edgeError)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -59,7 +60,7 @@ function main()
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2d(folder,  "../output/reconstructed", dims, entropy, losslessBitrate, compressed_size, ct, dt)
+    printEvaluation2d(folder,  "../output/reconstructed", dims, entropy, losslessBitrate, compressed_size, ct, dt, edgeError)
 
     if display_plots != 0
         tf1 = loadTensorField2dFromFolder(folder, dims)[1]

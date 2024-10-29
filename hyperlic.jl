@@ -18,6 +18,33 @@ function dot(a::Vector{Float64}, b::Vector{Float64})
     return a[1]*b[1] + a[2]*b[2]
 end
 
+function vector(A::Array{Float64}, dual=false)
+
+    if dual
+
+        d = (A[1,1] + A[2,2]) / 2
+        r = (A[2,1] - A[1,2]) / 2
+
+        deviator = (A - d*[1 0 ; 0 1] - r*[0 -1 ; 1 0])/r
+        cplx = deviator[1,1] + deviator[1,2]*im
+        θ = angle(cplx) + pi/2
+
+        if r > 0
+            vector = [ sin(θ), 1 - cos(θ) ]
+        else
+            vector = [ cos(θ) - 1, sin(θ) ]
+        end
+
+        vector /= norm(vector)
+
+        return vector
+
+    else
+        return eigvecs(A)[:,2]
+    end
+
+end
+
 function interpolate(tf::TensorField,v::Vector{Float64})
     x,y = v
     xFloor = Int64(floor(x))
@@ -45,10 +72,10 @@ function interpolate(tf::TensorField,v::Vector{Float64})
 end
 
 # expensive lol
-function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector::Vector{Float64})
+function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector::Vector{Float64}, dual::Bool)
 
     t1 = interpolate(tf, x)
-    e1 = eigvecs(t1)[:,2]
+    e1 = vector(t1, dual)
     if dot(lastVector, e1) < 0
         e1 *= -1
     end
@@ -59,7 +86,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t2 = interpolate(tf, xa)
-    e2 = eigvecs(t2)[:,2]
+    e2 = vector(t2, dual)
     if dot(lastVector, e2) < 0
         e2 *= -1
     end
@@ -70,7 +97,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t3 = interpolate(tf, xb)
-    e3 = eigvecs(t3)[:,2]
+    e3 = vector(t3, dual)
     if dot(lastVector, e3) < 0
         e3 *= -1
     end
@@ -81,7 +108,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t4 = interpolate(tf, xc)
-    e4 = eigvecs(t4)[:,2]
+    e4 = vector(t4, dual)
     if dot(lastVector, e4) < 0
         e4 *= -1
     end
@@ -119,13 +146,15 @@ function main()
     plt = pyimport("matplotlib.pyplot")
 
     folder = "../output/reconstructed"
+    # folder = "../data/2d/wind1"
     size = (200,100)
-    scale = 4
+    scale = 3
     num_steps = 60 # Interpolation length
     max_path_tracing = 60 # kill after a certain number of steps to avoid loops
     block_size = 20
     hit_threshold = 8
     δ = 0.1
+    asymmetric = false
 
     # load and set up the tensor field
     a = time()
@@ -162,9 +191,9 @@ function main()
                     x3, y3 = (i+1,j)
                 end
 
-                l12 = (a_array[x1,y1] - d_array[x1,y1])*b_array[x2,y2] - (a_array[x2,y2] - d_array[x2,y2])*b_array[x1,y1]
-                l23 = (a_array[x2,y2] - d_array[x2,y2])*b_array[x3,y3] - (a_array[x3,y3] - d_array[x3,y3])*b_array[x2,y2]
-                l31 = (a_array[x3,y3] - d_array[x3,y3])*b_array[x1,y1] - (a_array[x1,y1] - d_array[x1,y1])*b_array[x3,y3]
+                l12 = (a_array[x1,y1] - d_array[x1,y1])*(b_array[x2,y2]+c_array[x2,y2]) - (a_array[x2,y2] - d_array[x2,y2])*(b_array[x1,y1]+c_array[x1,y1])
+                l23 = (a_array[x2,y2] - d_array[x2,y2])*(b_array[x3,y3]+c_array[x3,y3]) - (a_array[x3,y3] - d_array[x3,y3])*(b_array[x2,y2]+c_array[x2,y2])
+                l31 = (a_array[x3,y3] - d_array[x3,y3])*(b_array[x1,y1]+c_array[x1,y1]) - (a_array[x1,y1] - d_array[x1,y1])*(b_array[x3,y3]+c_array[x3,y3])
 
                 cp = 0
 
@@ -248,7 +277,7 @@ function main()
                         # Compute initial eigenvectors for seeding
 
                         tRoot = interpolate(tf, seed)
-                        evecRoot = eigvecs(tRoot)[:,2]
+                        evecRoot = vector(tRoot,asymmetric)
 
                         # forward pass
                         num_forward = 0
@@ -256,7 +285,7 @@ function main()
 
                         vf = evecRoot
                         for step in 1:num_steps
-                            vf = rk4_vector(tf, xf, δ, vf)
+                            vf = rk4_vector(tf, xf, δ, vf, asymmetric)
                             xf = xf + vf
                             if !inBounds(tf, xf)
                                 break
@@ -273,7 +302,7 @@ function main()
                         xb = seed
                         vb = -evecRoot
                         for step in 1:num_steps
-                            vb = rk4_vector(tf, xb, δ, vb)
+                            vb = rk4_vector(tf, xb, δ, vb, asymmetric)
                             xb = xb + vb
                             if !inBounds(tf, xb)
                                 break
@@ -322,7 +351,7 @@ function main()
                             end
 
                             if !at_edge
-                                vf = rk4_vector(tf, xf, δ, vf)
+                                vf = rk4_vector(tf, xf, δ, vf, asymmetric)
                                 xf = xf + vf
                                 if !inBounds(tf, xf)
                                     at_edge = true
@@ -379,7 +408,7 @@ function main()
                             end
 
                             if !at_edge
-                                vb = rk4_vector(tf, xb, δ, vb)
+                                vb = rk4_vector(tf, xb, δ, vb, asymmetric)
                                 xb = xb + vb
                                 if !inBounds(tf, xb)
                                     at_edge = true
@@ -431,10 +460,12 @@ function main()
 
     for cp in trisector_points
         plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="black", s=100 )
+        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="white", s=60 )
     end
 
     for cp in wedge_points
         plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="white", s=100 )
+        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="black", s=60 )
     end
 
     plt.show()
