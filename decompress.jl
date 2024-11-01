@@ -328,10 +328,24 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     bound = reinterpret(Float64, read(vals_file, 8))[1]
     codeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
     codeBytes = read(vals_file, codeBytesLength)
+    fullLosslessBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    fullLosslessBytes = read(vals_file, fullLosslessBytesLength)
     losslessValues = reinterpret(Float64, read(vals_file))
     close(vals_file)
 
-    codes = reshape(huffmanDecode(codeBytes),Tuple(dims))
+    codesBase = huffmanDecode(codeBytes)
+    if length(codesBase) == 0
+        codes = zeros(Int64, Tuple(dims))
+    else
+        codes = reshape(codesBase,Tuple(dims))
+    end
+
+    fullLosslessBase = huffmanDecode(fullLosslessBytes)
+    if length(fullLosslessBase) == 0
+        fullLossless = zeros(Int64, Tuple(dims))
+    else
+        fullLossless = reshape(fullLosslessBase,Tuple(dims))
+    end
 
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
@@ -351,7 +365,11 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     for t in 1:dims[3]
         for j in 1:dims[2]
             for i in 1:dims[1]
-                if codes[i,j,t] == 2^bits-1
+                if fullLossless[i,j,t] == 1
+                    nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] losslessValues[next_lossless+2] ]
+                    setTensor(tf, i, j, t, nextTensor)
+                    next_lossless += 3
+                elseif codes[i,j,t] == 2^bits-1
                     intermediateTensor = getTensor(tf, i, j, t)
                     trace = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
                     nextTensor = [ losslessValues[next_lossless]+trace losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] -losslessValues[next_lossless]+trace ]

@@ -87,7 +87,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
                     t21 = getTensor(tf1, i2, j2, t)
                     t22 = getTensor(tf2, i2, j2, t)
 
-                    if edgesMatchEigenvalue( t11, t21, t12, t22, edgeEB )
+                    if edgesMatch( t11, t21, t12, t22, edgeEB )
                         result[1] += 1
                     else
                         result[2] += 1
@@ -251,8 +251,8 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
     println(result)
     println("\tvertex eigenvector: ($(vertexMatching[1,1]),$(vertexMatching[1,2]))")
     println("\tvertex eigenvalue: ($(vertexMatching[2,1]), $(vertexMatching[2,2]))")
-    println("\tedge eigenvalue ($(edgeMatching[1]), $(edgeMatching[2]))")
-    println("\tcell matching ($(cellMatching[1]), $(cellMatching[2]))")
+    println("\tedges: ($(edgeMatching[1]), $(edgeMatching[2]))")
+    println("\tcell matching: ($(cellMatching[1]), $(cellMatching[2]))")
 
     println("\nmax error: $max_error")
     println("compression ratio: $ratio")

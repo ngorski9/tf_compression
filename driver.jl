@@ -13,10 +13,10 @@ using .tensorField
 
 function main()
 
-    folder = "../data/2d/wind1"
+    folder = "../data/old/2d/wind1"
     dims = (200, 100, 1)
-    eb = 0.01
-    edgeError = 1.0
+    eb = 0.0013
+    edgeError = 0.5
     naive = true
 
     compression_start = time()

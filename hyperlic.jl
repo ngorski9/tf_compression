@@ -145,9 +145,9 @@ function main()
     t1 = time()
     plt = pyimport("matplotlib.pyplot")
 
-    folder = "../output/reconstructed"
+    folder = "../data/sym/brain2000.65"
     # folder = "../data/2d/wind1"
-    size = (200,100)
+    size = (148,190)
     scale = 3
     num_steps = 60 # Interpolation length
     max_path_tracing = 60 # kill after a certain number of steps to avoid loops

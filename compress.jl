@@ -493,7 +493,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
 
                         for e in newEdges
-                            while !edgesMatchEigenvalue( getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), edgeEB )
+                            while !edgesMatch( getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), edgeEB )
                                 raise_precision(vertexCoords[e[1]]...)
                                 processPoint(vertexCoords[e[1]])
 
@@ -851,12 +851,19 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     stack::Array{Tuple{Int64,Int64,Bool}} = []
 
     codes = zeros(UInt64, dims)
+    full_lossless = zeros(UInt64, dims)
+    processed = zeros(Bool, dims)
 
     numProcess = 0
 
+    checkLoc = (24,12,11,false)
+    checking = false
+
     for t in 1:dims[3]
+        println("t = $t")
         for j in 1:dims[2]-1
             for i in 1:dims[1]-1
+                # println((i,j,t))
                 for k in 0:1
 
                     push!(stack, (i,j,Bool(k)))
@@ -865,10 +872,22 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                         numProcess += 1
                         x,y,top = pop!(stack)
 
+                        if checking
+                            if (x,y,t,top) == checkLoc
+                                println("self")
+                            elseif t == checkLoc[3] && abs(x-checkLoc[1]) <= 1 && abs(y-checkLoc[2]) <= 1
+                                println(("neighbor", (x,y,t,top)))
+                            end
+                        end
+
                         crit_ground = getCircularPointType(tf, x, y, t, top)
                         crit_intermediate = getCircularPointType(tf2, x, y, t, top)
 
                         if crit_ground != crit_intermediate
+
+                            if checking && t == checkLoc[3] && abs(x-checkLoc[1]) <= 1 && abs(y-checkLoc[2]) <= 1
+                                println("edit")
+                            end
 
                             vertexCoords = getCellVertexCoords(x,y,t,top)
 
@@ -909,21 +928,47 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                             tr = [t1r, t2r, t3r]
                             rr = [r1r, r2r, r3r]
                             tensorsGround = [tensor1Ground, tensor2Ground, tensor3Ground]
+                            ll = [false, false, false]
 
+                            # num = 0
                             while crit_ground != crit_intermediate
+                                # num += 1
+                                # if num == 7
+                                #     exit()
+                                # end
+                                # println(ll)
+                                # println((θe1, θe2, θe3))
+                                # if ll == [true,true,true]
+                                #     println("this is bad")
+                                #     exit()
+                                # end
 
-                                if θe1 >= θe2 && θe1 >= θe3
+                                if θe1 == θe2 == θe3 == 0.0
+                                    if !ll[1]
+                                        idx = 1
+                                    elseif !ll[2]
+                                        idx = 2
+                                    elseif !ll[3]
+                                        idx = 3
+                                    else
+                                        idx = 1
+                                    end
+                                elseif θe1 >= θe2 && θe1 >= θe3
                                     idx = 1
                                 elseif θe2 >= θe1 && θe2 >= θe3
                                     idx = 2
                                 else
                                     idx = 3
                                 end
+                                lossless = processed[vertexCoords[idx]...]
 
-                                lossless = (codes[vertexCoords[idx]...] != 0)
+                                # println((θe1, θe2, θe3))
+                                # println(tensorsGround)
+                                # println((getTensor(tf2, vertexCoords[1]...), getTensor(tf2, vertexCoords[2]...), getTensor(tf2, vertexCoords[3]...)))
 
                                 # that is, it hasn't been touched yet
                                 if !lossless
+                                    processed[vertexCoords[idx]...] = true
 
                                     θdif = θg[idx] - θr[idx]
                                     if θdif < 0
@@ -948,19 +993,19 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                             θe1 = abs(θnew - θg[idx])
 
                                             if θe1 > pi
-                                                θe1 = θe1 - 2pi
+                                                θe1 = abs(θe1 - 2pi)
                                             end
                                         elseif idx == 2
                                             θe2 = abs(θnew - θg[idx])
 
                                             if θe2 > pi
-                                                θe2 = θe2 - 2pi
-                                            end                                        
+                                                θe2 = abs(θe2 - 2pi)
+                                            end
                                         else
                                             θe3 = abs(θnew - θg[idx])
 
                                             if θe3 > pi
-                                                θe3 = θe3 - 2pi
+                                                θe3 = abs(θe3 - 2pi)
                                             end
                                         end
 
@@ -971,19 +1016,39 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                 end
 
                                 if lossless
-                                    codes[vertexCoords[idx]...] = 2^bits-1
-                                    newTensor = tensorsGround[idx] + (tr[idx]-tg[idx])*[1 0 ; 0 1] # only r and θ must be stored losslessly in this case.
-                                    setTensor(tf2, vertexCoords[idx]..., newTensor)
+                                    if ll[1] && ll[2] && ll[3]                 
+                                        # Storing things losslessly with the trace trick didn't do the job.
+                                        # In this case, just store all three cells totally losslessly
+                                        # This is very rare.
 
-                                    if idx == 1
-                                        θe1 = 0
-                                    elseif idx == 2
-                                        θe2 = 0
+                                        codes[vertexCoords[1]...] = 0
+                                        codes[vertexCoords[2]...] = 0
+                                        codes[vertexCoords[3]...] = 0
+                                        
+                                        full_lossless[vertexCoords[1]...] = 1
+                                        full_lossless[vertexCoords[2]...] = 1
+                                        full_lossless[vertexCoords[3]...] = 1
+
+                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
+                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
+                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
+
                                     else
-                                        θe3 = 0
-                                    end
+                                        ll[idx] = true
+                                        codes[vertexCoords[idx]...] = 2^bits-1
+                                        newTensor = tensorsGround[idx] + (tr[idx]-tg[idx])*[1 0 ; 0 1] # only r and θ must be stored losslessly in this case.
+                                        setTensor(tf2, vertexCoords[idx]..., newTensor)
 
-                                    # no need to update the other values because we're not going to touch this again.
+                                        if idx == 1
+                                            θe1 = 0.0
+                                        elseif idx == 2
+                                            θe2 = 0.0
+                                        else
+                                            θe3 = 0.0
+                                        end
+
+                                        # no need to update the other values because we're not going to touch this again.
+                                    end
                                 end
 
                                 crit_intermediate = getCircularPointType(tf2, x, y, t, top)
@@ -993,6 +1058,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                             # requeue up any cells that must be hit after edits
 
                             if top
+
                                 # future cells (if we are modifying a past cell)
                                 if x != dims[1]-1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
                                     push!(stack, (x+1,y+1,false))
@@ -1008,7 +1074,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                     push!(stack, (x-1,y+1,false))
                                 end
 
-                                if x != dims[1]-1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
+                                if x != dims[1]-1 && ((y < j) || (y == j && x+1 <= i))
                                     push!(stack, (x+1,y,true))
                                     push!(stack, (x+1,y,false))
                                 end
@@ -1030,6 +1096,10 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                             else
 
                                 # future cells (if we are modifying a past cell)
+                                if (y+1 < j) || (y+1 == j && x <= i)
+                                    push!(stack, (x,y+1,false))
+                                end
+
                                 if x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
                                     push!(stack, (x-1,y+1,true))
                                     push!(stack, (x-1,y+1,false))
@@ -1074,11 +1144,40 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
         end # end for j
     end # end for t
 
+    # for t in 1:dims[3]
+    #     for j in 1:dims[2]-1
+    #         for i in 1:dims[1]-1
+    #             for k in 0:1
+
+    #                 push!(stack, (i,j,Bool(k)))
+
+    #                 while length(stack) > 0
+    #                     numProcess += 1
+    #                     x,y,top = pop!(stack)
+
+    #                     crit_ground = getCircularPointType(tf, x, y, t, top)
+    #                     crit_intermediate = getCircularPointType(tf2, x, y, t, top)
+
+    #                     if crit_ground != crit_intermediate
+    #                         println((i,j,t,top))
+    #                         exit()
+    #                     end
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
+
     losslessValues::Vector{Float64} = []
     for t in 1:dims[3]
         for j in 1:dims[2]
             for i in 1:dims[1]
-                if codes[i,j,t] == 2^bits-1
+                if full_lossless[i,j,t] == 1
+                    next_lossless = getTensor(tf, i, j, t)
+                    push!(losslessValues, next_lossless[1,1])
+                    push!(losslessValues, next_lossless[1,2])
+                    push!(losslessValues, next_lossless[2,2])
+                elseif codes[i,j,t] == 2^bits-1
                     next_lossless = getTensor(tf, i, j, t)
                     push!(losslessValues, (next_lossless[1,1]-next_lossless[2,2])/2 )
                     push!(losslessValues, next_lossless[1,2])
@@ -1086,15 +1185,19 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
             end
         end
     end
+
     codeBytes = huffmanEncode(vec(codes))
+    full_lossless_bytes = huffmanEncode(vec(full_lossless))
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
     write(vals_file, dims[2])
-    write(vals_file, dims[3])     
+    write(vals_file, dims[3])
     write(vals_file, aeb)
     write(vals_file, length(codeBytes))
     write(vals_file, codeBytes)
+    write(vals_file, length(full_lossless_bytes))
+    write(vals_file, full_lossless_bytes)
     write(vals_file, losslessValues)
     close(vals_file)
 
