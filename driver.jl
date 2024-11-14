@@ -12,12 +12,11 @@ using .decompress
 using .tensorField
 
 function main()
-
-    folder = "../data/old/2d/wind1"
-    dims = (200, 100, 1)
-    eb = 0.0013
-    edgeError = 0.5
-    naive = true
+    folder = "../output/slice"
+    dims = (150,450,1)
+    eb = 0.05
+    edgeError = 0.2
+    naive = false
 
     compression_start = time()
     entropy::Float64 = 0.0
@@ -38,7 +37,7 @@ function main()
         decompress2dNaive("compressed_output", "reconstructed")
     else
         decompress2d("compressed_output", "reconstructed")
-    end    
+    end
     decompression_end = time()
     dt = decompression_end - decompression_start
 

@@ -20,8 +20,7 @@ export edgesMatch
 export recomposeTensorSymmetric
 export classifyTensorEigenvector
 export classifyTensorEigenvalue
-export classifyEdgeEigenvalue
-export classifyEdgeEigenvalueOld
+export classifyEdge
 export zeroTensorField
 
 abstract type TensorField2d end
@@ -234,18 +233,18 @@ function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
     elseif yr > 0
         if abs(yr-ys) < ϵ
             return PI_BY_4
-        elseif yr > ys
-            return W_CN
-        else
+        elseif ys > yr
             return W_RN
+        else
+            return W_CN
         end
     else
         if abs(yr+ys) < ϵ
             return MINUS_PI_BY_4
-        elseif -yr > ys
-            return W_CS
-        else
+        elseif ys > -yr
             return W_RS
+        else
+            return W_CS
         end
     end
 end
@@ -283,25 +282,34 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
 end
 
 function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64 )
+    if t11 == t12 && t21 == t22
+        return true
+    end
+
     evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdge( t11, t21 )
     evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdge( t12, t22 )
+
+    if length(evalClass1) > 0 && evalClass1[1] == 99 || length(evalClass2) > 0 && evalClass2[1] == 99
+        return false
+    end
+
     return evalClass1 == evalClass2 && evecClass1 == evecClass2 && (length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb) && (evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb )
 end
 
-function classifyEdge( t1::FloatMatrix, t2::FloatMatrix )
+function classifyEdge( t1::FloatMatrix, t2::FloatMatrix, p=false )
     decomp1 = decomposeTensor(t1)
     decomp2 = decomposeTensor(t2)
-    return classifyEdge(decomp1..., decomp2...)
+    return classifyEdge(decomp1..., decomp2...,p)
 end
 
 # returns a list of numbers with the following entries (ordered)
 # as one moves from t2 -> t1 (small to large interp values)
-# values are -1 signifying r=-d,
-#             1 signifying r=d
+# values are -2 signifying r=-d,
+#            -1 signifying r=d
 #             0 signifying anisotropic stretching starts or ends being dominant
 # these correspond to vertex patterns from the visualization.
 # The fourth number corresponds to the bin number when using the bin method.
-function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, θ1::AbstractFloat, d2::AbstractFloat, r2::AbstractFloat, s2::AbstractFloat, θ2::AbstractFloat )
+function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, θ1::AbstractFloat, d2::AbstractFloat, r2::AbstractFloat, s2::AbstractFloat, θ2::AbstractFloat,p=false )
 
     y1 = (d2-r2) / ( (d2-r2) - (d1 - r1) )
     y2 = (d2+r2) / ( (d2+r2) - (d1 + r1) )
@@ -309,16 +317,16 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
     if 0 <= y1 <= 1
         if 0 <= y2 <= 1
             if y1 < y2
-                cross_values = [(1, y1, 0), (-1,y2,0)]
+                cross_values = [(-1, y1, 0), (-2,y2,0)]
             else
-                cross_values = [(-1,y2, 0), (1,y1,0)]
+                cross_values = [(-2,y2, 0), (-1,y1,0)]
             end
         else
-            cross_values = [(1,y1,0)]
+            cross_values = [(-1,y1,0)]
         end
     else
         if 0 <= y2 <= 1
-            cross_values = [(-1,y2,0)]
+            cross_values = [(-2,y2,0)]
         else
             cross_values = []
         end
@@ -354,25 +362,80 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
         su = sign(u)
         sw = sign(w)
 
-        if su != sw
-            if sw > 0
-                category = 2
-            else
-                category = 3
-            end
-        else
-            sv = sign(v)
-            if sv == -su && (v^2 - 4*u*w) > 0
-                if su > 0
-                    category = 4
+        # if su < 0.0001 * ϵ
+        #     su = 0
+        # end
+
+        # if sw < 0.0001 * ϵ
+        #     sw = 0
+        # end
+
+        if abs(u) < 0.00000001*ϵ
+            su = 0.0
+            u = 0.0
+        end
+
+        if abs(w) < 0.00000001*ϵ
+            sw = 0.0
+            w = 0.0
+        end
+
+        if p
+            println(("vals",su,sw,u,w))
+        end
+
+        if su == 0 || sw == 0
+            # Degenerate case
+            if su == sw
+                if v > 0
+                    category = 0
                 else
-                    category = 5
+                    # Always 0 is the same as always negative due to how ties are broken.
+                    category = 1
                 end
-            else
-                if su > 0
+            elseif su == 0
+                if v < -0.0001*ϵ && w > 0
+                    category = 2
+                elseif v > 0.0001*ϵ && w < 0
+                    category = 3
+                elseif w > 0
                     category = 0
                 else
                     category = 1
+                end
+            else
+                if u < 0 && v > 0.0001*ϵ
+                    category = 2
+                elseif u > 0 && v < -0.0001*ϵ
+                    category = 3
+                elseif u > 0
+                    category = 0
+                else
+                    category = 1
+                end
+            end
+        else
+            # Nondegenerate case
+            if su != sw
+                if sw > 0
+                    category = 2
+                else
+                    category = 3
+                end
+            else
+                sv = sign(v)
+                if sv == -su && (v^2 - 4*u*w) > 0
+                    if su > 0
+                        category = 4
+                    else
+                        category = 5
+                    end
+                else
+                    if su > 0
+                        category = 0
+                    else
+                        category = 1
+                    end
                 end
             end
         end
@@ -383,15 +446,56 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             # 3rd value: 1 for d, 2 for r
 
         if category != 0 && category != 1
+            # # scale up the values to remove numerical instability:
+            # if u < 10e-4 && v < 10e-4 && w < 10e-4
+            #     u *= 10e5
+            #     v *= 10e5
+            #     w *= 10e5
+            # end
+
             square_root = sqrt(v^2-4*u*w)
             t1 = (2*w-v + square_root) / (2*u - 2*v + 2*w)
             t2 = (2*w-v - square_root) / (2*u - 2*v + 2*w)
 
-            small_t = min(t1, t2)
-            large_t = max(t1, t2)
+            # We run into numerical precision issues during the computation so raise the precision...
+            if abs(t1) > 10e12 || abs(t2) > 10e12
+                return ([99], [0.0], 0, [0.0])
+            end
+
+            if p
+                println("before interp: $((u,v,w))")
+            end
+
+            small_t = round(min(t1, t2), digits=14)
+            large_t = round(max(t1, t2), digits=14)
+
+            if p
+                println("t values",(small_t,large_t))
+            end
+
+            if -0.0001*ϵ <= small_t < 0.0
+                small_t = 0.0
+            end
+
+            if -0.0001*ϵ <= large_t < 0.0
+                large_t = 0.0
+            end
+
+            if 1.0 < small_t < 1.0 + 0.0001*ϵ
+                small_t = 1.0
+            end
+
+            if 1.0 < large_t < 1.0 + 0.0001*ϵ
+                large_t = 1.0
+            end
 
             if category == 2 || category == 3
-                if 0 <= small_t <= 1
+
+                if su == 0
+                    push!(cross_values, (0, small_t, i))
+                elseif sw == 0
+                    push!(cross_values, (0, large_t, i))
+                elseif 0 <= small_t <= 1
                     push!(cross_values, (0, small_t, i))
                 else
                     push!(cross_values, (0, large_t, i))
@@ -407,7 +511,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
 
     # from the array of cross values, generate the edge class
-    sort!(cross_values, by=f(x)=x[2])
+    sort!(cross_values, by=f(x)=(x[2],x[1],x[3]))
     eigenvalueEdgeClass = []
     eigenvalueEdgeLocations = []
     eigenvectorEdgeClass = 0
@@ -417,19 +521,33 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
     # 2nd entry - s is larger than r
     s_is_larger = [ intercept_categories[1] % 2 == 0, intercept_categories[2] % 2 == 0 ]
 
-    for c in cross_values
+    if p
+        println(s_is_larger)
+        println(cross_values)
+        println(intercept_categories)
+    end
+
+    for i in eachindex(cross_values)
+
+        c = cross_values[i]
 
         if c[1] == 0
-            if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])
-                push!(eigenvalueEdgeClass, 0)
-                push!(eigenvalueEdgeLocations, c[2])
-            end
-            if c[3] == 2
-                eigenvectorEdgeClass += 1
-                push!(eigenvectorEdgeLocations, c[2])
-            end
-            s_is_larger[c[3]] ⊻= true            
-        elseif !( s_is_larger[1] && s_is_larger[2] )
+
+            if c[2] > 0.0001*ϵ && c[2] < 1-0.0001*ϵ
+                if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])
+                    push!(eigenvalueEdgeClass, 0)
+                    push!(eigenvalueEdgeLocations, c[2])
+                end
+                if c[3] == 2
+                    eigenvectorEdgeClass += 1
+                    push!(eigenvectorEdgeLocations, c[2])
+                end
+                s_is_larger[c[3]] ⊻= true
+            end   
+
+        elseif !( s_is_larger[1] && s_is_larger[2] ) && c[2] > 0.0001*ϵ && c[2] < 1.0-0.0001*ϵ && ( i == length(cross_values) || cross_values[i+1][2] != c[2] )
+            # The last conditional is to handle the degenerate case where |r|=|d| crosses at the same time as |r|=s or |d|=s.
+            # In that case, we ignore the swap here as it is a switch between two colors where one will be hidden anyway.
             push!(eigenvalueEdgeClass, c[1])
             push!(eigenvalueEdgeLocations, c[2])
         end

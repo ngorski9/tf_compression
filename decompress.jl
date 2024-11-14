@@ -76,7 +76,7 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
 
 end
 
-function decompress2d(compressed_file, decompress_folder, output = "../output")
+function decompress2d(compressed_file, decompress_folder, output = "../output", verbose = false)
 
     try
         run(`mkdir $output/$decompress_folder`)
@@ -132,12 +132,43 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
 
     close(vals_file)
 
+    dims_tuple = Tuple(dims)
+
     # De-Huffman the codes
-    baseCodes = reshape(huffmanDecode(baseCodeBytes),Tuple(dims))
-    θAndSFixCodes = reshape(huffmanDecode(θAndSFixBytes),Tuple(dims))
-    dCodes = reshape(huffmanDecode(dBytes),Tuple(dims))
-    rCodes = reshape(huffmanDecode(rBytes),Tuple(dims))
-    sCodes = reshape(huffmanDecode(sBytes),Tuple(dims))
+    baseCodesBase = huffmanDecode(baseCodeBytes)
+    if length(baseCodesBase) == 0
+        baseCodes = zeros(Int64, dims_tuple)
+    else
+        baseCodes = reshape(baseCodesBase,dims_tuple)
+    end
+
+    θAndSFixCodesBase = huffmanDecode(θAndSFixBytes)
+    if length(θAndSFixCodesBase) == 0
+        θAndSFixCodes = zeros(Int64, dims_tuple)
+    else
+        θAndSFixCodes = reshape(θAndSFixCodesBase, dims_tuple)
+    end
+
+    dCodesBase = huffmanDecode(dBytes)
+    if length(dCodesBase) == 0
+        dCodes = zeros(Int64, dims_tuple)
+    else
+        dCodes = reshape(dCodesBase, dims_tuple)
+    end
+
+    rCodesBase = huffmanDecode(rBytes)
+    if length(rCodesBase) == 0
+        rCodes = zeros(Int64, dims_tuple)
+    else
+        rCodes = reshape(rCodesBase, dims_tuple)
+    end
+
+    sCodesBase = huffmanDecode(sBytes)
+    if length(sCodesBase) == 0
+        sCodes = zeros(Int64, dims_tuple)
+    else
+        sCodes = reshape(sCodesBase, dims_tuple)
+    end
 
     eigenvectorSpecialCaseArray = huffmanDecode(eigenvectorSpecialCaseBytes)
     if length(eigenvectorSpecialCaseArray) == 0
@@ -161,8 +192,6 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
     next_lossless_s = 1
     next_lossless_θ = 1
 
-    tfTest, dtype2 = loadTensorField2dFromFolder("$output/test", dims_tuple)
-
     # Iterate through the cells and adjust accordingly.
     for t in 1:dims[3]
         for j in 1:dims[2]
@@ -173,7 +202,6 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
                     precision::UInt8 = baseCodes[i,j,t] >> 4
 
                     if precision >= 8
-                        
                         setTensor( tf, i, j, t, [ lossless_A[next_lossless_full] lossless_B[next_lossless_full] ; lossless_C[next_lossless_full] lossless_D[next_lossless_full] ] )
                         next_lossless_full += 1
 
@@ -283,11 +311,26 @@ function decompress2d(compressed_file, decompress_folder, output = "../output")
 
                     end # end if precision >= 8 (then else for the main reconstruction)
 
+
                 end # end if not all of the base codes are 0
 
             end # end for
         end # end for 
     end # end for
+
+    tf2, dtype2 = loadTensorField2dFromFolder("../output/test", dims_tuple)
+
+    for t in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
+                if getTensor(tf,i,j,t) != getTensor(tf2,i,j,t)
+                    println("mismatch at $((i,j,t))")
+                    println(getTensor(tf,i,j,t))
+                    println(getTensor(tf2,i,j,t))
+                end
+            end
+        end
+    end
 
     # Save to file
     for row in 1:2

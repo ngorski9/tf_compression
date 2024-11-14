@@ -12,10 +12,10 @@ using .decompress
 using .tensorField
 
 function main()
-    folder = "../data/sym/brain2000"
-    dims = (148, 190, 160)
+    folder = "../data/sym/brain23"
+    dims = (66,108,108)
     eb = 0.01
-    naive = true
+    naive = false
     bits = 6 # number of bits used for quantization
 
     symmetric_eval = false
