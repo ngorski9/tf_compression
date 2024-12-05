@@ -1,11 +1,10 @@
 module tensorField
 
 using LinearAlgebra
+using StaticArrays
 using ..utils
 
 export TensorField2d
-export SymmetricTensorField2d
-export SymmetricTensorField2d64
 
 export loadTensorField2dFromFolder
 export getTensor
@@ -23,33 +22,16 @@ export classifyTensorEigenvalue
 export classifyEdge
 export zeroTensorField
 
-abstract type TensorField2d end
-
-abstract type SymmetricTensorField2d <: TensorField2d end
-abstract type AsymmetricTensorField2d <: TensorField2d end
-
-# First axis is the time axis
-mutable struct SymmetricTensorField2d64 <: SymmetricTensorField2d
-    entries::Array{Array{Float64}}
+struct TensorField2d
+    A::Array{Float64}
+    B::Array{Float64}
+    C::Array{Float64}
+    D::Array{Float64}
     dims::Tuple{Int64, Int64, Int64}
 end
 
-mutable struct TensorField2d64 <: AsymmetricTensorField2d 
-    entries::Array{Array{Float64}}
-    dims::Tuple{Int64, Int64, Int64}
-end
-
-function zeroTensorField(dtype, dims)
-    entries = Matrix{Array{dtype}}(undef, (2,2))
-    for row in 1:2
-        for col in 1:2
-            entries[row,col] = zeros(dtype, dims)
-        end
-    end
-
-    if dtype == Float64
-        return TensorField2d64(entries, dims)
-    end
+function zeroTensorField(dims)
+    return TensorField2d64(zeros(Float64,dims),zeros(Float64,dims),zeros(Float64,dims),zeros(Float64,dims), dims)
 end
 
 function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, Int64})
@@ -58,69 +40,65 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
     num_bytes = filesize("$folder/row_1_col_1.dat")/num_entries
 
     if num_bytes == 8
-        entries = Array{Array{Float64}}(undef, (2,2))
-        dtype = Float64
+        A_byte_file = open("$folder/row_1_col_1.dat", "r")
+        A = reshape( reinterpret( Float64, read(A_byte_file) ), dims )
+        close(A_byte_file)
+    
+        B_byte_file = open("$folder/row_1_col_2.dat", "r")
+        B = reshape( reinterpret( Float64, read(B_byte_file) ), dims )
+        close(B_byte_file)
+    
+        C_byte_file = open("$folder/row_2_col_1.dat", "r")
+        C = reshape( reinterpret( Float64, read(C_byte_file) ), dims )
+        close(C_byte_file)
+    
+        D_byte_file = open("$folder/row_2_col_2.dat", "r")
+        D = reshape( reinterpret( Float64, read(D_byte_file) ), dims )
+        close(D_byte_file)
     elseif num_bytes == 4
-        entries = Array{Array{Float64}}(undef, (2,2))
         println("loading from 32 bits to 64")
-        dtype = Float32
-        num_bytes = 8
+        A_byte_file = open("$folder/row_1_col_1.dat", "r")
+        A = Array{Float64}(reshape( reinterpret( Float32, read(A_byte_file) ), dims ))
+        close(A_byte_file)
+    
+        B_byte_file = open("$folder/row_1_col_2.dat", "r")
+        B = Array{Float64}(reshape( reinterpret( Float32, read(B_byte_file) ), dims ))
+        close(B_byte_file)
+    
+        C_byte_file = open("$folder/row_2_col_1.dat", "r")
+        C = Array{Float64}(reshape( reinterpret( Float32, read(C_byte_file) ), dims ))
+        close(C_byte_file)
+    
+        D_byte_file = open("$folder/row_2_col_2.dat", "r")
+        D = Array{Float64}(reshape( reinterpret( Float32, read(D_byte_file) ), dims ))
+        close(D_byte_file)
     else
         println("The file that you specified is $num_bytes bytes per point")
-        println("only 32 and 64 bits are currently supported")
+        println("only 32 and 64 bits are currently supported")        
         exit(1)
     end
 
-    for row in 1:2
-        for col in 1:2
-            byte_file = open("$folder/row_$(row)_col_$(col).dat", "r")
-            arr = reshape( reinterpret( dtype, read(byte_file)), dims ) 
-            entries[row,col] = arr
-        end
-    end
+    tf = TensorField2d(A,B,C,D,dims)
 
-    if dtype == Float32
-        dtype = Float64
-    end
-
-    sym = true
-    for i in 1:num_entries
-        if abs(entries[1,2][i] - entries[2,1][i]) > ϵ
-            sym = false
-            break
-        end
-    end
-
-    if sym
-        if num_bytes == 8
-            tf = SymmetricTensorField2d64(entries, dims)
-        end
-    else
-        if num_bytes == 8
-            tf = TensorField2d64(entries, dims)
-        end
-    end
-
-    return tf, dtype
+    return tf
 
 end
 
 function getTensor(tf::TensorField2d, x::Int64, y::Int64, t::Int64)
-    return [ tf.entries[1,1][x,y,t] tf.entries[1,2][x,y,t] ; tf.entries[2,1][x,y,t] tf.entries[2,2][x,y,t] ]
+    return SMatrix{2,2,Float64}( tf.A[x,y,t], tf.C[x,y,t], tf.B[x,y,t], tf.D[x,y,t] )
 end
 
 function setTensor(tf::TensorField2d, x, y, t, tensor::FloatMatrix)
-    for row in 1:2
-        for col in 1:2
-            tf.entries[row, col][x,y,t] = tensor[row,col]
-        end
-    end
+    tf.A[x,y,t] = tensor[1,1]
+    tf.B[x,y,t] = tensor[1,2]
+    tf.C[x,y,t] = tensor[2,1]
+    tf.D[x,y,t] = tensor[2,2]
 end
 
 # returns in counterclockwise orientation, consistent with getCellVertexCoords
 function getTensorsAtCell(tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool)
     points = getCellVertexCoords(x,y,t,top)
-    return [ getTensor(tf, points[1]...), getTensor(tf, points[2]...), getTensor(tf, points[3]...) ]
+    return ( getTensor(tf, points[1]...), getTensor(tf, points[2]...), getTensor(tf, points[3]...) )
 end
 
 function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
@@ -132,18 +110,28 @@ function deviator(tensor::FloatMatrix)
 end
 
 function symmetricDeviator(tensor::FloatMatrix)
-    return tensor - 0.5*tr(tensor)*I + 0.5*(tensor[2,1]-tensor[1,2])*[ 0 1 ; -1 0 ]
+    diagonal = 0.5*tr(tensor)
+    off_diagonal = 0.5*(tensor[2,1]-tensor[1,2])
+    return SMatrix{2,2,Float64}( tensor[1,1] - diagonal, tensor[2,1] - off_diagonal, tensor[1,2] + off_diagonal, tensor[2,2] - diagonal )
+    # return tensor - 0.5*tr(tensor)*I + 0.5*(tensor[2,1]-tensor[1,2])*[ 0 1 ; -1 0 ]
 end
 
 # we assume that the tensors are in counterclockwise direction
 function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix, verbose=false)
-    D1 = symmetricDeviator(tensor1)
-    D2 = symmetricDeviator(tensor2)
-    D3 = symmetricDeviator(tensor3)
+    # rather than explicitly computing the deviator it is faster to do it this way.
+    # yes I know the readability kind of sucks but it makes kind of a huge difference.
+    D1_11 = tensor1[1,1] - tensor1[2,2]
+    D1_21 = tensor1[2,1] + tensor1[1,2]
 
-    sign1 = sign(D1[1,1]*D2[2,1] - D2[1,1]*D1[2,1])
-    sign2 = sign(D2[1,1]*D3[2,1] - D3[1,1]*D2[2,1])
-    sign3 = sign(D3[1,1]*D1[2,1] - D1[1,1]*D3[2,1])
+    D2_11 = tensor2[1,1] - tensor2[2,2]
+    D2_21 = tensor2[2,1] + tensor2[1,2]
+
+    D3_11 = tensor3[1,1] - tensor3[2,2]
+    D3_21 = tensor3[2,1] + tensor3[1,2]
+
+    sign1 = sign(D1_11*D2_21 - D2_11*D1_21)
+    sign2 = sign(D2_11*D3_21 - D3_11*D2_21)
+    sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
         return CP_ERROR
@@ -197,9 +185,10 @@ function decomposeTensor(tensor::FloatMatrix)
 
     y_d::Float64 = (tensor[1,1] + tensor[2,2])/2
     y_r::Float64 = (tensor[2,1] - tensor[1,2])/2
-    tensor -= [ y_d -y_r ; y_r y_d ]
+    # tensor -= [ y_d -y_r ; y_r y_d ]
 
-    cplx = tensor[1,1] + tensor[1,2]*im
+    # cplx = tensor[1,1] + tensor[1,2]*im
+    cplx = (tensor[1,1] - y_d) + (tensor[1,2]+y_r)*im
     y_s::Float64 = abs(cplx)
     θ::Float64 = angle(cplx)
 
@@ -211,7 +200,7 @@ function recomposeTensor(y_d::AbstractFloat, y_r::AbstractFloat, y_s::AbstractFl
     cos_ = cos(θ)
     sin_ = sin(θ)
 
-    return[ y_d+y_s*cos_ -y_r+y_s*sin_ ; y_r+y_s*sin_ y_d-y_s*cos_ ]
+    return SMatrix{2,2,Float64}( y_d+y_s*cos_,  y_r+y_s*sin_,  -y_r+y_s*sin_,  y_d-y_s*cos_ )
 
 end
 
@@ -224,7 +213,7 @@ function decomposeTensorSymmetric(T::Matrix{Float64})
 end
 
 function recomposeTensorSymmetric(trace,r,θ)
-    return [ trace + r*cos(θ) r*sin(θ) ; r*sin(θ) trace - r*cos(θ) ]
+    return SMatrix{2,2,Float64}( trace + r*cos(θ), r*sin(θ), r*sin(θ), trace - r*cos(θ) )
 end
 
 function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
@@ -286,8 +275,8 @@ function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::
         return true
     end
 
-    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdge( t11, t21 )
-    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdge( t12, t22 )
+    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21 )
+    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22 )
 
     if length(evalClass1) > 0 && evalClass1[1] == 99 || length(evalClass2) > 0 && evalClass2[1] == 99
         return false
@@ -296,7 +285,7 @@ function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::
     return evalClass1 == evalClass2 && evecClass1 == evecClass2 && (length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb) && (evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb )
 end
 
-function classifyEdge( t1::FloatMatrix, t2::FloatMatrix, p=false )
+function classifyEdgeOuter( t1::FloatMatrix, t2::FloatMatrix, p=false )
     decomp1 = decomposeTensor(t1)
     decomp2 = decomposeTensor(t2)
     return classifyEdge(decomp1..., decomp2...,p)
@@ -328,7 +317,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
         if 0 <= y2 <= 1
             cross_values = [(-2,y2,0)]
         else
-            cross_values = []
+            cross_values::Vector{Tuple{Int64,Float64,Int64}} = Vector{Tuple{Int64, Float64, Int64}}(undef,0)
         end
     end
 
@@ -512,10 +501,10 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
     # from the array of cross values, generate the edge class
     sort!(cross_values, by=f(x)=(x[2],x[1],x[3]))
-    eigenvalueEdgeClass = []
-    eigenvalueEdgeLocations = []
+    eigenvalueEdgeClass::Vector{Int64} = Vector{Float64}(undef, 0)
+    eigenvalueEdgeLocations::Vector{Float64} = Vector{Float64}(undef, 0)
     eigenvectorEdgeClass = 0
-    eigenvectorEdgeLocations = []
+    eigenvectorEdgeLocations::Vector{Float64} = Vector{Float64}(undef, 0)
     
     # 1st entry - s is larger than d
     # 2nd entry - s is larger than r
@@ -531,7 +520,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
         c = cross_values[i]
 
-        if c[1] == 0
+        if c[1] == 0.0
 
             if c[2] > 0.0001*ϵ && c[2] < 1-0.0001*ϵ
                 if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])

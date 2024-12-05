@@ -13,9 +13,9 @@ using .tensorField
 
 function main()
     folder = "../output/slice"
-    dims = (150,450,1)
-    eb = 0.05
-    edgeError = 0.2
+    dims = (101,101,1)
+    eb = 0.001
+    edgeError = 1.0
     naive = false
 
     compression_start = time()

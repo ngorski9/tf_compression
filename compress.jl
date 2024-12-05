@@ -16,7 +16,7 @@ export compress2dSymmetricSimple
 export compress2dSymmetricNaive
 
 function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output", verbose=false)
-    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+    tf = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
 
@@ -45,7 +45,7 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
     write(vals_file, dims[2])
-    write(vals_file, dims[3])        
+    write(vals_file, dims[3])
     write(vals_file, relative_error_bound)
     close(vals_file)
 
@@ -56,7 +56,7 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     removeIfExists("$output_file.tar.xz")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_1.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz -v9 $output_file.tar`)
+    run(`xz $output_file.tar`)
 
     removeIfExists("$output_file.tar")
 
@@ -71,7 +71,7 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
 end
 
 function compress2dSymmetricNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output")
-    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+    tf = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
 
@@ -110,7 +110,7 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
     removeIfExists("$output_file.tar.xz")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz -v9 $output_file.tar`)
+    run(`xz $output_file.tar`)
 
     removeIfExists("$output_file.tar")
 
@@ -123,7 +123,7 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
 end
 
 function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false)
-    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+    tf = loadTensorField2dFromFolder(containing_folder, dims)
     
     # prepare derived attributes for compression
 
@@ -156,17 +156,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    saveArray("$output/row_1_col_1_g.dat", Array{Float32}(tf.entries[1,1]))
-    saveArray("$output/row_1_col_2_g.dat", Array{Float32}(tf.entries[1,2]))
-    saveArray("$output/row_2_col_1_g.dat", Array{Float32}(tf.entries[2,1]))
-    saveArray("$output/row_2_col_2_g.dat", Array{Float32}(tf.entries[2,2]))
+    saveArray32("$output/row_1_col_1_g.dat", tf.A)
+    saveArray32("$output/row_1_col_2_g.dat", tf.B)
+    saveArray32("$output/row_2_col_1_g.dat", tf.C)
+    saveArray32("$output/row_2_col_2_g.dat", tf.D)
 
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_1_g.dat -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
-    tf2, dtype2 = loadTensorField2dFromFolder(output, dims)
+    tf2 = loadTensorField2dFromFolder(output, dims)
 
     d_intermediate = zeros(Float64, dims)
     r_intermediate = zeros(Float64, dims)
@@ -417,9 +417,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     type_codes[coords...] = (d_sign_swap << 3) | (r_sign_swap << 2) | (d_largest_swap << 1) | (r_over_s_swap)
 
                     setTensor(tf2, coords..., reconstructed)
-                    if coords == (47,30,1)
-                        println("set 2")
-                    end
+                    # if coords == (47,30,1)
+                    #     println("set 2")
+                    # end
                 else
                     raise_precision(coords...)
                     eigenvector_special_cases[coords...] = 0 # reset special case as raising precision could affect this.
@@ -454,7 +454,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     println("correcting errors...")
 
-    stack = []
+    stack::Array{Tuple{Int64,Int64,Bool,Bool}} = Array{Tuple{Int64,Int64,Bool,Bool}}(undef, 0)
 
     for t in 1:dims[3]   
         for j in 1:dims[2]-1
@@ -484,7 +484,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 elseif y == 1
                                     newVertices = [2]
                                 else
-                                    newVertices = []
+                                    newVertices::Array{Int64} = Array{Int64}(undef,0)
                                 end
                             end
 
@@ -551,9 +551,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 raise_precision(vertexCoords[e[2]]...)
                                 processPoint(vertexCoords[e[2]])
 
-                                if vertexCoords[e[1]] == (47,30,1) || vertexCoords[e[2]] == (47,30,1)
-                                    println("process edge")
-                                end
+                                # if vertexCoords[e[1]] == (47,30,1) || vertexCoords[e[2]] == (47,30,1)
+                                #     println("process edge")
+                                # end
 
                                 # record which vertices was modified in order to check previous cells.
                                 if top
@@ -826,10 +826,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         run(`mkdir $output/test`)
     catch
     end
-    saveArray("$output/test/row_1_col_1.dat", tf2.entries[1,1])
-    saveArray("$output/test/row_1_col_2.dat", tf2.entries[1,2])
-    saveArray("$output/test/row_2_col_1.dat", tf2.entries[2,1])
-    saveArray("$output/test/row_2_col_2.dat", tf2.entries[2,2])
+    # saveArray64("$output/test/row_1_col_1.dat", tf2.A)
+    # saveArray64("$output/test/row_1_col_2.dat", tf2.B)
+    # saveArray64("$output/test/row_2_col_1.dat", tf2.C)
+    # saveArray64("$output/test/row_2_col_2.dat", tf2.D)
 
     baseCodeBytes = huffmanEncode(vec(base_codes))
     θAndSfixBytes = huffmanEncode(vec(θ_and_sfix_codes))
@@ -905,7 +905,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     removeIfExists("$output_file.tar.xz")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_1.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz -v9 $output_file.tar`)
+    run(`xz $output_file.tar`)
 
     removeIfExists("$output_file.tar")
 
@@ -930,7 +930,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 end
 
 function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, bits, output = "../output")
-    tf, dtype = loadTensorField2dFromFolder(containing_folder, dims)
+    tf = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
 
@@ -951,17 +951,17 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    saveArray("$output/row_1_col_1_g.dat", Array{Float32}(tf.entries[1,1]))
-    saveArray("$output/row_1_col_2_g.dat", Array{Float32}(tf.entries[1,2]))
-    saveArray("$output/row_2_col_2_g.dat", Array{Float32}(tf.entries[2,2]))
+    saveArray32("$output/row_1_col_1_g.dat", tf.A)
+    saveArray32("$output/row_1_col_2_g.dat", tf.B)
+    saveArray32("$output/row_2_col_2_g.dat", tf.D)
 
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`cp $output/row_1_col_2.dat $output/row_2_col_1.dat`)
 
-    tf2, dtype2 = loadTensorField2dFromFolder(output, dims)
-    stack::Array{Tuple{Int64,Int64,Bool}} = []
+    tf2 = loadTensorField2dFromFolder(output, dims)
+    stack::Array{Tuple{Int64,Int64,Bool}} = Array{Tuple{Int64,Int64,Bool}}(undef, 0)
 
     codes = zeros(UInt64, dims)
     full_lossless = zeros(UInt64, dims)
@@ -1327,7 +1327,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     removeIfExists("$output_file.tar.xz")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz -v9 $output_file.tar`)
+    run(`xz $output_file.tar`)
 
     removeIfExists("$output_file.tar")
 

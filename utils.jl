@@ -1,8 +1,11 @@
 module utils
 
+using StaticArrays
+
 export getCellVertexCoords
 export adjustAngle
-export saveArray
+export saveArray32
+export saveArray64
 export loadArray
 export removeIfExists
 export remove
@@ -54,7 +57,7 @@ const CODE_LOSSLESS_FULL_64 = 19 # 💀
 export FloatMatrix
 export FloatVector
 export FloatArray
-const FloatMatrix = Union{Matrix{Float64}, Matrix{Float32}}
+const FloatMatrix = SMatrix{2,2,Float64,4}
 const FloatVector = Union{Vector{Float64}, Vector{Float32}}
 const FloatArray = Union{Array{Float64}, Array{Float32}}
 
@@ -143,7 +146,19 @@ function adjustAngle(angle::Union{Float64, Float32})
     return angle - 2pi*floor(angle/2pi)
 end
 
-function saveArray(filename, array)
+function saveArray32(filename, array::Array{Float32})
+    out_file = open(filename, "w")
+    write(out_file, vec(array))
+    close(out_file)
+end
+
+function saveArray32(filename, array::Array{Float64})
+    out_file = open(filename, "w")
+    write(out_file, vec(Array{Float32}(array)))
+    close(out_file)
+end
+
+function saveArray64(filename, array::Array{Float64})
     out_file = open(filename, "w")
     write(out_file, vec(array))
     close(out_file)

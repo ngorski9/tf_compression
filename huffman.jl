@@ -34,7 +34,7 @@ function getCodeList(node::HuffmanLeafNode)
 end
 
 function getCodeList(frequencies::Dict{Int64, Int64})
-    nodes = Array{HuffmanNode}(undef, 0)
+    nodes::Array{HuffmanNode} = Array{HuffmanNode}(undef, 0)
     sortedKeys = sort(collect(keys(frequencies)))
     for k in sortedKeys
         push!(nodes, HuffmanLeafNode(k, frequencies[k]))
@@ -99,7 +99,7 @@ function huffmanEncode(symbols)
 
     symbols = collect(keys(frequencies))
     numSymbols = length(symbols)
-    header = Array{Int64}(undef, 2*numSymbols+2)
+    header::Array{Int64} = Array{Int64}(undef, 2*numSymbols+2)
     header[1] = numSymbols
     header[2] = padding
     for i in 1:numSymbols
@@ -107,8 +107,8 @@ function huffmanEncode(symbols)
         header[2*i+2] = frequencies[symbols[i]]
     end
 
-    header = reinterpret(UInt8, header)
-    return cat(header, output, dims=(1,1))
+    headerBytes::Array{UInt8} = reinterpret(UInt8, header)
+    return cat(headerBytes, output, dims=(1,1))
 
 end
 

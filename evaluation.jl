@@ -1,6 +1,6 @@
 using ..tensorField
 
-function getTypeFrequencies(tf::SymmetricTensorField2d)
+function getTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
     types = [0,0,0,0]
     for t in 1:T
@@ -139,7 +139,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
 end
 
-function tensorFieldMatchSymmetric(tf1::SymmetricTensorField2d, tf2::SymmetricTensorField2d)
+function tensorFieldMatchSymmetric(tf1::TensorField2d, tf2::TensorField2d)
     if tf1.dims != tf2.dims
         return false
     end
@@ -171,16 +171,15 @@ function tensorFieldMatchSymmetric(tf1::SymmetricTensorField2d, tf2::SymmetricTe
 end
 
 function asymmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
-    dtype = typeof(tf_ground.entries[1,1][1,1])
-    ground_sos = tf_ground.entries[1,1].^2 + tf_ground.entries[1,2].^2 + tf_ground.entries[2,1].^2 + tf_ground.entries[2,2].^2
+    ground_sos = tf_ground.A.^2 + tf_ground.B.^2 + tf_ground.C.^2 + tf_ground.D.^2
     peak_signal = sqrt(maximum(ground_sos)) - sqrt(minimum(ground_sos))
 
     dims = tf_ground.dims
 
-    mse = sum( (tf_ground.entries[1,1] - tf_reconstructed.entries[1,1]).^2
-             + (tf_ground.entries[1,2] - tf_reconstructed.entries[1,2]).^2
-             + (tf_ground.entries[2,1] - tf_reconstructed.entries[2,1]).^2
-             + (tf_ground.entries[2,2] - tf_reconstructed.entries[2,2]).^2 
+    mse = sum( (tf_ground.A - tf_reconstructed.A).^2
+             + (tf_ground.B - tf_reconstructed.B).^2
+             + (tf_ground.C - tf_reconstructed.C).^2
+             + (tf_ground.D - tf_reconstructed.D).^2 
     ) / (dims[1]*dims[2]*dims[3])
 
     psnr = 10 * log(10, peak_signal^2 / mse)
@@ -188,16 +187,15 @@ function asymmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2
 
 end
 
-function symmetricPSNR(tf_ground::SymmetricTensorField2d, tf_reconstructed::SymmetricTensorField2d)
-    dtype = typeof(tf_ground.entries[1,1][1,1])
-    ground_sos = tf_ground.entries[1,1].^2 + tf_ground.entries[1,2].^2 + tf_ground.entries[2,2].^2
+function symmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
+    ground_sos = tf_ground.A.^2 + tf_ground.B.^2 + tf_ground.D.^2
     peak_signal = sqrt(maximum(ground_sos)) - sqrt(minimum(ground_sos))
 
     dims = tf_ground.dims
 
-    mse = sum( (tf_ground.entries[1,1] - tf_reconstructed.entries[1,1]).^2
-             + (tf_ground.entries[1,2] - tf_reconstructed.entries[1,2]).^2
-             + (tf_ground.entries[2,2] - tf_reconstructed.entries[2,2]).^2 
+    mse = sum( (tf_ground.A[1,1] - tf_reconstructed.A[1,1]).^2
+             + (tf_ground.B[1,2] - tf_reconstructed.B[1,2]).^2
+             + (tf_ground.D[2,2] - tf_reconstructed.D[2,2]).^2 
     ) / (dims[1]*dims[2]*dims[3])
 
     psnr = 10 * log(10, peak_signal^2 / mse)
@@ -211,21 +209,29 @@ function maxErrorAndRange(tf_ground, tf_reconstructed)
 
     max_error = -Inf
 
-    for row in 1:2
-        for col in 1:2
-            max_val = max(max_val, maximum(tf_ground.entries[row,col]))
-            min_val = min(min_val, minimum(tf_ground.entries[row,col]))
-            max_error = max(max_error, maximum( abs.(tf_ground.entries[row,col] - tf_reconstructed.entries[row,col] ) ) )
-        end
-    end
+    max_val = max(max_val, maximum(tf_ground.A))
+    min_val = min(min_val, minimum(tf_ground.A))
+    max_error = max(max_error, maximum( abs.(tf_ground.A - tf_reconstructed.A) ))
+
+    max_val = max(max_val, maximum(tf_ground.B))
+    min_val = min(min_val, minimum(tf_ground.B))
+    max_error = max(max_error, maximum( abs.(tf_ground.B - tf_reconstructed.B) ))
+
+    max_val = max(max_val, maximum(tf_ground.C))
+    min_val = min(min_val, minimum(tf_ground.C))
+    max_error = max(max_error, maximum( abs.(tf_ground.C - tf_reconstructed.C) ))
+
+    max_val = max(max_val, maximum(tf_ground.D))
+    min_val = min(min_val, minimum(tf_ground.D))
+    max_error = max(max_error, maximum( abs.(tf_ground.D - tf_reconstructed.D) ))
 
     return (max_error), (max_val - min_val)
 
 end
 
 function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0)
-    tf1, dtype = loadTensorField2dFromFolder(ground, dims)
-    tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
+    tf1 = loadTensorField2dFromFolder(ground, dims)
+    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
     edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
@@ -242,9 +248,6 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
 
     eltSize = 64
-    if dtype == Float32
-        eltSize = 32
-    end
 
     ratio = eltSize*4/bitrate
 
@@ -274,8 +277,8 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
 end
 
 function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1, edgeEB = 1.0)
-    tf1, dtype = loadTensorField2dFromFolder(ground, dims)
-    tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
+    tf1 = loadTensorField2dFromFolder(ground, dims)
+    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
     edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
@@ -296,8 +299,8 @@ function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int
 end
 
 function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, symmetric::Bool = false, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
-    tf1, dtype = loadTensorField2dFromFolder(ground, dims)
-    tf2, _ = loadTensorField2dFromFolder(reconstructed, dims)
+    tf1 = loadTensorField2dFromFolder(ground, dims)
+    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     if symmetric
         psnr = symmetricPSNR(tf1, tf2)
@@ -308,9 +311,6 @@ function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims:
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
 
     eltSize = 64
-    if dtype == Float32
-        eltSize = 32
-    end
 
     numElts = 4
     if symmetric

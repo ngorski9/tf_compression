@@ -1,5 +1,7 @@
 module decompress
 
+using StaticArrays
+
 using ..utils
 using ..tensorField
 using ..huffman
@@ -172,9 +174,9 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     eigenvectorSpecialCaseArray = huffmanDecode(eigenvectorSpecialCaseBytes)
     if length(eigenvectorSpecialCaseArray) == 0
-        eigenvectorSpecialCaseCodes = zeros(Int64, Tuple(dims))
+        eigenvectorSpecialCaseCodes = zeros(Int64, dims_tuple)
     else
-        eigenvectorSpecialCaseCodes = reshape(eigenvectorSpecialCaseArray,Tuple(dims))
+        eigenvectorSpecialCaseCodes = reshape(eigenvectorSpecialCaseArray, dims_tuple)
     end
 
     # Decompress from SZ and load into a tensor field
@@ -184,7 +186,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
     dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
-    tf, dtype = loadTensorField2dFromFolder("$output", dims_tuple)
+    tf = loadTensorField2dFromFolder("$output", dims_tuple)
 
     next_lossless_full = 1
     next_lossless_d = 1
@@ -202,7 +204,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                     precision::UInt8 = baseCodes[i,j,t] >> 4
 
                     if precision >= 8
-                        setTensor( tf, i, j, t, [ lossless_A[next_lossless_full] lossless_B[next_lossless_full] ; lossless_C[next_lossless_full] lossless_D[next_lossless_full] ] )
+                        setTensor( tf, i, j, t,  SMatrix{2,2,Float64}(lossless_A[next_lossless_full], lossless_C[next_lossless_full], lossless_B[next_lossless_full], lossless_D[next_lossless_full]) )
                         next_lossless_full += 1
 
                     else
@@ -304,7 +306,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             sign_r = (r >= 0) ? 1 : -1
                             r = sign_r * s
                         else
-                            r = 0
+                            r = 0.0
                         end
 
                         setTensor(tf, i, j, t, recomposeTensor(d, r, s, θ))
@@ -318,26 +320,25 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
         end # end for 
     end # end for
 
-    tf2, dtype2 = loadTensorField2dFromFolder("../output/test", dims_tuple)
+    # tf2 = loadTensorField2dFromFolder("../output/test", dims_tuple)
 
-    for t in 1:dims[3]
-        for j in 1:dims[2]
-            for i in 1:dims[1]
-                if getTensor(tf,i,j,t) != getTensor(tf2,i,j,t)
-                    println("mismatch at $((i,j,t))")
-                    println(getTensor(tf,i,j,t))
-                    println(getTensor(tf2,i,j,t))
-                end
-            end
-        end
-    end
+    # for t in 1:dims[3]
+    #     for j in 1:dims[2]
+    #         for i in 1:dims[1]
+    #             if getTensor(tf,i,j,t) != getTensor(tf2,i,j,t)
+    #                 println("mismatch at $((i,j,t))")
+    #                 println(getTensor(tf,i,j,t))
+    #                 println(getTensor(tf2,i,j,t))
+    #             end
+    #         end
+    #     end
+    # end
 
     # Save to file
-    for row in 1:2
-        for col in 1:2
-            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf.entries[row, col])
-        end
-    end
+    saveArray64("$output/$decompress_folder/row_1_col_1.dat", tf.A)
+    saveArray64("$output/$decompress_folder/row_1_col_2.dat", tf.B)
+    saveArray64("$output/$decompress_folder/row_2_col_1.dat", tf.C)
+    saveArray64("$output/$decompress_folder/row_2_col_2.dat", tf.D)
 
     remove("$output/row_1_col_1.dat")
     remove("$output/row_1_col_2.dat")
@@ -377,17 +378,18 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     close(vals_file)
 
     codesBase = huffmanDecode(codeBytes)
+    dims_tuple::Tuple{Int64,Int64,Int64} = (dims[1],dims[2],dims[3])
     if length(codesBase) == 0
-        codes = zeros(Int64, Tuple(dims))
+        codes = zeros(Int64, dims_tuple)
     else
-        codes = reshape(codesBase,Tuple(dims))
+        codes = reshape(codesBase,dims_tuple)
     end
 
     fullLosslessBase = huffmanDecode(fullLosslessBytes)
     if length(fullLosslessBase) == 0
-        fullLossless = zeros(Int64, Tuple(dims))
+        fullLossless = zeros(Int64, dims_tuple)
     else
-        fullLossless = reshape(fullLosslessBase,Tuple(dims))
+        fullLossless = reshape(fullLosslessBase, dims_tuple)
     end
 
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
@@ -399,8 +401,8 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/$compressed_file.tar")
-    dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
-    tf, dtype = loadTensorField2dFromFolder("$output/$decompress_folder", dims_tuple)
+
+    tf = loadTensorField2dFromFolder("$output/$decompress_folder", dims_tuple)
 
     # adjust
 
@@ -409,13 +411,13 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
         for j in 1:dims[2]
             for i in 1:dims[1]
                 if fullLossless[i,j,t] == 1
-                    nextTensor = [ losslessValues[next_lossless] losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] losslessValues[next_lossless+2] ]
+                    nextTensor = SMatrix{2,2,Float64}(losslessValues[next_lossless], losslessValues[next_lossless+1], losslessValues[next_lossless+1], losslessValues[next_lossless+2])
                     setTensor(tf, i, j, t, nextTensor)
                     next_lossless += 3
                 elseif codes[i,j,t] == 2^bits-1
                     intermediateTensor = getTensor(tf, i, j, t)
                     trace = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
-                    nextTensor = [ losslessValues[next_lossless]+trace losslessValues[next_lossless+1] ; losslessValues[next_lossless+1] -losslessValues[next_lossless]+trace ]
+                    nextTensor = SMatrix{2,2,Float64}(losslessValues[next_lossless]+trace, losslessValues[next_lossless+1], losslessValues[next_lossless+1], -losslessValues[next_lossless]+trace)
                     setTensor(tf, i, j, t, nextTensor)
                     next_lossless += 2
                 elseif codes[i,j,t] != 0
@@ -426,12 +428,11 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
             end
         end
     end
-    # Save to file
-    for row in 1:2
-        for col in 1:2
-            saveArray("$output/$decompress_folder/row_$(row)_col_$(col).dat", tf.entries[row, col])
-        end
-    end
+
+    saveArray64("$output/$decompress_folder/row_1_col_1.dat", tf.A)
+    saveArray64("$output/$decompress_folder/row_1_col_2.dat", tf.B)
+    saveArray64("$output/$decompress_folder/row_2_col_1.dat", tf.C)
+    saveArray64("$output/$decompress_folder/row_2_col_2.dat", tf.D)
 
 end
 

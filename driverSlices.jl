@@ -14,8 +14,8 @@ using .utils
 
 function main()
 
-    folder = "../data/asym/heatedCylinder"
-    dims = (150,450,2001)
+    folder = "../data/asym/ocean"
+    dims = (101, 101, 27)
     eb = 0.01
     edgeError = 1.0
     naive = false
@@ -27,8 +27,6 @@ function main()
         range = slice:slice
     end
 
-    range = 500:2001
-
     totalCompressionTime = 0.0
     totalDecompressionTime = 0.0
     totalBitrate = 0.0
@@ -39,7 +37,7 @@ function main()
     falseEdge = 0
     falseCell = 0
 
-    tf, dtype = loadTensorField2dFromFolder(folder, dims)
+    tf = loadTensorField2dFromFolder(folder, dims)
 
     stdout_ = stdout
 
@@ -55,10 +53,10 @@ function main()
         end
 
         run(`mkdir ../output/slice`)
-        saveArray("../output/slice/row_1_col_1.dat", tf.entries[1,1][:,:,t])
-        saveArray("../output/slice/row_1_col_2.dat", tf.entries[1,2][:,:,t])
-        saveArray("../output/slice/row_2_col_1.dat", tf.entries[2,1][:,:,t])
-        saveArray("../output/slice/row_2_col_2.dat", tf.entries[2,2][:,:,t])
+        saveArray64("../output/slice/row_1_col_1.dat", tf.A[:,:,t])
+        saveArray64("../output/slice/row_1_col_2.dat", tf.B[:,:,t])
+        saveArray64("../output/slice/row_2_col_1.dat", tf.C[:,:,t])
+        saveArray64("../output/slice/row_2_col_2.dat", tf.D[:,:,t])
 
         compression_start = time()
 
@@ -124,4 +122,4 @@ function main()
 
 end
 
-main()
+# main()
