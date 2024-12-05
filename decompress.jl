@@ -335,10 +335,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     # end
 
     # Save to file
-    saveArray64("$output/$decompress_folder/row_1_col_1.dat", tf.A)
-    saveArray64("$output/$decompress_folder/row_1_col_2.dat", tf.B)
-    saveArray64("$output/$decompress_folder/row_2_col_1.dat", tf.C)
-    saveArray64("$output/$decompress_folder/row_2_col_2.dat", tf.D)
+    saveTensorField64("$output/$decompress_folder", tf)
 
     remove("$output/row_1_col_1.dat")
     remove("$output/row_1_col_2.dat")
@@ -429,10 +426,7 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
         end
     end
 
-    saveArray64("$output/$decompress_folder/row_1_col_1.dat", tf.A)
-    saveArray64("$output/$decompress_folder/row_1_col_2.dat", tf.B)
-    saveArray64("$output/$decompress_folder/row_2_col_1.dat", tf.C)
-    saveArray64("$output/$decompress_folder/row_2_col_2.dat", tf.D)
+    saveTensorField64("$output/$decompress_folder", tf)
 
 end
 

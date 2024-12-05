@@ -156,10 +156,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    saveArray32("$output/row_1_col_1_g.dat", tf.A)
-    saveArray32("$output/row_1_col_2_g.dat", tf.B)
-    saveArray32("$output/row_2_col_1_g.dat", tf.C)
-    saveArray32("$output/row_2_col_2_g.dat", tf.D)
+    saveTensorField32(output, tf, "_g")
 
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
@@ -951,9 +948,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    saveArray32("$output/row_1_col_1_g.dat", tf.A)
-    saveArray32("$output/row_1_col_2_g.dat", tf.B)
-    saveArray32("$output/row_2_col_2_g.dat", tf.D)
+
+    saveSymmetricTensorField32(output, tf, "_g")
 
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)

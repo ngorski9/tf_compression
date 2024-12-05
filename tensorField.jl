@@ -22,6 +22,11 @@ export classifyTensorEigenvalue
 export classifyEdge
 export zeroTensorField
 
+export saveTensorField32
+export saveTensorField64
+export saveSymmetricTensorField32
+export saveSymmetricTensorField64
+
 struct TensorField2d
     A::Array{Float64}
     B::Array{Float64}
@@ -82,6 +87,32 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
 
     return tf
 
+end
+
+function saveTensorField64(folder::String, tf::TensorField2d, suffix::String="")
+    saveArray64("$folder/row_1_col_1$suffix.dat", tf.A)
+    saveArray64("$folder/row_1_col_2$suffix.dat", tf.B)
+    saveArray64("$folder/row_2_col_1$suffix.dat", tf.C)
+    saveArray64("$folder/row_2_col_2$suffix.dat", tf.D)
+end
+
+function saveSymmetricTensorField64(folder::String, tf::TensorField2d, suffix::String="")
+    saveArray64("$folder/row_1_col_1$suffix.dat", tf.A)
+    saveArray64("$folder/row_1_col_2$suffix.dat", tf.B)
+    saveArray64("$folder/row_2_col_2$suffix.dat", tf.D)
+end
+
+function saveTensorField32(folder::String, tf::TensorField2d, suffix::String="")
+    saveArray32("$folder/row_1_col_1$suffix.dat", tf.A)
+    saveArray32("$folder/row_1_col_2$suffix.dat", tf.B)
+    saveArray32("$folder/row_2_col_1$suffix.dat", tf.C)
+    saveArray32("$folder/row_2_col_2$suffix.dat", tf.D)
+end
+
+function saveSymmetricTensorField32(folder::String, tf::TensorField2d, suffix::String="")
+    saveArray32("$folder/row_1_col_1$suffix.dat", tf.A)
+    saveArray32("$folder/row_1_col_2$suffix.dat", tf.B)
+    saveArray32("$folder/row_2_col_2$suffix.dat", tf.D)
 end
 
 function getTensor(tf::TensorField2d, x::Int64, y::Int64, t::Int64)
@@ -204,7 +235,7 @@ function recomposeTensor(y_d::AbstractFloat, y_r::AbstractFloat, y_s::AbstractFl
 
 end
 
-function decomposeTensorSymmetric(T::Matrix{Float64})
+function decomposeTensorSymmetric(T::SMatrix{2,2,Float64,4})
     trace = (T[1,1] + T[2,2]) / 2
     cplx = (T[1,1] - T[2,2])/2 + T[1,2]*im
     r = abs(cplx)
