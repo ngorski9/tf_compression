@@ -15,13 +15,12 @@ using .utils
 function main()
 
     folder = ""
-    dims = (-1,-1,-1)
+    dims = (-1, -1, -1)
     eb = -1.0
-    edgeError = 1.0
     naive = false
+    mask = true
     slice = -1
-    eigenvalue = false
-    eigenvector = false
+    bits = 6
 
     i = 1
     while i <= length(ARGS)
@@ -29,32 +28,25 @@ function main()
             folder = ARGS[i+1]
             i += 2
         elseif ARGS[i] == "--dims"
-            dims = (parse(Int64,ARGS[i+1]), parse(Int64,ARGS[i+2]), parse(Int64,ARGS[i+3]))
+            dims = (parse(Int64, ARGS[i+1]), parse(Int64, ARGS[i+2]), parse(Int64, ARGS[i+3]))
             i += 4
         elseif ARGS[i] == "--eb"
-            eb = parse(Float64,ARGS[i+1])
-            i += 2
-        elseif ARGS[i] == "--edgeEB"
-            edgeError = parse(Float64,Args[i+1])
+            eb = parse(Float64, ARGS[i+1])
             i += 2
         elseif ARGS[i] == "--naive"
             naive = true
             i += 1
+        elseif ARGS[i] == "--nomask"
+            mask = false
+            i += 1
         elseif ARGS[i] == "--slice"
-            slice = parse(Int64,ARGS[i+1])
+            slice = parse(Int64, ARGS[i+1])
             i += 2
-        elseif ARGS[i] == "--eigenvalue"
-            eigenvalue = true
-            i += 1
-        elseif ARGS[i] == "--eigenvector"
-            eigenvector = true
-            i += 1
-        elseif ARGS[i] == "--both"
-            eigenvalue = true
-            eigenvector = true
-            i += 1
+        elseif ARGS[i] == "--bits"
+            bits = parse(Int64, ARGS[i+1])
+            i += 2
         else
-            println("ERROR: unknown argument $(ARGS[i])")
+            println("ERROR: Unknown argument $(ARGS[i])")
             exit(1)
         end
     end
@@ -62,22 +54,17 @@ function main()
     badArgs = false
 
     if folder == ""
-        println("ERROR: missing argument --dataset")
+        println("ERROR: Missing argument --dataset")
         badArgs = true
     end
 
     if dims == (-1,-1,-1)
-        println("ERROR: missing argument --dims")
+        println("ERROR: Missing argument --dims")
         badArgs = true
     end
 
     if eb == -1.0
-        println("ERROR: missing argument --eb")
-        badArgs = true
-    end
-
-    if !eigenvalue && !eigenvector
-        println("ERROR: no preservation specified. Use --eigenvalue, --eigenvector, or --both")
+        println("ERROR: Missing argument --eb")
         badArgs = true
     end
 
@@ -94,12 +81,6 @@ function main()
     totalCompressionTime = 0.0
     totalDecompressionTime = 0.0
     totalBitrate = 0.0
-    maxError = 0.0
-
-    falseVertexEigenvector = 0
-    falseVertexEigenvalue = 0
-    falseEdge = 0
-    falseCell = 0
 
     tf = loadTensorField2dFromFolder(folder, dims)
 
@@ -125,9 +106,13 @@ function main()
         compression_start = time()
 
         if naive
-            compress2dNaive("../output/slice", (dims[1],dims[2],1), "compressed_output", eb)
+            if mask
+                compress2dSymmetricNaiveWithMask("../output/slice", (dims[1],dims[2],1), "compressed_output", eb)
+            else
+                compress2dSymmetricNaive("../output/slice", (dims[1],dims[2],1), "compressed_output", eb)
+            end
         else
-            compress2d("../output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, "../output", false, eigenvalue, eigenvector)
+            compress2dSymmetric("../output/slice", (dims[1],dims[2],1), "compressed_output", eb, bits, "../output")
         end
 
         compression_end = time()
@@ -137,9 +122,13 @@ function main()
         removeIfExists("../output/compressed_output.tar")
         decompression_start = time()
         if naive
-            decompress2dNaive("compressed_output", "reconstructed")
+            if mask
+                decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed")
+            else
+                decompress2dSymmetricNaive("compressed_output", "reconstructed")
+            end
         else
-            decompress2d("compressed_output", "reconstructed")
+            decompress2dSymmetric("compressed_output", "reconstructed", bits)
         end
         decompression_end = time()
         dt = decompression_end - decompression_start
@@ -147,7 +136,7 @@ function main()
         totalCompressionTime += ct
         totalDecompressionTime += dt
 
-        metrics = evaluationList2d("../output/slice", "../output/reconstructed", (dims[1], dims[2], 1), compressed_size, edgeError, eigenvalue, eigenvector)
+        metrics = evaluationList2dSymmetric("../output/slice", "../output/reconstructed", (dims[1], dims[2], 1), compressed_size)
 
         if !naive && (!metrics[1] || metrics[2] > eb*metrics[3])
             redirect_stdout(stdout_)
@@ -158,13 +147,6 @@ function main()
             exit(1)
         else
             totalBitrate += metrics[4]
-        end
-
-        if naive
-            falseVertexEigenvector += metrics[5]
-            falseVertexEigenvalue += metrics[6]
-            falseEdge += metrics[7]
-            falseCell += metrics[8]
         end
 
         redirect_stdout(stdout_)
@@ -179,13 +161,6 @@ function main()
     println("compression ratio: $(256.0/averageBitrate)")
     println("compression time: $totalCompressionTime")
     println("decompression time: $totalDecompressionTime")
-
-    if naive
-        println("false vertex eigenvector: $falseVertexEigenvector")
-        println("false vertex eigenvalue: $falseVertexEigenvalue")
-        println("false edge: $falseEdge")
-        println("false cell: $falseCell")
-    end
 
 end
 

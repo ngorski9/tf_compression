@@ -39,14 +39,14 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
                 if classifyTensorEigenvector(r1, s1) == classifyTensorEigenvector(r2, s2)
                     result[1,1] += 1
                 else
-                    println((i,j,t))
+                    # println((i,j,t))
                     result[1,2] += 1
                 end
 
                 if classifyTensorEigenvalue(d1, r1, s1) == classifyTensorEigenvalue(d2, r2, s2)
                     result[2,1] += 1
                 else
-                    println((i,j,t))
+                    # println((i,j,t))
                     result[2,2] += 1
                 end
 
@@ -58,7 +58,7 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
 end
 
 # edge iteration is hardcoded for the specific mesh
-function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
+function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB, eigenvalue = true, eigenvector = true)
 
     # hit edges & miss edges
     result = [0, 0]
@@ -89,11 +89,11 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
                     t21 = getTensor(tf1, i2, j2, t)
                     t22 = getTensor(tf2, i2, j2, t)
 
-                    if edgesMatch( t11, t21, t12, t22, edgeEB )
+                    if edgesMatch( t11, t21, t12, t22, edgeEB, eigenvalue, eigenvector )
                         result[1] += 1
                     else
                         result[2] += 1
-                        println((i1,j1,t,i2,j2,t))
+                        # println((i1,j1,t,i2,j2,t))
                     end
 
                 end
@@ -128,6 +128,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[1] += 1
                     else
                         result[2] += 1
+                        # println((i,j,t,Bool(k)))
                     end
 
                 end
@@ -171,70 +172,29 @@ function tensorFieldMatchSymmetric(tf1::TensorField2d, tf2::TensorField2d)
 end
 
 function asymmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
-    ground_sos = tf_ground.A.^2 + tf_ground.B.^2 + tf_ground.C.^2 + tf_ground.D.^2
-    peak_signal = sqrt(maximum(ground_sos)) - sqrt(minimum(ground_sos))
-
-    dims = tf_ground.dims
-
-    mse = sum( (tf_ground.A - tf_reconstructed.A).^2
-             + (tf_ground.B - tf_reconstructed.B).^2
-             + (tf_ground.C - tf_reconstructed.C).^2
-             + (tf_ground.D - tf_reconstructed.D).^2 
-    ) / (dims[1]*dims[2]*dims[3])
-
-    psnr = 10 * log(10, peak_signal^2 / mse)
-    return psnr
-
+    return -1.0
 end
 
 function symmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
-    ground_sos = tf_ground.A.^2 + tf_ground.B.^2 + tf_ground.D.^2
-    peak_signal = sqrt(maximum(ground_sos)) - sqrt(minimum(ground_sos))
-
-    dims = tf_ground.dims
-
-    mse = sum( (tf_ground.A[1,1] - tf_reconstructed.A[1,1]).^2
-             + (tf_ground.B[1,2] - tf_reconstructed.B[1,2]).^2
-             + (tf_ground.D[2,2] - tf_reconstructed.D[2,2]).^2 
-    ) / (dims[1]*dims[2]*dims[3])
-
-    psnr = 10 * log(10, peak_signal^2 / mse)
-    return psnr
-
+    return -1.0
 end
 
 function maxErrorAndRange(tf_ground, tf_reconstructed)
-    max_val = -Inf
-    min_val = Inf
 
-    max_error = -Inf
-
-    max_val = max(max_val, maximum(tf_ground.A))
-    min_val = min(min_val, minimum(tf_ground.A))
-    max_error = max(max_error, maximum( abs.(tf_ground.A - tf_reconstructed.A) ))
-
-    max_val = max(max_val, maximum(tf_ground.B))
-    min_val = min(min_val, minimum(tf_ground.B))
-    max_error = max(max_error, maximum( abs.(tf_ground.B - tf_reconstructed.B) ))
-
-    max_val = max(max_val, maximum(tf_ground.C))
-    min_val = min(min_val, minimum(tf_ground.C))
-    max_error = max(max_error, maximum( abs.(tf_ground.C - tf_reconstructed.C) ))
-
-    max_val = max(max_val, maximum(tf_ground.D))
-    min_val = min(min_val, minimum(tf_ground.D))
-    max_error = max(max_error, maximum( abs.(tf_ground.D - tf_reconstructed.D) ))
+    max_val = maximum(tf_ground.entries)
+    min_val = minimum(tf_ground.entries)
+    max_error = maximum( abs.(tf_ground.entries - tf_reconstructed.entries) )
 
     return (max_error), (max_val - min_val)
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0)
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, eigenvalue, eigenvector)
     cellMatching = topologyCellMatching(tf1, tf2)
 
     if vertexMatching[1,2] == 0 && vertexMatching[2,2] == 0 && edgeMatching[2] == 0 && cellMatching[2] == 0
@@ -276,15 +236,15 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
 
 end
 
-function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1, edgeEB = 1.0)
+function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, eigenvalue, eigenvector)
     cellMatching = topologyCellMatching(tf1, tf2)
 
-    if vertexMatching[1,2] == 0 && vertexMatching[2,2] == 0 && edgeMatching[2] == 0 && cellMatching[2] == 0
+    if (!eigenvector || vertexMatching[1,2] == 0) && (!eigenvalue || vertexMatching[2,2] == 0) && edgeMatching[2] == 0 && (!eigenvector || cellMatching[2] == 0)
         preserved = true
     else
         preserved = false
@@ -342,5 +302,19 @@ function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims:
     if decompression_time != -1
         println("decompression time: $decompression_time")
     end
+
+end
+
+function evaluationList2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1 )
+    tf1 = loadTensorField2dFromFolder(ground, dims)
+    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
+
+    bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
+
+    max_error, range = maxErrorAndRange(tf1, tf2)
+
+    match = tensorFieldMatchSymmetric(tf1, tf2)
+
+    return (match, max_error, range, bitrate)
 
 end

@@ -20,6 +20,10 @@ end
 
 function vector(A::Array{Float64}, dual=false)
 
+    if A[1,1] == 0.0 && A[1,2] == 0.0 && A[2,1] == 0.0 && A[2,2] == 0.0
+        return [0.0,0.0]
+    end
+
     if dual
 
         d = (A[1,1] + A[2,2]) / 2
@@ -145,9 +149,8 @@ function main()
     t1 = time()
     plt = pyimport("matplotlib.pyplot")
 
-    folder = "../data/sym/brain2000.65"
-    # folder = "../data/2d/wind1"
-    size = (148,190)
+    folder = "../output/reconstructed"
+    size = (65, 65)
     scale = 3
     num_steps = 60 # Interpolation length
     max_path_tracing = 60 # kill after a certain number of steps to avoid loops
@@ -239,7 +242,12 @@ function main()
     noise = zeros(Float64, imageSize )
     for j in 1:imageSize[2]
         for i in 2:imageSize[1]
-            noise[i,j] = rand()
+            xo = (i-0.5)/scale+1.0
+            yL = (j-0.7)/scale+1.0
+            yH = (j-0.3)/scale+1.0
+            if interpolate(tf, [xo, yL] ) != [0.0 0.0 ; 0.0 0.0] && interpolate(tf, [xo,yH]) != [0.0 0.0 ; 0.0 0.0]
+                noise[i,j] = rand()
+            end
         end
     end
 

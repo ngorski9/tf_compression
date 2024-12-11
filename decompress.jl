@@ -10,6 +10,7 @@ export decompress2d
 export decompress2dNaive
 export decompress2dSymmetric
 export decompress2dSymmetricNaive
+export decompress2dSymmetricNaiveWithMask
 
 function decompress2dNaive(compressed_file, decompress_folder, output = "../output")
     try
@@ -22,7 +23,8 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
     cwd = pwd()
     cd(output)
 
-    run(`xz -dv $output/$compressed_file.tar.xz`)
+    # run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`zstd -d $output/$compressed_file.tar.zst`)
     run(`tar xvf $output/$compressed_file.tar`)
 
     cd(cwd)
@@ -56,7 +58,8 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
     cwd = pwd()
     cd(output)
 
-    run(`xz -dv $output/$compressed_file.tar.xz`)
+    # run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`zstd -d $output/$compressed_file.tar.zst`)
     run(`tar xvf $output/$compressed_file.tar`)
 
     cd(cwd)
@@ -78,6 +81,58 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
 
 end
 
+function decompress2dSymmetricNaiveWithMask(compressed_file, decompress_folder, output = "../output")
+    try
+        run(`mkdir $output/$decompress_folder`)
+    catch
+    end
+
+    # Un XZ the compressed file and undo the tar
+
+    cwd = pwd()
+    cd(output)
+
+    # run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`zstd -d $output/$compressed_file.tar.zst`)
+    run(`tar xvf $output/$compressed_file.tar`)
+
+    cd(cwd)
+    
+    vals_file = open("$output/vals.bytes", "r")
+    dims = reinterpret(Int64, read(vals_file, 24))
+    bound = reinterpret(Float64, read(vals_file, 8))[1]
+    huffmanBytes = read(vals_file)
+    close(vals_file)
+
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
+
+    mask = huffmanDecode(huffmanBytes)
+
+    if length(mask) > 0
+        tf = loadTensorField2dFromFolder("$output/$decompress_folder", (dims[1]*dims[2]*dims[3],1,1))
+
+        for i in 1:(dims[1]*dims[2]*dims[3])
+            if mask[i] == 0.0
+                tf.entries[1,i,1,1] = 0.0
+                tf.entries[2,i,1,1] = 0.0
+                tf.entries[3,i,1,1] = 0.0
+                tf.entries[4,i,1,1] = 0.0
+            end
+        end
+
+        saveTensorField64("$output/$decompress_folder", tf)        
+    end
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/$compressed_file.tar")
+
+end
+
 function decompress2d(compressed_file, decompress_folder, output = "../output", verbose = false)
 
     try
@@ -90,7 +145,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     cwd = pwd()
     cd(output)
 
-    run(`xz -dv $output/$compressed_file.tar.xz`)
+    # run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`zstd -d $output/$compressed_file.tar.zst`)
     run(`tar xvf $output/$compressed_file.tar`)
 
     cd(cwd)
@@ -153,21 +209,21 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     dCodesBase = huffmanDecode(dBytes)
     if length(dCodesBase) == 0
-        dCodes = zeros(Int64, dims_tuple)
+        dCodes = 127*ones(Int64, dims_tuple)
     else
         dCodes = reshape(dCodesBase, dims_tuple)
     end
 
     rCodesBase = huffmanDecode(rBytes)
     if length(rCodesBase) == 0
-        rCodes = zeros(Int64, dims_tuple)
+        rCodes = 127*ones(Int64, dims_tuple)
     else
         rCodes = reshape(rCodesBase, dims_tuple)
     end
 
     sCodesBase = huffmanDecode(sBytes)
     if length(sCodesBase) == 0
-        sCodes = zeros(Int64, dims_tuple)
+        sCodes = 127*ones(Int64, dims_tuple)
     else
         sCodes = reshape(sCodesBase, dims_tuple)
     end
@@ -313,7 +369,6 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
                     end # end if precision >= 8 (then else for the main reconstruction)
 
-
                 end # end if not all of the base codes are 0
 
             end # end for
@@ -328,7 +383,10 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     #             if getTensor(tf,i,j,t) != getTensor(tf2,i,j,t)
     #                 println("mismatch at $((i,j,t))")
     #                 println(getTensor(tf,i,j,t))
+    #                 println(decomposeTensor(getTensor(tf,i,j,t)))
+    #                 println("---")
     #                 println(getTensor(tf2,i,j,t))
+    #                 println(decomposeTensor(getTensor(tf2,i,j,t)))
     #             end
     #         end
     #     end
@@ -359,7 +417,8 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     cwd = pwd()
     cd(output)
 
-    run(`xz -dv $output/$compressed_file.tar.xz`)
+    # run(`xz -dv $output/$compressed_file.tar.xz`)
+    run(`zstd -d $output/$compressed_file.tar.zst`)
     run(`tar xvf $output/$compressed_file.tar`)
 
     cd(cwd)

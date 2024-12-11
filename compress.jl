@@ -2,6 +2,7 @@ module compress
 
 using LinearAlgebra
 using DataStructures
+using StaticArrays
 
 using ..tensorField
 using ..decompress
@@ -11,29 +12,15 @@ using ..utils
 export compress2d
 export compress2dNaive
 export compress2dSymmetric
-export compress2dSymmetricOld
-export compress2dSymmetricSimple
 export compress2dSymmetricNaive
+export compress2dSymmetricNaiveWithMask
 
 function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output", verbose=false)
     tf = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
 
-    max_entry = -Inf
-    min_entry = Inf
-
-    for t in 1:dims[3]
-        for j in 1:dims[2]
-            for i in 1:dims[1]
-                matrix = getTensor(tf, i, j, t)
-
-                max_entry = max(max_entry, maximum(matrix))
-                min_entry = min(min_entry, minimum(matrix))
-
-            end
-        end
-    end
+    min_entry, max_entry = getMinAndMax(tf)
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
@@ -53,12 +40,12 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     cd(output)
 
     removeIfExists("$output_file.tar")
-    removeIfExists("$output_file.tar.xz")
+    removeIfExists("$output_file.tar.zst")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_1.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz $output_file.tar`)
+    run(`zstd $output_file.tar`)
 
-    removeIfExists("$output_file.tar")
+    # removeIfExists("$output_file.tar")
 
     cd(cwd)
 
@@ -75,20 +62,7 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
 
     # prepare derived attributes for compression
 
-    max_entry = -Inf
-    min_entry = Inf
-
-    for t in 1:dims[3]
-        for j in 1:dims[2]
-            for i in 1:dims[1]
-                matrix = getTensor(tf, i, j, t)
-
-                max_entry = max(max_entry, maximum(matrix))
-                min_entry = min(min_entry, minimum(matrix))
-
-            end
-        end
-    end
+    min_entry, max_entry = getMinAndMax(tf)
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
@@ -107,12 +81,12 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
     cd(output)
 
     removeIfExists("$output_file.tar")
-    removeIfExists("$output_file.tar.xz")
+    removeIfExists("$output_file.tar.zst")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz $output_file.tar`)
+    run(`zstd $output_file.tar`)
 
-    removeIfExists("$output_file.tar")
+    # removeIfExists("$output_file.tar")
 
     cd(cwd)
 
@@ -122,7 +96,72 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
     remove("$output/vals.bytes")
 end
 
-function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false)
+function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+    tf = loadTensorField2dFromFolder(containing_folder, dims)
+
+    # prepare derived attributes for compression
+
+    min_entry = tf.entries[1,1,1]
+    max_entry = tf.entries[1,1,1]
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+    mask = ones(Int64, dims)
+
+    for k in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
+
+                for t in 1:4
+                    if tf.entries[t,i,j,k] < min_entry
+                        min_entry = tf.entries[t,i,j,k]
+                    elseif tf.entries[t,i,j,k] > max_entry
+                        max_entry = tf.entries[t,i,j,k]
+                    end
+                end
+
+                if tf.entries[1,i,j,k] == 0.0 && tf.entries[2,i,j,k] == 0.0 && tf.entries[3,i,j,k] == 0.0 && tf.entries[4,i,j,k] == 0.0
+                    mask[i,j,k] = 0
+                end
+
+            end
+        end
+    end
+
+    aeb = relative_error_bound * (max_entry - min_entry)
+
+    maskBytes = huffmanEncode(vec(mask))
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+
+    vals_file = open("$output/vals.bytes", "w")
+    write(vals_file, dims[1])
+    write(vals_file, dims[2])
+    write(vals_file, dims[3])        
+    write(vals_file, relative_error_bound)
+    write(vals_file, maskBytes)
+    close(vals_file)
+
+    cwd = pwd()
+    cd(output)
+
+    removeIfExists("$output_file.tar")
+    removeIfExists("$output_file.tar.zst")
+
+    run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
+    run(`zstd $output_file.tar`)
+
+    # removeIfExists("$output_file.tar")
+
+    cd(cwd)
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/vals.bytes")
+end
+
+function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false, eigenvalue=true, eigenvector=true)
     tf = loadTensorField2dFromFolder(containing_folder, dims)
     
     # prepare derived attributes for compression
@@ -214,39 +253,42 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 s_final[i,j,t] = s_ground[i,j,t]
                 θ_final[i,j,t] = θ_ground[i,j,t]
                 setTensor(tf2, i,j,t, getTensor(tf,i,j,t))
-                if (i,j,t) == (47,30,1)
-                    println("set 1")
-                end
+                # if (i,j,t) == (47,30,1)
+                #     println("set 1")
+                # end
 
             else
                 precisions[i,j,t] += 1
-                d_code = Int64(round((d_ground[i,j,t]-d_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb))
+                if eigenvalue
+                    d_code = Int64(round((d_ground[i,j,t]-d_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb))
+
+                    if d_code < -127 || d_code > 127
+                        d_final[i,j,t] = d_ground[i,j,t]
+                        d_codes[i,j,t] = 255                        
+                    else
+                        d_final[i,j,t] = d_intermediate[i,j,t] + aeb * d_code / (2^precisions[i,j,t])
+                        d_codes[i,j,t] = d_code + 127                        
+                    end
+                end
+
                 r_code = Int64(round((r_ground[i,j,t]-r_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb))
                 s_code = Int64(round((s_ground[i,j,t]-s_intermediate[i,j,t])*(2^precisions[i,j,t])/(sqrt(2)*aeb)))
 
-                if d_code < -127 || d_code > 127
-                    d_code = 255
-                    d_final[i,j,t] = d_ground[i,j,t]
-                else
-                    d_final[i,j,t] = d_intermediate[i,j,t] + aeb * d_code / (2^precisions[i,j,t])
-                end
-                d_codes[i,j,t] = d_code + 127
-
                 if r_code < -127 || r_code > 127
-                    r_code = 255
                     r_final[i,j,t] = r_ground[i,j,t]
+                    r_codes[i,j,t] = 255                    
                 else
                     r_final[i,j,t] = r_intermediate[i,j,t] + aeb * r_code / (2^precisions[i,j,t])
+                    r_codes[i,j,t] = r_code + 127                    
                 end
-                r_codes[i,j,t] = r_code + 127
 
                 if s_code < -127 || s_code > 127
-                    s_code = 255
                     s_final[i,j,t] = s_ground[i,j,t]
+                    s_codes[i,j,t] = 255
                 else
                     s_final[i,j,t] = s_intermediate[i,j,t] + sqrt(2) * aeb * s_code / (2^precisions[i,j,t])
+                    s_codes[i,j,t] = s_code + 127                    
                 end
-                s_codes[i,j,t] = s_code + 127
 
                 if !angles_mandatory[i,j,t]
                     θ_final[i,j,t] = θ_intermediate[i,j,t]
@@ -274,7 +316,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             θ_swap = θ_final[coords...]
 
             s_fix = 0
-
+            
             if precisions[coords...] != 0
                 # account for s possibly being negative
                 if s_swap < -(sqrt(2)-1)*aeb
@@ -293,10 +335,21 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             # Check whether any modifications need to take place at all.
             modifications = false
 
-            eigenvectorRecon = classifyTensorEigenvector(r_swap, s_swap)
-            eigenvectorGround = classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])
-            eigenvalueRecon = classifyTensorEigenvalue(d_swap, r_swap, s_swap)
-            eigenvalueGround = classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...])
+            if eigenvector
+                eigenvectorRecon = classifyTensorEigenvector(r_swap, s_swap)
+                eigenvectorGround = classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])
+            else
+                eigenvectorRecon = 0
+                eigenvectorGround = 0
+            end
+
+            if eigenvalue
+                eigenvalueRecon = classifyTensorEigenvalue(d_swap, r_swap, s_swap)
+                eigenvalueGround = classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...])
+            else
+                eigenvalueRecon = 0
+                eigenvalueGround = 0
+            end
 
             if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(getTensor(tf,coords...)-getTensor(tf2,coords...))) <= aeb)
 
@@ -306,7 +359,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 if !degenerateCase
                     modifications = true
 
-                    if precisions[coords...] == 0
+                    if precisions[coords...] != 0
                         # account for s possibly being negative
                         if s_swap < -(sqrt(2)-1)*aeb
                             s_swap += sqrt(2)*aeb
@@ -326,13 +379,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                     # eigenvector special cases and r_sign_swap
 
-                    if eigenvectorGround == SYMMETRIC && eigenvectorRecon != eigenvectorGround
-                        eigenvector_special_cases[coords...] = 1
-                    else
-                        r_sign_swap = ( r_ground[coords...] > 0 ) ⊻ ( r_swap > 0 )
-                        if (eigenvectorGround == PI_BY_4 || eigenvectorGround == MINUS_PI_BY_4) && eigenvectorRecon != eigenvectorGround
-                            eigenvector_special_cases[coords...] = 2
+                    if eigenvector || ( abs(r_ground[coords...]) >= abs(d_ground[coords...]) && s_ground[coords...] >= abs(d_ground[coords...]) && abs(r_ground[coords...]) == s_ground[coords...] )
+                        if eigenvectorGround == SYMMETRIC && eigenvectorRecon != eigenvectorGround
+                            eigenvector_special_cases[coords...] = 1
+                        else
+                            r_sign_swap = ( r_ground[coords...] > 0 ) ⊻ ( r_swap > 0 )
+                            if (eigenvectorGround == PI_BY_4 || eigenvectorGround == MINUS_PI_BY_4) && eigenvectorRecon != eigenvectorGround
+                                eigenvector_special_cases[coords...] = 2
+                            end
                         end
+                    elseif abs(r_ground[coords...]) == abs(s_ground[coords...]) && (abs(r_ground[coords...]) > abs(d_ground[coords...]) || abs(s_ground[coords...]) > abs(d_ground[coords...]))
+                        eigenvector_special_cases[coords...] = 1
                     end
 
                     if r_sign_swap
@@ -344,50 +401,58 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     # d sign swap
-                    d_sign_swap = ( abs(d_ground[coords...]) > abs(r_ground[coords...]) && abs(d_ground[coords...]) > s_ground[coords...] ) && ( (d_ground[coords...] > 0) ⊻ (d_swap > 0) )
 
-                    if d_sign_swap
-                        if d_swap < 0
-                            d_swap += aeb
-                        else
-                            d_swap -= aeb
+                    if eigenvalue
+                        d_sign_swap = ( abs(d_ground[coords...]) > abs(r_ground[coords...]) && abs(d_ground[coords...]) > s_ground[coords...] ) && ( (d_ground[coords...] > 0) ⊻ (d_swap > 0) )
+
+                        if d_sign_swap
+                            if d_swap < 0
+                                d_swap += aeb
+                            else
+                                d_swap -= aeb
+                            end
                         end
                     end
 
                     # magnitude swap codes
 
-                    d_largest_swap = ( abs(d_ground[coords...]) >= abs(r_ground[coords...]) && abs(d_ground[coords...]) >= s_ground[coords...] ) ⊻ (abs(d_swap) > abs(r_swap) && abs(d_swap) > s_swap)
+                    if eigenvalue
+                        d_largest_swap = ( abs(d_ground[coords...]) >= abs(r_ground[coords...]) && abs(d_ground[coords...]) >= s_ground[coords...] ) ⊻ (abs(d_swap) > abs(r_swap) && abs(d_swap) > s_swap)
 
-                    if d_largest_swap
-                        # swap d with the larger of r or s
-                        if abs(r_swap) > s_swap
-                            sign_d = (d_swap >= 0) ? 1 : -1
-                            sign_r = (r_swap >= 0) ? 1 : -1
-                            temp = d_swap
-                            d_swap = sign_d * abs(r_swap)
-                            r_swap = sign_r * abs(temp)
-                        else
-                            sign_d = (d_swap >= 0) ? 1 : -1
-                            temp = d_swap
-                            d_swap = sign_d * s_swap
-                            s_swap = abs(temp)
+                        if d_largest_swap
+                            # swap d with the larger of r or s
+                            if abs(r_swap) > s_swap
+                                sign_d = (d_swap >= 0) ? 1 : -1
+                                sign_r = (r_swap >= 0) ? 1 : -1
+                                temp = d_swap
+                                d_swap = sign_d * abs(r_swap)
+                                r_swap = sign_r * abs(temp)
+                            else
+                                sign_d = (d_swap >= 0) ? 1 : -1
+                                temp = d_swap
+                                d_swap = sign_d * s_swap
+                                s_swap = abs(temp)
+                            end
                         end
+
                     end
 
-                    if eigenvector_special_cases[coords...] == 0
-                        r_over_s_swap = (abs(r_ground[coords...]) >= s_ground[coords...]) ⊻ (abs(r_swap) >= s_swap)
+                    if eigenvector || (abs(r_ground[coords...]) >= abs(d_ground[coords...]) || s_ground[coords...] >= abs(d_ground[coords...]))
+                        if eigenvector_special_cases[coords...] == 0
+                            r_over_s_swap = (abs(r_ground[coords...]) >= s_ground[coords...]) ⊻ (abs(r_swap) >= s_swap)
 
-                        if r_over_s_swap
+                            if r_over_s_swap
+                                sign_r = (r_swap >= 0) ? 1 : -1
+                                temp = r_swap
+                                r_swap = sign_r * s_swap
+                                s_swap = abs(temp)
+                            end
+                        elseif eigenvector_special_cases[coords...] == 1
                             sign_r = (r_swap >= 0) ? 1 : -1
-                            temp = r_swap
                             r_swap = sign_r * s_swap
-                            s_swap = abs(temp)
+                        else
+                            r_swap = 0.0
                         end
-                    elseif eigenvector_special_cases[coords...] == 1
-                        sign_r = (r_swap >= 0) ? 1 : -1
-                        r_swap = sign_r * s_swap
-                    else
-                        r_swap = 0.0
                     end
                 end # end if not degenerate case
             end # end if the default classifications do not match
@@ -398,16 +463,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 raise_precision(coords...)
             elseif precisions[coords...] >= 8 || (!modifications && precisions[coords...] == 0 && θ_final[coords...] == θ_intermediate[coords...])
                 pending = false
-                # if coords == (249,32,1)
-                #     println("skip")
-                # end                
             else
                 reconstructed = recomposeTensor(d_swap, r_swap, s_swap, θ_swap)
                 d2, r2, s2, θ2 = decomposeTensor(reconstructed)
 
                 if maximum(abs.(reconstructed - getTensor(tf, coords...))) <= aeb &&
-                    classifyTensorEigenvector(r2, s2) == classifyTensorEigenvector(r_ground[coords...], s_ground[coords...]) &&
-                    classifyTensorEigenvalue(d2, r2, s2) == classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...])
+                    (!eigenvector || classifyTensorEigenvector(r2, s2) == classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])) &&
+                    (!eigenvalue || classifyTensorEigenvalue(d2, r2, s2) == classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...]))
 
                     pending = false
                     sfix_codes[coords...] = s_fix
@@ -490,9 +552,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             for v in newVertices
                                 processPoint(vertexCoords[v])
 
-                                if vertexCoords[v] == (47,30,1)
-                                    println("initial process")
-                                end
+                                # if vertexCoords[v] == (47,30,1)
+                                #     println("initial process")
+                                # end
                             end
 
                         end
@@ -541,12 +603,20 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             #     println((a2,b2,c2,d2))                                
                             # end
 
-                            while !edgesMatch( getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), edgeEB )
+                            groundTensor1 = getTensor(tf, vertexCoords[e[1]]...)
+                            groundTensor2 = getTensor(tf, vertexCoords[e[2]]...)
+                            reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
+                            reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
+
+                            while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector )
                                 raise_precision(vertexCoords[e[1]]...)
                                 processPoint(vertexCoords[e[1]])
 
                                 raise_precision(vertexCoords[e[2]]...)
                                 processPoint(vertexCoords[e[2]])
+
+                                reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
+                                reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
 
                                 # if vertexCoords[e[1]] == (47,30,1) || vertexCoords[e[2]] == (47,30,1)
                                 #     println("process edge")
@@ -574,117 +644,120 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         # Process individual cells to check circular points.
-                        if getCircularPointType(tf, x, y, t, top) != getCircularPointType(tf2, x, y, t, top)
+                        if eigenvector
+                            groundCircularPointType = getCircularPointType(tf, x, y, t, top)
+                            if groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
 
-                            θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
-                            θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
-                            θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
+                                θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
+                                θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
+                                θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
 
-                            if θe1 > pi
-                                θe1 = abs(θe1-2pi)
-                            end
+                                if θe1 > pi
+                                    θe1 = abs(θe1-2pi)
+                                end
 
-                            if θe2 > pi
-                                θe2 = abs(θe2-2pi)
-                            end
+                                if θe2 > pi
+                                    θe2 = abs(θe2-2pi)
+                                end
 
-                            if θe3 > pi
-                                θe3 = abs(θe3-2pi)
-                            end
+                                if θe3 > pi
+                                    θe3 = abs(θe3-2pi)
+                                end
 
-                            θe = [θe1, θe2, θe3]
-                            ll = [θe1==0.0, θe2==0.0, θe3==0.0]
+                                θe = [θe1, θe2, θe3]
+                                ll = [θe1==0.0, θe2==0.0, θe3==0.0]
 
-                            while getCircularPointType(tf, x, y, t, top) != getCircularPointType(tf2, x, y, t, top)
-                                if ll[1] && ll[2] && ll[3]
+                                while groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
+                                    if ll[1] && ll[2] && ll[3]
 
-                                    precisions[vertexCoords[1]...] = 8
-                                    precisions[vertexCoords[2]...] = 8
-                                    precisions[vertexCoords[3]...] = 8
+                                        precisions[vertexCoords[1]...] = 8
+                                        precisions[vertexCoords[2]...] = 8
+                                        precisions[vertexCoords[3]...] = 8
 
-                                    setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                    setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                    setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
+                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
+                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
+                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
 
-                                    θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
-                                    θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
-                                    θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
+                                        θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
+                                        θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
+                                        θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
 
-                                    if vertexCoords[1] == (47,30,1) || vertexCoords[2] == (47,30,1) || vertexCoords[3] == (47,30,1)
-                                        println("set 3")
-                                    end
-
-                                    if top
-                                        vertices_modified[2] = true
-                                        vertices_modified[3] = true
-                                        vertices_modified[4] = true
-                                    else
-                                        vertices_modified[1] = true
-                                        vertices_modified[2] = true
-                                        vertices_modified[3] = true
-                                    end
-
-                                else
-
-                                    changeTensor = findmax(θe)[2]
-
-                                    if angles_mandatory[vertexCoords[changeTensor]...]
-                                        θ_quantized[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
-                                        θ_final[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
-                                        θ_codes[vertexCoords[changeTensor]...] = 2^6-1
-                                        ll[changeTensor] = true
-                                        θe[changeTensor] = 0.0
-                                    else
-                                        angles_mandatory[vertexCoords[changeTensor]...] = true
-                                        if θ_quantized[vertexCoords[changeTensor]...] == Inf
-                                            quantize_angle(vertexCoords[changeTensor]...)
-                                        end
-                                    end
-                                    
-                                    if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] < 8
-
-                                        θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
-
-                                        setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
-                                                                                                      r_final[vertexCoords[changeTensor]...],
-                                                                                                      s_final[vertexCoords[changeTensor]...],
-                                                                                                      θ_final[vertexCoords[changeTensor]...]))
-
-                                        if vertexCoords[changeTensor] == (47,30,1)
-                                            println("set 4")
-                                        end
-                                                                                                    
-                                        processPoint(vertexCoords[changeTensor])
-                                        if vertexCoords[changeTensor] == (47,30,1)
-                                            println("process angle")
-                                        end
-                                        θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
-
-                                        if θe[changeTensor] > pi
-                                            θe[changeTensor] = abs(θe[changeTensor]-2pi)
-                                        end
-
-                                        if θe[changeTensor] == 0.0
-                                            ll[changeTensor] = true
-                                        end
+                                        # if vertexCoords[1] == (47,30,1) || vertexCoords[2] == (47,30,1) || vertexCoords[3] == (47,30,1)
+                                        #     println("set 3")
+                                        # end
 
                                         if top
-                                            if changeTensor == 1
-                                                vertices_modified[3] = true
-                                            elseif changeTensor == 2
-                                                vertices_modified[2] = true
-                                            else
-                                                vertices_modified[4] = true
-                                            end
+                                            vertices_modified[2] = true
+                                            vertices_modified[3] = true
+                                            vertices_modified[4] = true
                                         else
-                                            vertices_modified[changeTensor] = true
+                                            vertices_modified[1] = true
+                                            vertices_modified[2] = true
+                                            vertices_modified[3] = true
                                         end
+
+                                    else
+
+                                        changeTensor = findmax(θe)[2]
+
+                                        if angles_mandatory[vertexCoords[changeTensor]...]
+                                            θ_quantized[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
+                                            θ_final[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
+                                            θ_codes[vertexCoords[changeTensor]...] = 2^6-1
+                                            ll[changeTensor] = true
+                                            θe[changeTensor] = 0.0
+                                        else
+                                            angles_mandatory[vertexCoords[changeTensor]...] = true
+                                            if θ_quantized[vertexCoords[changeTensor]...] == Inf
+                                                quantize_angle(vertexCoords[changeTensor]...)
+                                            end
+                                        end
+                                        
+                                        if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] < 8
+
+                                            θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
+
+                                            setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
+                                                                                                        r_final[vertexCoords[changeTensor]...],
+                                                                                                        s_final[vertexCoords[changeTensor]...],
+                                                                                                        θ_final[vertexCoords[changeTensor]...]))
+
+                                            # if vertexCoords[changeTensor] == (47,30,1)
+                                            #     println("set 4")
+                                            # end
+                                                                                                        
+                                            processPoint(vertexCoords[changeTensor])
+                                            # if vertexCoords[changeTensor] == (47,30,1)
+                                            #     println("process angle")
+                                            # end
+                                            θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
+
+                                            if θe[changeTensor] > pi
+                                                θe[changeTensor] = abs(θe[changeTensor]-2pi)
+                                            end
+
+                                            if θe[changeTensor] == 0.0
+                                                ll[changeTensor] = true
+                                            end
+
+                                            if top
+                                                if changeTensor == 1
+                                                    vertices_modified[3] = true
+                                                elseif changeTensor == 2
+                                                    vertices_modified[2] = true
+                                                else
+                                                    vertices_modified[4] = true
+                                                end
+                                            else
+                                                vertices_modified[changeTensor] = true
+                                            end
+                                        end
+
                                     end
 
                                 end
 
                             end
-
                         end
 
                         if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
@@ -819,14 +892,21 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         end
     end
 
-    try
-        run(`mkdir $output/test`)
-    catch
-    end
-    # saveArray64("$output/test/row_1_col_1.dat", tf2.A)
-    # saveArray64("$output/test/row_1_col_2.dat", tf2.B)
-    # saveArray64("$output/test/row_2_col_1.dat", tf2.C)
-    # saveArray64("$output/test/row_2_col_2.dat", tf2.D)
+    # println("------")
+    # println((d_intermediate[639,75,1],r_intermediate[639,75,1],s_intermediate[639,75,1], θ_intermediate[639,75,1] ))
+    # println((d_final[639,75,1],r_final[639,75,1],s_final[639,75,1],θ_final[639,75,1]))
+    # println(decomposeTensor(getTensor(tf2,639,75,1)))
+    # println((d_codes[639,75,1],r_codes[639,75,1],s_codes[639,75,1],θ_codes[639,75,1]))
+    # println(precisions[639,75,1])
+    # println((aeb))
+    # println((base_codes[639,75,1], sfix_codes[639,75,1],eigenvector_special_cases[639,75,1]))
+    # println("------")
+
+    # try
+    #     run(`mkdir $output/test`)
+    # catch
+    # end
+    # saveTensorField64("$output/test",tf2)
 
     baseCodeBytes = huffmanEncode(vec(base_codes))
     θAndSfixBytes = huffmanEncode(vec(θ_and_sfix_codes))
@@ -899,12 +979,12 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     cd(output)
 
     removeIfExists("$output_file.tar")
-    removeIfExists("$output_file.tar.xz")
+    removeIfExists("$output_file.tar.zst")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_1.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz $output_file.tar`)
+    run(`zstd $output_file.tar`)
 
-    removeIfExists("$output_file.tar")
+    # removeIfExists("$output_file.tar")
 
     cd(cwd)
 
@@ -921,8 +1001,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     remove("$output/row_2_col_1_g.dat")
     remove("$output/row_2_col_2_g.dat")
     remove("$output/vals.bytes")
-
-    return -1, -1
 
 end
 
@@ -957,7 +1035,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     run(`cp $output/row_1_col_2.dat $output/row_2_col_1.dat`)
 
     tf2 = loadTensorField2dFromFolder(output, dims)
-    stack::Array{Tuple{Int64,Int64,Bool}} = Array{Tuple{Int64,Int64,Bool}}(undef, 0)
+    stack::Array{Tuple{Int64,Int64,Bool,Bool}} = Array{Tuple{Int64,Int64,Bool,Bool}}(undef, 0)
 
     codes = zeros(UInt64, dims)
     full_lossless = zeros(UInt64, dims)
@@ -973,11 +1051,39 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
             for i in 1:dims[1]-1
                 for k in 0:1
 
-                    push!(stack, (i,j,Bool(k)))
+                    push!(stack, (i,j,Bool(k),true))
 
                     while length(stack) > 0
                         numProcess += 1
-                        x,y,top = pop!(stack)
+                        x,y,top,checkNewVertices = pop!(stack)
+
+                        if checkNewVertices
+
+                            if top
+                                if getTensor(tf, x+1,y+1,t) == SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0)
+                                    full_lossless[x+1,y+1,t] = 1
+                                    setTensor(tf2,x+1,y+1,t,SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0))
+                                end
+                            else
+                                if x == 0
+                                    if y == 0
+                                        if getTensor(tf, x,y,t) == SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0)
+                                            full_lossless[x,y,t] = 1
+                                            setTensor(tf2,x,y,t,SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0))
+                                        end
+                                    end
+
+                                    if getTensor(tf, x,y+1,t) == SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0)
+                                        full_lossless[x,y+1,t] = 1
+                                        setTensor(tf2,x,y+1,t,SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0))
+                                    end
+                                elseif y == 0 && getTensor(tf, x+1,y,t) == SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0)
+                                    full_lossless[x+1,y,t] = 1
+                                    setTensor(tf2,x+1,y,t,SMatrix{2,2,Float64}(0.0,0.0,0.0,0.0))
+                                end
+                            end
+
+                        end
 
                         if checking
                             if (x,y,t,top) == checkLoc
@@ -1001,22 +1107,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                             tensor1Ground = getTensor(tf, vertexCoords[1]...)
                             tensor2Ground = getTensor(tf, vertexCoords[2]...)
                             tensor3Ground = getTensor(tf, vertexCoords[3]...)
-
-                            # do full lossless checks
-                            if tensor1Ground == [0.0 0.0 ; 0.0 0.0]
-                                full_lossless[vertexCoords[1]...] = 1
-                                setTensor(tf2, vertexCoords[1]..., tensor1Ground)
-                            end
-
-                            if tensor2Ground == [0.0 0.0 ; 0.0 0.0]
-                                full_lossless[vertexCoords[2]...] = 1
-                                setTensor(tf2, vertexCoords[2]..., tensor2Ground)
-                            end
-
-                            if tensor3Ground == [0.0 0.0 ; 0.0 0.0]
-                                full_lossless[vertexCoords[3]...] = 1
-                                setTensor(tf2, vertexCoords[3]..., tensor3Ground)
-                            end
 
                             # check if there is still an issue after going full lossless
                             crit_intermediate = getCircularPointType(tf2, x, y, t, top)
@@ -1174,75 +1264,75 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                                     # future cells (if we are modifying a past cell)
                                     if x != dims[1]-1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
-                                        push!(stack, (x+1,y+1,false))
+                                        push!(stack, (x+1,y+1,false,false))
                                     end
 
                                     if y+1 < j || (y+1 == j && x <= i)
-                                        push!(stack, (x,y+1,true))
-                                        push!(stack, (x,y+1,false))
+                                        push!(stack, (x,y+1,true,false))
+                                        push!(stack, (x,y+1,false,false))
                                     end
 
                                     if x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
-                                        push!(stack, (x-1,y+1,true))                                    
-                                        push!(stack, (x-1,y+1,false))
+                                        push!(stack, (x-1,y+1,true,false))                                    
+                                        push!(stack, (x-1,y+1,false,false))
                                     end
 
                                     if x != dims[1]-1 && ((y < j) || (y == j && x+1 <= i))
-                                        push!(stack, (x+1,y,true))
-                                        push!(stack, (x+1,y,false))
+                                        push!(stack, (x+1,y,true,false))
+                                        push!(stack, (x+1,y,false,false))
                                     end
 
                                     # past cells
-                                    push!(stack, (x,y,false))
+                                    push!(stack, (x,y,false,false))
                                     if x != 1
-                                        push!(stack, (x-1,y,true))
+                                        push!(stack, (x-1,y,true,false))
                                     end
                                     if y != 1
                                         if x != dims[1]-1
-                                            push!(stack, (x+1,y-1,true))
-                                            push!(stack, (x+1,y-1,false))
+                                            push!(stack, (x+1,y-1,true,false))
+                                            push!(stack, (x+1,y-1,false,false))
                                         end
 
-                                        push!(stack, (x,y-1,true))
+                                        push!(stack, (x,y-1,true,false))
 
                                     end
                                 else
 
                                     # future cells (if we are modifying a past cell)
                                     if (y+1 < j) || (y+1 == j && x <= i)
-                                        push!(stack, (x,y+1,false))
+                                        push!(stack, (x,y+1,false,false))
                                     end
 
                                     if x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
-                                        push!(stack, (x-1,y+1,true))
-                                        push!(stack, (x-1,y+1,false))
+                                        push!(stack, (x-1,y+1,true,false))
+                                        push!(stack, (x-1,y+1,false,false))
                                     end
 
                                     if x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
-                                        push!(stack, (x+1,y,false))
+                                        push!(stack, (x+1,y,false,false))
                                     end
 
                                     if y < j || (y == j && x < i) || (y == j && x == i && k == 1)
-                                        push!(stack, (x,y,true))
+                                        push!(stack, (x,y,true,false))
                                     end
 
                                     # past cells
                                     if x != 1
-                                        push!(stack, (x-1,y,true))
-                                        push!(stack, (x-1,y,false))
+                                        push!(stack, (x-1,y,true,false))
+                                        push!(stack, (x-1,y,false,false))
                                     end
 
                                     if y != 1
                                         if x != dims[1]-1
-                                            push!(stack, (x+1,y-1,true))
-                                            push!(stack, (x+1,y-1,false))
+                                            push!(stack, (x+1,y-1,true,false))
+                                            push!(stack, (x+1,y-1,false,false))
                                         end
 
-                                        push!(stack, (x,y-1,true))
-                                        push!(stack, (x,y-1,false))
+                                        push!(stack, (x,y-1,true,false))
+                                        push!(stack, (x,y-1,false,false))
 
                                         if x != 1
-                                            push!(stack, (x-1,y-1,true))
+                                            push!(stack, (x-1,y-1,true,false))
                                         end
                                     end
 
@@ -1320,12 +1410,12 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     cd(output)
 
     removeIfExists("$output_file.tar")
-    removeIfExists("$output_file.tar.xz")
+    removeIfExists("$output_file.tar.zst")
 
     run(`tar cvf $output_file.tar row_1_col_1.cmp row_1_col_2.cmp row_2_col_2.cmp vals.bytes`)
-    run(`xz $output_file.tar`)
+    run(`zstd $output_file.tar`)
 
-    removeIfExists("$output_file.tar")
+    # removeIfExists("$output_file.tar")
 
     cd(cwd)
 

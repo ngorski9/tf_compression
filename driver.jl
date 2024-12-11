@@ -10,28 +10,29 @@ using Plots
 using .compress
 using .decompress
 using .tensorField
+using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (101,101,1)
-    eb = 0.001
+    dims = (25,65,1)
+    eb = 0.01
     edgeError = 1.0
     naive = false
+    eigenvalue = false
+    eigenvector = true
 
     compression_start = time()
-    entropy::Float64 = 0.0
-    losslessBitrate::Float64 = 0.0
 
     if naive
         compress2dNaive(folder, dims, "compressed_output", eb)
     else
-        entropy, losslessBitrate = compress2d(folder, dims, "compressed_output", eb, edgeError)
+        compress2d(folder, dims, "compressed_output", eb, edgeError, "../output", true, eigenvalue, eigenvector)
     end
     compression_end = time()
     ct = compression_end - compression_start
 
-    compressed_size = filesize("../output/compressed_output.tar.xz")
-
+    compressed_size = filesize("../output/compressed_output.tar.zst")
+    removeIfExists("../output/compressed_output.tar")
     decompression_start = time()
     if naive
         decompress2dNaive("compressed_output", "reconstructed")
@@ -41,7 +42,7 @@ function main()
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2d(folder,  "../output/reconstructed", dims, entropy, losslessBitrate, compressed_size, ct, dt, edgeError)
+    printEvaluation2d(folder,  "../output/reconstructed", dims, -1.0, -1.0, compressed_size, ct, dt, edgeError, eigenvalue, eigenvector)
 end
 
 main()

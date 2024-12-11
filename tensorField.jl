@@ -5,13 +5,13 @@ using StaticArrays
 using ..utils
 
 export TensorField2d
+export TensorField2dSymmetric
 
 export loadTensorField2dFromFolder
 export getTensor
 export setTensor
 export getTensorsAtCell
 export getCircularPointType
-export deviator
 export decomposeTensor
 export recomposeTensor
 export decomposeTensorSymmetric
@@ -20,23 +20,21 @@ export recomposeTensorSymmetric
 export classifyTensorEigenvector
 export classifyTensorEigenvalue
 export classifyEdge
-export zeroTensorField
 
 export saveTensorField32
 export saveTensorField64
 export saveSymmetricTensorField32
 export saveSymmetricTensorField64
+export getMinAndMax
 
 struct TensorField2d
-    A::Array{Float64}
-    B::Array{Float64}
-    C::Array{Float64}
-    D::Array{Float64}
+    entries::Array{Float64}
     dims::Tuple{Int64, Int64, Int64}
 end
 
-function zeroTensorField(dims)
-    return TensorField2d64(zeros(Float64,dims),zeros(Float64,dims),zeros(Float64,dims),zeros(Float64,dims), dims)
+struct TensorField2dSymmetric
+    entries::Array{Float64}
+    dims::Tuple{Int64, Int64, Int64}
 end
 
 function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, Int64})
@@ -83,47 +81,152 @@ function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, I
         exit(1)
     end
 
-    tf = TensorField2d(A,B,C,D,dims)
+    entries::Array{Float64} = Array{Float64}(undef, (4,dims[1],dims[2],dims[3]))
+    for k in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
+                entries[1,i,j,k] = A[i,j,k]
+                entries[2,i,j,k] = B[i,j,k]
+                entries[3,i,j,k] = C[i,j,k]
+                entries[4,i,j,k] = D[i,j,k]
+            end
+        end
+    end
+
+    tf = TensorField2d(entries,dims)
 
     return tf
 
 end
 
-function saveTensorField64(folder::String, tf::TensorField2d, suffix::String="")
-    saveArray64("$folder/row_1_col_1$suffix.dat", tf.A)
-    saveArray64("$folder/row_1_col_2$suffix.dat", tf.B)
-    saveArray64("$folder/row_2_col_1$suffix.dat", tf.C)
-    saveArray64("$folder/row_2_col_2$suffix.dat", tf.D)
+function loadTensorField2dSymmetricFromFolder(folder::String, dims::Tuple{Int64, Int64, Int64})
+
+    num_entries = dims[1]*dims[2]*dims[3]
+    num_bytes = filesize("$folder/row_1_col_1.dat")/num_entries
+
+    if num_bytes == 8
+        A_byte_file = open("$folder/row_1_col_1.dat", "r")
+        A = reshape( reinterpret( Float64, read(A_byte_file) ), dims )
+        close(A_byte_file)
+    
+        B_byte_file = open("$folder/row_1_col_2.dat", "r")
+        B = reshape( reinterpret( Float64, read(B_byte_file) ), dims )
+        close(B_byte_file)
+    
+        D_byte_file = open("$folder/row_2_col_2.dat", "r")
+        D = reshape( reinterpret( Float64, read(D_byte_file) ), dims )
+        close(D_byte_file)
+    elseif num_bytes == 4
+        println("loading from 32 bits to 64")
+        A_byte_file = open("$folder/row_1_col_1.dat", "r")
+        A = Array{Float64}(reshape( reinterpret( Float32, read(A_byte_file) ), dims ))
+        close(A_byte_file)
+    
+        B_byte_file = open("$folder/row_1_col_2.dat", "r")
+        B = Array{Float64}(reshape( reinterpret( Float32, read(B_byte_file) ), dims ))
+        close(B_byte_file)
+    
+        D_byte_file = open("$folder/row_2_col_2.dat", "r")
+        D = Array{Float64}(reshape( reinterpret( Float32, read(D_byte_file) ), dims ))
+        close(D_byte_file)
+    else
+        println("The file that you specified is $num_bytes bytes per point")
+        println("only 32 and 64 bits are currently supported")        
+        exit(1)
+    end
+
+    entries::Array{Float64} = Array{Float64}(undef, (3,dims[1],dims[2],dims[3]))
+    for k in 1:dims[3]
+        for j in 1:dims[2]
+            for i in 1:dims[1]
+                entries[1,i,j,k] = A[i,j,k]
+                entries[2,i,j,k] = B[i,j,k]
+                entries[3,i,j,k] = D[i,j,k]
+            end
+        end
+    end
+
+    tf = TensorField2dSymmetric(entries,dims)
+
+    return tf
+
 end
 
-function saveSymmetricTensorField64(folder::String, tf::TensorField2d, suffix::String="")
-    saveArray64("$folder/row_1_col_1$suffix.dat", tf.A)
-    saveArray64("$folder/row_1_col_2$suffix.dat", tf.B)
-    saveArray64("$folder/row_2_col_2$suffix.dat", tf.D)
+function getMinAndMax(tf::TensorField2d)
+    min_ = tf.entries[1,1,1,1]
+    max_ = tf.entries[1,1,1,1]
+
+    for i in tf.entries
+        if i < min_
+            min_ = i
+        elseif i > max_
+            max_ = i
+        end
+    end
+
+    return (min_,max_)
+end
+
+function getMinAndMax(tf::TensorField2dSymmetric)
+    min_ = tf.entries[1,1,1,1]
+    max_ = tf.entries[1,1,1,1]
+
+    for i in tf.entries
+        if i < min_
+            min_ = i
+        elseif i > max_
+            max_ = i
+        end
+    end
+
+    return (min_,max_)
+end
+
+function saveTensorField64(folder::String, tf::TensorField2d, suffix::String="")
+    saveArray64("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
+    saveArray64("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
+    saveArray64("$folder/row_2_col_1$suffix.dat", tf.entries[3,:,:,:])
+    saveArray64("$folder/row_2_col_2$suffix.dat", tf.entries[4,:,:,:])
+end
+
+function saveSymmetricTensorField64(folder::String, tf::TensorField2dSymmetric, suffix::String="")
+    saveArray64("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
+    saveArray64("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
+    saveArray64("$folder/row_2_col_2$suffix.dat", tf.entries[3,:,:,:])
 end
 
 function saveTensorField32(folder::String, tf::TensorField2d, suffix::String="")
-    saveArray32("$folder/row_1_col_1$suffix.dat", tf.A)
-    saveArray32("$folder/row_1_col_2$suffix.dat", tf.B)
-    saveArray32("$folder/row_2_col_1$suffix.dat", tf.C)
-    saveArray32("$folder/row_2_col_2$suffix.dat", tf.D)
+    saveArray32("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
+    saveArray32("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
+    saveArray32("$folder/row_2_col_1$suffix.dat", tf.entries[3,:,:,:])
+    saveArray32("$folder/row_2_col_2$suffix.dat", tf.entries[4,:,:,:])
 end
 
-function saveSymmetricTensorField32(folder::String, tf::TensorField2d, suffix::String="")
-    saveArray32("$folder/row_1_col_1$suffix.dat", tf.A)
-    saveArray32("$folder/row_1_col_2$suffix.dat", tf.B)
-    saveArray32("$folder/row_2_col_2$suffix.dat", tf.D)
+function saveSymmetricTensorField32(folder::String, tf::TensorField2dSymmetric, suffix::String="")
+    saveArray32("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
+    saveArray32("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
+    saveArray32("$folder/row_2_col_2$suffix.dat", tf.entries[3,:,:,:])
 end
 
 function getTensor(tf::TensorField2d, x::Int64, y::Int64, t::Int64)
-    return SMatrix{2,2,Float64}( tf.A[x,y,t], tf.C[x,y,t], tf.B[x,y,t], tf.D[x,y,t] )
+    return SMatrix{2,2,Float64}( tf.entries[1,x,y,t], tf.entries[3,x,y,t], tf.entries[2,x,y,t], tf.entries[4,x,y,t] )
+end
+
+function getTensor(tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int64)
+    return SVector{2,2,Float64}( tf.entries[1,x,y,t], tf.entries[2,x,y,t], tf.entries[3,x,y,t] )
 end
 
 function setTensor(tf::TensorField2d, x, y, t, tensor::FloatMatrix)
-    tf.A[x,y,t] = tensor[1,1]
-    tf.B[x,y,t] = tensor[1,2]
-    tf.C[x,y,t] = tensor[2,1]
-    tf.D[x,y,t] = tensor[2,2]
+    tf.entries[1,x,y,t] = tensor[1,1]
+    tf.entries[2,x,y,t] = tensor[1,2]
+    tf.entries[3,x,y,t] = tensor[2,1]
+    tf.entries[4,x,y,t] = tensor[2,2]
+end
+
+function setTensor(tf::TensorField2dSymmetric, x, y, t, tensor::FloatMatrixSymmetric)
+    tf.entries[1,x,y,t] = tensor[1]
+    tf.entries[2,x,y,t] = tensor[2]
+    tf.entries[3,x,y,t] = tensor[3]
 end
 
 # returns in counterclockwise orientation, consistent with getCellVertexCoords
@@ -132,12 +235,15 @@ function getTensorsAtCell(tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::
     return ( getTensor(tf, points[1]...), getTensor(tf, points[2]...), getTensor(tf, points[3]...) )
 end
 
-function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
-    return getCircularPointType( getTensorsAtCell( tf, x, y, t, top )... )
+function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int64, top::Bool )
+    points = getCellVertexCoords(x,y,t,top)
+    matrix1 = getTensor(tf, points[1]...)
+    matrix2 = getTensor(tf, points[2]...)
+    matrix3 = getTensor(tf, points[3]...)
 end
 
-function deviator(tensor::FloatMatrix)
-    return tensor - 0.5*tr(tensor)*I
+function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
+    return getCircularPointType( getTensorsAtCell( tf, x, y, t, top )... )
 end
 
 function symmetricDeviator(tensor::FloatMatrix)
@@ -163,35 +269,6 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
     sign1 = sign(D1_11*D2_21 - D2_11*D1_21)
     sign2 = sign(D2_11*D3_21 - D3_11*D2_21)
     sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
-
-    if sign1 == 0 || sign2 == 0 || sign3 == 0
-        return CP_ERROR
-    end
-
-    if sign1 == sign2
-        if sign3 == sign1
-            if sign3 == 1
-                return CP_WEDGE
-            else
-                return CP_TRISECTOR
-            end
-        else
-            return CP_NORMAL
-        end
-    else
-        return CP_NORMAL
-    end
-end
-
-# we assume that the tensors are in counterclockwise direction
-function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix, verbose=false)
-    D1 = symmetricDeviator(tensor1)
-    D2 = symmetricDeviator(tensor2)
-    D3 = symmetricDeviator(tensor3)
-
-    sign1 = sign(D1[1,1]*D2[2,1] - D2[1,1]*D1[2,1])
-    sign2 = sign(D2[1,1]*D3[2,1] - D3[1,1]*D2[2,1])
-    sign3 = sign(D3[1,1]*D1[2,1] - D1[1,1]*D3[2,1])
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
         return CP_ERROR
@@ -301,7 +378,7 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
 
 end
 
-function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64 )
+function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, eigenvalue::Bool, eigenvector::Bool )
     if t11 == t12 && t21 == t22
         return true
     end
@@ -313,7 +390,7 @@ function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::
         return false
     end
 
-    return evalClass1 == evalClass2 && evecClass1 == evecClass2 && (length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb) && (evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb )
+    return (!eigenvalue || evalClass1 == evalClass2) && (!eigenvector || evecClass1 == evecClass2) && (!eigenvalue || length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb) && (!eigenvector || evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb )
 end
 
 function classifyEdgeOuter( t1::FloatMatrix, t2::FloatMatrix, p=false )

@@ -10,12 +10,16 @@ using Plots
 using .compress
 using .decompress
 using .tensorField
+using .utils
 
 function main()
-    folder = "../data/sym/brain23"
-    dims = (66,108,108)
-    eb = 0.01
-    naive = false
+    # stress slice 12 (or probably others) makes a good teaser!
+
+    folder = "../output/slice"
+    dims = (65,65,1)
+    eb = 0.009
+    naive = true
+    mask = true
     bits = 6 # number of bits used for quantization
 
     symmetric_eval = false
@@ -23,18 +27,26 @@ function main()
     println("hi")
     compression_start = time()
     if naive
-        compress2dSymmetricNaive(folder, dims, "compressed_output", eb)    
+        if mask
+            compress2dSymmetricNaiveWithMask(folder, dims, "compressed_output", eb)
+        else
+            compress2dSymmetricNaive(folder, dims, "compressed_output", eb)    
+        end
     else
         compress2dSymmetric(folder, dims, "compressed_output", eb, bits)
     end
     compression_end = time()
     ct = compression_end - compression_start
 
-    compressed_size = filesize("../output/compressed_output.tar.xz")
-
+    compressed_size = filesize("../output/compressed_output.tar.zst")
+    removeIfExists("../output/compressed_output.tar")
     decompression_start = time()
     if naive
-        decompress2dSymmetricNaive("compressed_output", "reconstructed")
+        if mask
+            decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed")
+        else
+            decompress2dSymmetricNaive("compressed_output", "reconstructed")
+        end
     else
         decompress2dSymmetric("compressed_output", "reconstructed", bits)
     end    
