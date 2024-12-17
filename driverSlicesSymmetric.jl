@@ -1,11 +1,10 @@
 include("utils.jl")
+include("conicUtils.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
 include("compress.jl")
 include("evaluation.jl")
-
-using Plots
 
 using .compress
 using .decompress
@@ -21,6 +20,8 @@ function main()
     mask = true
     slice = -1
     bits = 6
+    csv = ""
+    output = ""
 
     i = 1
     while i <= length(ARGS)
@@ -45,6 +46,12 @@ function main()
         elseif ARGS[i] == "--bits"
             bits = parse(Int64, ARGS[i+1])
             i += 2
+        elseif ARGS[i] == "--csv"
+            csv = ARGS[i+1]
+            i += 2
+        elseif ARGS[i] == "--output"
+            output = ARGS[i+1]
+            i += 2
         else
             println("ERROR: Unknown argument $(ARGS[i])")
             exit(1)
@@ -68,6 +75,11 @@ function main()
         badArgs = true
     end
 
+    if output == ""
+        println("ERROR: Missing argument --output")
+        badArgs = true
+    end
+
     if badArgs
         exit(1)
     end
@@ -81,11 +93,21 @@ function main()
     totalCompressionTime = 0.0
     totalDecompressionTime = 0.0
     totalBitrate = 0.0
+    maxErrorByRange = 0.0
+    ctv = zeros(Float64, (15,))
+    dtv = zeros(Float64, (8,))
+    totalMSEByRangeSquared = 0.0
+    totalFrobeniusMSEByRangeSquared = 0.0
+    totalCellMatching = [0,0,0,0,0,0,0]
+    totalCellTypeFrequenciesGround = [0,0,0,0]
+    totalCellTypeFrequenciesRecon = [0,0,0,0]
+    numNonzeroSlices = 0
 
     tf = loadTensorField2dFromFolder(folder, dims)
 
     stdout_ = stdout
 
+    trialStart = time()
     for t in range
 
         println("t = $t")
@@ -93,74 +115,163 @@ function main()
         redirect_stdout(devnull)
 
         try
-            run(`rm -r ../output/slice`)
+            run(`rm -r $output/slice`)
         catch
         end
 
-        run(`mkdir ../output/slice`)
-        saveArray64("../output/slice/row_1_col_1.dat", tf.entries[1,:,:,t])
-        saveArray64("../output/slice/row_1_col_2.dat", tf.entries[2,:,:,t])
-        saveArray64("../output/slice/row_2_col_1.dat", tf.entries[3,:,:,t])
-        saveArray64("../output/slice/row_2_col_2.dat", tf.entries[4,:,:,t])
+        run(`mkdir $output/slice`)
+        saveArray64("$output/slice/row_1_col_1.dat", tf.entries[1,:,:,t])
+        saveArray64("$output/slice/row_1_col_2.dat", tf.entries[2,:,:,t])
+        saveArray64("$output/slice/row_2_col_1.dat", tf.entries[3,:,:,t])
+        saveArray64("$output/slice/row_2_col_2.dat", tf.entries[4,:,:,t])
 
         compression_start = time()
 
         if naive
             if mask
-                compress2dSymmetricNaiveWithMask("../output/slice", (dims[1],dims[2],1), "compressed_output", eb)
+                compress2dSymmetricNaiveWithMask("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
             else
-                compress2dSymmetricNaive("../output/slice", (dims[1],dims[2],1), "compressed_output", eb)
+                compress2dSymmetricNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
             end
         else
-            compress2dSymmetric("../output/slice", (dims[1],dims[2],1), "compressed_output", eb, bits, "../output")
+            ctVector = compress2dSymmetric("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, bits, output)
+            ctv += ctVector
         end
 
         compression_end = time()
         ct = compression_end - compression_start
 
-        compressed_size = filesize("../output/compressed_output.tar.zst")
-        removeIfExists("../output/compressed_output.tar")
+        compressed_size = filesize("$output/compressed_output.tar.zst")
+        removeIfExists("$output/compressed_output.tar")
         decompression_start = time()
         if naive
             if mask
-                decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed")
+                decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed", output)
             else
-                decompress2dSymmetricNaive("compressed_output", "reconstructed")
+                decompress2dSymmetricNaive("compressed_output", "reconstructed", output)
             end
         else
-            decompress2dSymmetric("compressed_output", "reconstructed", bits)
+            dtVector = decompress2dSymmetric("compressed_output", "reconstructed", bits, output)
+            dtv += dtVector
         end
         decompression_end = time()
         dt = decompression_end - decompression_start
 
         totalCompressionTime += ct
         totalDecompressionTime += dt
+        redirect_stdout(stdout_)
+        metrics = evaluationList2dSymmetric("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size)
 
-        metrics = evaluationList2dSymmetric("../output/slice", "../output/reconstructed", (dims[1], dims[2], 1), compressed_size)
-
-        if !naive && (!metrics[1] || metrics[2] > eb*metrics[3])
+        if !naive && !metrics[1]
             redirect_stdout(stdout_)
-            println(metrics[1])
-            println(metrics[2])
-            println(eb*metrics[3])
             println("failed on slice $t")
             exit(1)
-        else
-            totalBitrate += metrics[4]
         end
+
+        totalBitrate += metrics[2]
+        # a negative value means that the slice is all zeros
+        if metrics[3] >= 0
+            maxErrorByRange = max(maxErrorByRange, metrics[3])
+            totalMSEByRangeSquared += metrics[4]
+            totalFrobeniusMSEByRangeSquared += metrics[5]
+            numNonzeroSlices += 1
+        end
+
+        totalCellMatching += metrics[6]
+        totalCellTypeFrequenciesGround += metrics[7]
+        totalCellTypeFrequenciesRecon += metrics[8]
 
         redirect_stdout(stdout_)
 
     end
+    trialEnd = time()
+    trialTime = trialEnd - trialStart
 
     averageBitrate = totalBitrate
     if slice == -1
         averageBitrate /= dims[3]
     end
 
-    println("compression ratio: $(256.0/averageBitrate)")
+    ratio = 192.0/averageBitrate
+
+    println("compression ratio: $ratio")
     println("compression time: $totalCompressionTime")
     println("decompression time: $totalDecompressionTime")
+    println("trial time: $trialTime")
+
+    if csv != ""
+        if isfile(csv)
+            outf = open(csv, "a")
+        else
+            outf = open(csv, "w")
+
+            # write header :(
+            write(outf, "dataset,target,eb,edgeEB,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,edges,circular points,cp types (ground),cp types (recon),")
+            write(outf, "false ellipses,numPoints,numCells,setup 1,bc,setup 2,proc. points,ellipse check,proc. edges,")
+            write(outf, "proc. cp,proc. ellipse,queue, total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
+            write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
+        end
+
+        # compute composite data
+
+        # compute the name of the dataset
+        if last(folder) == '/'
+            folder = folder[1:lastindex(folder)-1]
+        end
+
+        if occursin("/",folder)
+            name = folder[first(findlast("/",folder))+1:lastindex(folder)]
+        else
+            name = folder
+        end
+
+        if slice != -1
+            name = name * " (slice $slice)"
+        end
+
+        # compute the target
+        target = "SYM"
+        if !mask
+            target = target * "/NOMASK"
+        end
+
+        if naive
+            target = target * " (NAIVE)"
+        elseif bits != 6
+            target = target * " ($bits BITS)"
+        end
+
+        averageMSEByRangeSquared = totalMSEByRangeSquared / numNonzeroSlices
+        averageFrobeniusMSEByRangeSquared = totalFrobeniusMSEByRangeSquared / numNonzeroSlices
+
+        psnr = -10 * log(10, averageMSEByRangeSquared)
+
+        numPoints = dims[1]*dims[2]
+        numCells = (dims[1]-1)*(dims[2]-1)*2
+        if slice == -1
+            numPoints *= dims[3]
+            numCells *= dims[3]
+        end
+
+        function s(l)
+            str = string(l)
+            str = replace(str, "," => "")
+            str = replace(str, ";" => "")
+            return str
+        end
+
+        totalCellMatchingS = s(totalCellMatching)
+        totalCellTypeFrequenciesGroundS = s(totalCellTypeFrequenciesGround)
+        totalCellTypeFrequenciesReconS = s(totalCellTypeFrequenciesRecon)
+
+        # write the data :((
+        write(outf, "$name,$target,$eb,,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
+        write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
+        write(outf, ",$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),$(ctv[7]),")
+        write(outf, "$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(ctv[14]),$(ctv[15]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
+        write(outf, "$(dtv[5]),$(dtv[6]),$(dtv[7]),$(dtv[8])\n")
+
+    end
 
 end
 

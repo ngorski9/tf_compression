@@ -1,4 +1,7 @@
+using Statistics
+
 using ..tensorField
+using ..conicUtils
 
 function getTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
@@ -8,6 +11,22 @@ function getTypeFrequencies(tf::TensorField2d)
             for j in 1:(y-1)
                 for k in 0:1
                     type = getCircularPointType(tf, i, j, t, Bool(k))
+                    types[type+1] += 1
+                end
+            end
+        end
+    end
+    return types
+end
+
+function getTypeFrequencies(tf::TensorField2dSymmetric)
+    x,y,T = tf.dims
+    types = [0,0,0,0]
+    for t in 1:T
+        for i in 1:(x-1)
+            for j in 1:(y-1)
+                for k in 0:1
+                    type = getCriticalType(tf, i, j, t, Bool(k))
                     types[type+1] += 1
                 end
             end
@@ -36,17 +55,15 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
                 d1, r1, s1, _ = decomposeTensor(t1)
                 d2, r2, s2, _ = decomposeTensor(t2)
 
-                if classifyTensorEigenvector(r1, s1) == classifyTensorEigenvector(r2, s2)
+                if classifyTensorEigenvalue(d1, r1, s1) == classifyTensorEigenvalue(d2, r2, s2)
                     result[1,1] += 1
                 else
-                    # println((i,j,t))
                     result[1,2] += 1
                 end
 
-                if classifyTensorEigenvalue(d1, r1, s1) == classifyTensorEigenvalue(d2, r2, s2)
+                if classifyTensorEigenvector(r1, s1) == classifyTensorEigenvector(r2, s2)
                     result[2,1] += 1
                 else
-                    # println((i,j,t))
                     result[2,2] += 1
                 end
 
@@ -58,10 +75,10 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
 end
 
 # edge iteration is hardcoded for the specific mesh
-function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB, eigenvalue = true, eigenvector = true)
+function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
 
     # hit edges & miss edges
-    result = [0, 0]
+    result = [0 0 ; 0 0]
     freqs = Dict()
 
     x, y, T = tf1.dims
@@ -89,11 +106,18 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB, ei
                     t21 = getTensor(tf1, i2, j2, t)
                     t22 = getTensor(tf2, i2, j2, t)
 
-                    if edgesMatch( t11, t21, t12, t22, edgeEB, eigenvalue, eigenvector )
-                        result[1] += 1
+                    eValMatch, eVecMatch = edgesMatchSplit( t11, t21, t12, t22, edgeEB )
+
+                    if eValMatch
+                        result[1,1] += 1
                     else
-                        result[2] += 1
-                        # println((i1,j1,t,i2,j2,t))
+                        result[1,2] += 1
+                    end
+
+                    if eVecMatch
+                        result[2,1] += 1
+                    else
+                        result[2,2] += 1
                     end
 
                 end
@@ -114,21 +138,51 @@ end
 
 function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
-    result = [0,0]
+    # Same, FP, FN, FT, FP (degenerate), FN (degenerate), FT (degenerate)
+    # Critical -> Degen or Degen -> Critical = FT (degenerate)
+    result = [0,0,0,0,0,0,0]
+
+    SAME = 1
+    FP = 2
+    FN = 3
+    FT = 4
+    FPD = 5
+    FND = 6
+    FTD = 7
 
     x, y, T = tf1.dims
     x -= 1
     y -= 1
     for t in 1:T
-        for i in 1:x
-            for j in 1:y
+        for j in 1:y
+            for i in 1:x                
                 for k in 0:1
 
-                    if getCircularPointType(tf1, i, j, t, Bool(k)) == getCircularPointType(tf2, i, j, t, Bool(k))
-                        result[1] += 1
-                    else
-                        result[2] += 1
-                        # println((i,j,t,Bool(k)))
+                    c1 = getCircularPointType(tf1, i, j, t, Bool(k))
+                    c2 = getCircularPointType(tf2, i, j, t, Bool(k))
+
+                    if c1 == c2
+                        result[SAME] += 1
+                    elseif c1 == CP_NORMAL
+                        if c2 == CP_TRISECTOR || c2 == CP_WEDGE
+                            result[FP] += 1
+                        else
+                            result[FPD] += 1
+                        end
+                    elseif c1 == CP_TRISECTOR || c1 == CP_WEDGE
+                        if c2 == CP_NORMAL
+                            result[FN] += 1
+                        elseif c2 == CP_TRISECTOR || c2 == CP_WEDGE
+                            result[FT] += 1
+                        else
+                            result[FTD] += 1
+                        end
+                    elseif c1 == CP_ERROR
+                        if c2 == CP_NORMAL
+                            result[FND] += 1
+                        else
+                            result[FTD] += 1
+                        end
                     end
 
                 end
@@ -140,46 +194,165 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
 end
 
-function tensorFieldMatchSymmetric(tf1::TensorField2d, tf2::TensorField2d)
-    if tf1.dims != tf2.dims
-        return false
-    end
+function topologyCellMatching(tf1::TensorField2dSymmetric, tf2::TensorField2dSymmetric)
+    # Same, FP, FN, FT, FP (degenerate), FN (degenerate), FT (degenerate)
+    # Critical -> Degen or Degen -> Critical = FT (degenerate)
+    result = [0,0,0,0,0,0,0]
 
-    numFC = 0
+    SAME = 1
+    FP = 2
+    FN = 3
+    FT = 4
+    FPD = 5
+    FND = 6
+    FTD = 7
 
-    x,y,T = tf1.dims
+    x, y, T = tf1.dims
+    x -= 1
+    y -= 1
     for t in 1:T
-        for i in 1:(x-1)
-            for j in 1:(y-1)
+        for j in 1:y
+            for i in 1:x                
                 for k in 0:1
-                    type1 = getCircularPointType(tf1, i, j, t, Bool(k))
-                    type2 = getCircularPointType(tf2, i, j, t, Bool(k))
-                    if type1 != type2
-                        numFC += 1
+
+                    c1 = getCriticalType(tf1, i, j, t, Bool(k))
+                    c2 = getCriticalType(tf2, i, j, t, Bool(k))
+
+                    if c1 == c2
+                        result[SAME] += 1
+                    elseif c1 == CP_NORMAL
+                        if c2 == CP_TRISECTOR || c2 == CP_WEDGE
+                            result[FP] += 1
+                        else
+                            result[FPD] += 1
+                        end
+                    elseif c1 == CP_TRISECTOR || c1 == CP_WEDGE
+                        if c2 == CP_NORMAL
+                            result[FN] += 1
+                        elseif c2 == CP_TRISECTOR || c2 == CP_WEDGE
+                            result[FT] += 1
+                        else
+                            result[FTD] += 1
+                        end
+                    elseif c1 == CP_ERROR
+                        if c2 == CP_NORMAL
+                            result[FND] += 1
+                        else
+                            result[FTD] += 1
+                        end
                     end
+
                 end
             end
         end
     end
-    
-    if numFC != 0
-        println("$numFC false cases")
-        return false
+
+    return result
+end
+
+# Does not check whether ellipses actually match in the eigenvalue / eigenvector graph
+# (as actually detecting if an elliptical boundary shows up is extremely difficult)
+# but just detects whether ellipses are contained within the cell boundaries.
+function ellipseMatching(tf1::TensorField2d, tf2::TensorField2d)
+
+    results = [0,0,0,0,0,0,0,0]
+    matchDS = 1
+    fpDS = 2
+    fnDS = 3
+    matchRS = 4
+    fpRS = 5
+    fnRS = 6
+    numDS = 7
+    numRS = 8
+
+    x, y, T = tf1.dims
+    x -= 1
+    y -= 1
+
+    for t in 1:T
+        for j in 1:y
+            for i in 1:x                
+                for k in 0:1
+
+                    tensors1 = getTensorsAtCell(tf1,i,j,t,Bool(k))
+                    tensors2 = getTensorsAtCell(tf2,i,j,t,Bool(k))
+
+                    rs1 = checkRSEllipseProper(tensors1...)
+                    rs2 = checkRSEllipseProper(tensors2...)
+
+                    if rs1 == rs2
+                        results[matchRS] += 1
+                    elseif rs1 && !rs2
+                        results[fnRS] += 1
+                    else
+                        results[fpRS] += 1
+                    end
+
+                    if rs1
+                        results[numRS] += 1
+                    end
+
+                    ds1 = checkDSEllipseProper(tensors1...)
+                    ds2 = checkDSEllipseProper(tensors2...)
+
+                    if ds1 == ds2
+                        results[matchDS] += 1
+                    elseif ds1 && !ds2
+                        results[fnDS] += 1
+                    else
+                        results[fpDS] += 1
+                    end
+                    
+                    if ds1
+                        results[numDS] += 1
+                    end
+
+                end
+            end
+        end
     end
 
-    return true
-
+    return results
 end
 
-function asymmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
-    return -1.0
+function reconstructionQuality(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
+    min_val, max_val = getMinAndMax(tf_ground)
+    
+    if min_val == max_val
+        return -1.0, -1.0, -1.0
+    end
+
+    peak_signal = max_val - min_val
+    mse = mean( (tf_ground.entries - tf_reconstructed.entries) .^ 2 )
+    psnr = 10 * log(10, peak_signal^2 / mse)
+    frobeniusMse = mean( sum( tf_ground.entries - tf_reconstructed.entries, dims=1 ) .^ 2 )
+    return psnr, mse, frobeniusMse
 end
 
-function symmetricPSNR(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
-    return -1.0
+function reconstructionQuality(tf_ground::TensorField2dSymmetric, tf_reconstructed::TensorField2dSymmetric)
+    min_val, max_val = getMinAndMax(tf_ground)
+
+    if min_val == max_val
+        return -1.0, -1.0, -1.0
+    end
+
+    peak_signal = max_val - min_val
+    mse = mean( (tf_ground.entries - tf_reconstructed.entries) .^ 2 )
+    psnr = 10 * log(10, peak_signal^2 / mse)
+    frobeniusMse = mean( sum( tf_ground.entries - tf_reconstructed.entries, dims=1 ) .^ 2 )
+    return psnr, mse, frobeniusMse
 end
 
-function maxErrorAndRange(tf_ground, tf_reconstructed)
+function maxErrorAndRange(tf_ground::TensorField2d, tf_reconstructed::TensorField2d)
+
+    max_val = maximum(tf_ground.entries)
+    min_val = minimum(tf_ground.entries)
+    max_error = maximum( abs.(tf_ground.entries - tf_reconstructed.entries) )
+
+    return (max_error), (max_val - min_val)
+end
+
+function maxErrorAndRange(tf_ground::TensorField2dSymmetric, tf_reconstructed::TensorField2dSymmetric)
 
     max_val = maximum(tf_ground.entries)
     min_val = minimum(tf_ground.entries)
@@ -189,21 +362,22 @@ function maxErrorAndRange(tf_ground, tf_reconstructed)
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, entropy::Float64, losslessBitrate::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, eigenvalue, eigenvector)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
     cellMatching = topologyCellMatching(tf1, tf2)
+    ellipseMatching_ = ellipseMatching(tf1, tf2)
 
-    if vertexMatching[1,2] == 0 && vertexMatching[2,2] == 0 && edgeMatching[2] == 0 && cellMatching[2] == 0
+    if (!eigenvector || vertexMatching[2,2] == 0) && (!eigenvalue || vertexMatching[1,2] == 0) && (!eigenvalue || edgeMatching[1,2] == 0) && (!eigenvector || edgeMatching[2,2] == 0) && (!eigenvector || sum(cellMatching) == cellMatching[1]) && (!eigenvalue || (ellipseMatching_[2] == 0 && ellipseMatching_[3] == 0)) && (ellipseMatching_[5] == 0 && ellipseMatching_[6] == 0)
         result = "GOOD"
     else
         result = "BAD"
     end
 
-    psnr = asymmetricPSNR(tf1, tf2)
+    psnr, _, _ = reconstructionQuality(tf1, tf2)
 
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
 
@@ -212,20 +386,24 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
     ratio = eltSize*4/bitrate
 
     max_error, range = maxErrorAndRange(tf1, tf2)
+
+    if eb*range < max_error
+        result = "BAD"
+    end
+
     max_error /= range
 
     println("-----------------")
     println(result)
-    println("\tvertex eigenvector: ($(vertexMatching[1,1]),$(vertexMatching[1,2]))")
-    println("\tvertex eigenvalue: ($(vertexMatching[2,1]), $(vertexMatching[2,2]))")
-    println("\tedges: ($(edgeMatching[1]), $(edgeMatching[2]))")
-    println("\tcell matching: ($(cellMatching[1]), $(cellMatching[2]))")
+    println("\tvertex eigenvalue: ($(vertexMatching[1,1]), $(vertexMatching[1,2]))")    
+    println("\tvertex eigenvector: ($(vertexMatching[2,1]),$(vertexMatching[2,2]))")
+    println("\tedge eigenvalue: ($(edgeMatching[1,1]), $(edgeMatching[1,2]))")
+    println("\tedge eigenvector: ($(edgeMatching[2,1]), $(edgeMatching[2,2]))")    
+    println("\tcell matching: ($(cellMatching[1]), $(sum(cellMatching)-cellMatching[1]))")
+    println("\tellipse matching: $ellipseMatching_")
 
     println("\nmax error: $max_error")
     println("compression ratio: $ratio")
-    println("bitrate: $bitrate")
-    println("\tentropy: $entropy")
-    println("\tlossless: $losslessBitrate")
     println("PSNR: $psnr")
     if compression_time != -1
         println("compression time: $compression_time")
@@ -236,15 +414,19 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
 
 end
 
-function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
+function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, eigenvalue, eigenvector)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
     cellMatching = topologyCellMatching(tf1, tf2)
+    cellTypeFrequenciesGround = getTypeFrequencies(tf1)
+    cellTypeFrequenciesRecon = getTypeFrequencies(tf2)
+    ellipseMatching_ = ellipseMatching(tf1, tf2)
+    _, mse, frobeniusmse = reconstructionQuality(tf1, tf2)
 
-    if (!eigenvector || vertexMatching[1,2] == 0) && (!eigenvalue || vertexMatching[2,2] == 0) && edgeMatching[2] == 0 && (!eigenvector || cellMatching[2] == 0)
+    if (!eigenvector || vertexMatching[2,2] == 0) && (!eigenvalue || vertexMatching[1,2] == 0) && (!eigenvalue || edgeMatching[1,2] == 0) && (!eigenvector || edgeMatching[2,2] == 0) && (!eigenvector || sum(cellMatching) == cellMatching[1]) && (!eigenvalue || (ellipseMatching_[2] == 0 && ellipseMatching_[3] == 0)) && (ellipseMatching_[5] == 0 && ellipseMatching_[6] == 0)
         preserved = true
     else
         preserved = false
@@ -254,43 +436,55 @@ function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
     max_error, range = maxErrorAndRange(tf1, tf2)
 
-    return (preserved, max_error, range, bitrate, vertexMatching[1,2], vertexMatching[2,2], edgeMatching[2], cellMatching[2])
+    if max_error > eb * range
+        preserved = false
+    end
+
+    if range != 0.0
+        mseByRangeSquared = mse / range^2
+        frobeniusMseByRangeSquared = frobeniusmse / range^2
+        maxErrorByRange = max_error / range
+    else
+        mseByRangeSquared = -1.0
+        frobeniusMseByRangeSquared = -1.0
+        maxErrorByRange = -1.0
+    end
+
+    return (preserved, bitrate, maxErrorByRange, mseByRangeSquared, frobeniusMseByRangeSquared, vertexMatching, edgeMatching, cellMatching, cellTypeFrequenciesGround, cellTypeFrequenciesRecon, ellipseMatching_)
 
 end
 
-function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, symmetric::Bool = false, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
-    tf1 = loadTensorField2dFromFolder(ground, dims)
-    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
+function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0 )
+    tf1 = loadTensorField2dSymmetricFromFolder(ground, dims)
+    tf2 = loadTensorField2dSymmetricFromFolder(reconstructed, dims)
 
-    if symmetric
-        psnr = symmetricPSNR(tf1, tf2)
-    else
-        psnr = asymmetricPSNR(tf1, tf2)
-    end
+    psnr, _, _ = reconstructionQuality(tf1, tf2)
 
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
 
     eltSize = 64
 
-    numElts = 4
-    if symmetric
-        numElts = 3
-    end
-
-    ratio = eltSize*numElts/bitrate
+    ratio = eltSize*3/bitrate
 
     max_error, range = maxErrorAndRange(tf1, tf2)
-    max_error /= range
 
     println("-----------------")
-    if tensorFieldMatchSymmetric(tf1, tf2)
+    cellMatching = topologyCellMatching(tf1, tf2)
+    if sum(cellMatching) == cellMatching[1]
         println("fields match (GOOD)")
     else
         println("fields do not match (BAD)")
     end
 
+    if max_error > range * eb
+        println("error bound exceeded (BAD)")
+    end
+
+    max_error /= range
+
     println("\tground: $(getTypeFrequencies(tf1))")
     println("\treconstructed: $(getTypeFrequencies(tf2))")
+    println("\tfalse cases: $cellMatching")
 
     println("\nmax error: $max_error")
     println("compression ratio: $ratio")
@@ -305,16 +499,34 @@ function printEvaluation2dSymmetric(ground::String, reconstructed::String, dims:
 
 end
 
-function evaluationList2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, compressed_size::Int64 = -1 )
-    tf1 = loadTensorField2dFromFolder(ground, dims)
-    tf2 = loadTensorField2dFromFolder(reconstructed, dims)
+function evaluationList2dSymmetric(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb, compressed_size::Int64 = -1 )
+    tf1 = loadTensorField2dSymmetricFromFolder(ground, dims)
+    tf2 = loadTensorField2dSymmetricFromFolder(reconstructed, dims)
 
     bitrate = compressed_size*8/(dims[1]*dims[2]*dims[3])
 
     max_error, range = maxErrorAndRange(tf1, tf2)
+    _, mse, frobeniusMse = reconstructionQuality(tf1, tf2)
 
-    match = tensorFieldMatchSymmetric(tf1, tf2)
+    cellMatching = topologyCellMatching(tf1,tf2)
+    match = sum(cellMatching) == cellMatching[1]
 
-    return (match, max_error, range, bitrate)
+    circularPointDistributionGround = getTypeFrequencies(tf1)
+    circularPointDistributionRecon = getTypeFrequencies(tf2)
 
+    if max_error > range * eb
+        match = false
+    end
+
+    if range != 0.0
+        mseByRangeSquared = mse / range^2
+        frobeniusMseByRangeSquared = frobeniusMse / range^2
+        maxErrorByRange = max_error / range
+    else
+        mseByRangeSquared = -1.0
+        frobeniusMseByRangeSquared = -1.0
+        maxErrorByRange = -1.0
+    end
+
+    return (match, bitrate, maxErrorByRange, mseByRangeSquared, frobeniusMseByRangeSquared, cellMatching, circularPointDistributionGround, circularPointDistributionRecon)
 end

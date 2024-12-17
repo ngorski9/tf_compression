@@ -8,6 +8,7 @@ export TensorField2d
 export TensorField2dSymmetric
 
 export loadTensorField2dFromFolder
+export loadTensorField2dSymmetricFromFolder
 export getTensor
 export setTensor
 export getTensorsAtCell
@@ -23,9 +24,11 @@ export classifyEdge
 
 export saveTensorField32
 export saveTensorField64
-export saveSymmetricTensorField32
-export saveSymmetricTensorField64
+export saveTensorFieldSymmetric32
+export saveTensorFieldSymmetric64
 export getMinAndMax
+export getCriticalType
+export edgesMatchSplit
 
 struct TensorField2d
     entries::Array{Float64}
@@ -189,7 +192,7 @@ function saveTensorField64(folder::String, tf::TensorField2d, suffix::String="")
     saveArray64("$folder/row_2_col_2$suffix.dat", tf.entries[4,:,:,:])
 end
 
-function saveSymmetricTensorField64(folder::String, tf::TensorField2dSymmetric, suffix::String="")
+function saveTensorFieldSymmetric64(folder::String, tf::TensorField2dSymmetric, suffix::String="")
     saveArray64("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
     saveArray64("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
     saveArray64("$folder/row_2_col_2$suffix.dat", tf.entries[3,:,:,:])
@@ -202,7 +205,7 @@ function saveTensorField32(folder::String, tf::TensorField2d, suffix::String="")
     saveArray32("$folder/row_2_col_2$suffix.dat", tf.entries[4,:,:,:])
 end
 
-function saveSymmetricTensorField32(folder::String, tf::TensorField2dSymmetric, suffix::String="")
+function saveTensorFieldSymmetric32(folder::String, tf::TensorField2dSymmetric, suffix::String="")
     saveArray32("$folder/row_1_col_1$suffix.dat", tf.entries[1,:,:,:])
     saveArray32("$folder/row_1_col_2$suffix.dat", tf.entries[2,:,:,:])
     saveArray32("$folder/row_2_col_2$suffix.dat", tf.entries[3,:,:,:])
@@ -213,7 +216,7 @@ function getTensor(tf::TensorField2d, x::Int64, y::Int64, t::Int64)
 end
 
 function getTensor(tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int64)
-    return SVector{2,2,Float64}( tf.entries[1,x,y,t], tf.entries[2,x,y,t], tf.entries[3,x,y,t] )
+    return SVector{3,Float64}( tf.entries[1,x,y,t], tf.entries[2,x,y,t], tf.entries[3,x,y,t] )
 end
 
 function setTensor(tf::TensorField2d, x, y, t, tensor::FloatMatrix)
@@ -237,9 +240,41 @@ end
 
 function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int64, top::Bool )
     points = getCellVertexCoords(x,y,t,top)
-    matrix1 = getTensor(tf, points[1]...)
-    matrix2 = getTensor(tf, points[2]...)
-    matrix3 = getTensor(tf, points[3]...)
+    tensor1 = getTensor(tf, points[1]...)
+    tensor2 = getTensor(tf, points[2]...)
+    tensor3 = getTensor(tf, points[3]...)
+
+    D1_11 = tensor1[1] - tensor1[3]
+    D1_21 = 2*tensor1[2]
+
+    D2_11 = tensor2[1] - tensor2[3]
+    D2_21 = 2*tensor2[2]
+
+    D3_11 = tensor3[1] - tensor3[3]
+    D3_21 = 2*tensor3[2]
+
+    sign1 = sign(D1_11*D2_21 - D2_11*D1_21)
+    sign2 = sign(D2_11*D3_21 - D3_11*D2_21)
+    sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
+
+    if sign1 == 0 || sign2 == 0 || sign3 == 0
+        return CP_ERROR
+    end
+
+    if sign1 == sign2
+        if sign3 == sign1
+            if sign3 == 1
+                return CP_WEDGE
+            else
+                return CP_TRISECTOR
+            end
+        else
+            return CP_NORMAL
+        end
+    else
+        return CP_NORMAL
+    end
+
 end
 
 function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
@@ -312,16 +347,16 @@ function recomposeTensor(y_d::AbstractFloat, y_r::AbstractFloat, y_s::AbstractFl
 
 end
 
-function decomposeTensorSymmetric(T::SMatrix{2,2,Float64,4})
-    trace = (T[1,1] + T[2,2]) / 2
-    cplx = (T[1,1] - T[2,2])/2 + T[1,2]*im
+function decomposeTensorSymmetric(T::FloatMatrixSymmetric)
+    trace = (T[1] + T[3]) / 2
+    cplx = (T[1] - T[3])/2 + T[2]*im
     r = abs(cplx)
     θ = angle(cplx)
     return (trace,r,θ)
 end
 
 function recomposeTensorSymmetric(trace,r,θ)
-    return SMatrix{2,2,Float64}( trace + r*cos(θ), r*sin(θ), r*sin(θ), trace - r*cos(θ) )
+    return SVector{3,Float64}( trace + r*cos(θ), r*sin(θ), trace - r*cos(θ) )
 end
 
 function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
@@ -391,6 +426,28 @@ function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::
     end
 
     return (!eigenvalue || evalClass1 == evalClass2) && (!eigenvector || evecClass1 == evecClass2) && (!eigenvalue || length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb) && (!eigenvector || evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb )
+end
+
+# returns two bools for whether it matches for eigenvalue / eigenvector
+function edgesMatchSplit( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64 )
+    if t11 == t12 && t21 == t22
+        return [true,true]
+    end
+
+    result = [false,false]
+
+    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21 )
+    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22 )
+
+    if length(evalClass1) > 0 && evalClass1[1] == 99 || length(evalClass2) > 0 && evalClass2[1] == 99
+        result[1] = false
+    else
+        result[1] = (evalClass1 == evalClass2) && (length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb)
+    end
+
+    result[2] = (evecClass1 == evecClass2) && (evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb)
+
+    return result
 end
 
 function classifyEdgeOuter( t1::FloatMatrix, t2::FloatMatrix, p=false )
@@ -652,91 +709,6 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
     end
 
     return eigenvalueEdgeClass, eigenvalueEdgeLocations, eigenvectorEdgeClass, eigenvectorEdgeLocations
-
-end
-
-# returns a list of numbers with the following entries (ordered)
-# as one moves from t2 -> t1 (small to large interp values)
-# values are -1 signifying r=-d,
-#             1 signifying r=d
-#             0 signifying anisotropic stretching starts or ends being dominant
-# these correspond to vertex patterns from the visualization.
-function classifyEdgeEigenvalueOld( t1::FloatMatrix, t2::FloatMatrix )
-
-    d1, r1, s1, θ1 = decomposeTensor(t1)
-    d2, r2, s2, θ2 = decomposeTensor(t2)
-
-    # point where r=d
-    y1 = (d2-r2) / ( (d2-r2) - (d1 - r1) )
-
-    # point where r=-d
-    y2 = (d2+r2) / ( (d2+r2) - (d1 + r1) )
-
-    # points where r=|s| or r=|d|
-
-    # as = anisotropic stretching
-    as_values = []
-
-    K = [t1[1,1]+t1[2,2] t1[2,1]-t1[1,2] t1[1,1]-t1[2,2] t1[1,2]+t1[2,1] ; 
-         t2[1,1]+t2[2,2] t2[2,1]-t2[1,2] t2[1,1]-t2[2,2] t2[1,2]+t2[2,1] ]
-
-    α_0s = K[2,3]^2 + K[2,4]^2
-    α_1s = 2*K[2,3]*(K[1,3] - K[2,3]) + 2*K[2,4]*(K[1,4] - K[2,4])
-    α_2s = (K[1,3] - K[2,3])^2 + (K[1,4] - K[2,4])^2
-
-    for line in 1:2
-
-        α_0 = α_0s - K[2,line]^2
-        α_1 = α_1s - 2*K[2,line]*(K[1,line] - K[2,line])
-        α_2 = α_2s - (K[1,line] - K[2,line])^2
-
-        discriminant = α_1^2 - 4*α_0*α_2
-        if discriminant >= 0
-            candidate_1 = (-α_1 + sqrt(discriminant)) / (2*α_2)
-            candidate_2 = (-α_1 - sqrt(discriminant)) / (2*α_2)
-
-            candidates = [max(candidate_1,candidate_2), min(candidate_1,candidate_2)]
-            for c in candidates
-
-                if 0 <= c <= 1
-
-                    interp_tensor = c*t1 + (1-c)*t2
-                    yd, yr, ys, _ = decomposeTensor(interp_tensor)
-                    if ys^2 >= yd^2-ϵ && ys^2 >= yr^2-ϵ
-                        push!(as_values, c)
-                    end
-                end
-            end
-        end
-    end
-
-    if length(as_values) >= 2
-        value_candidates = [(y1, 1), (y2, -1), (minimum(as_values), 0), (maximum(as_values), 0)]
-    elseif length(as_values) == 1
-        value_candidates = [(y1, 1), (y2, -1), (as_values[1], 0)]
-    else
-        value_candidates = [(y1, 1), (y2, -1)]
-    end
-
-    values = []
-
-    # portion of list corresponding to anisotropic stretching
-    if s2 >= d2 && s2 >= r2
-        in_as = true
-    else
-        in_as = false
-    end
-    
-    for v in value_candidates
-        if (v[2] == 1 || v[2] == -1) && (0 <= v[1] <= 1) && !in_as
-            push!(values, v[2])
-        elseif v[2] == 0
-            push!(values, v[2])
-            in_as ⊻= true
-        end
-    end
-
-    return values
 
 end
 

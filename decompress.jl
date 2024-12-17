@@ -44,7 +44,9 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
     remove("$output/row_2_col_1.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/$compressed_file.tar")
+    remove("$output/vals.bytes")
 
+    return [0.0]
 end
 
 function decompress2dSymmetricNaive(compressed_file, decompress_folder, output = "../output")
@@ -72,13 +74,14 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
 
     remove("$output/row_1_col_1.cmp")
     remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/$compressed_file.tar")
+    remove("$output/vals.bytes")
 
+    return [0.0]
 end
 
 function decompress2dSymmetricNaiveWithMask(compressed_file, decompress_folder, output = "../output")
@@ -107,33 +110,34 @@ function decompress2dSymmetricNaiveWithMask(compressed_file, decompress_folder, 
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
 
     mask = huffmanDecode(huffmanBytes)
 
     if length(mask) > 0
-        tf = loadTensorField2dFromFolder("$output/$decompress_folder", (dims[1]*dims[2]*dims[3],1,1))
+        tf = loadTensorField2dSymmetricFromFolder("$output/$decompress_folder", (dims[1]*dims[2]*dims[3],1,1))
 
         for i in 1:(dims[1]*dims[2]*dims[3])
             if mask[i] == 0.0
                 tf.entries[1,i,1,1] = 0.0
                 tf.entries[2,i,1,1] = 0.0
                 tf.entries[3,i,1,1] = 0.0
-                tf.entries[4,i,1,1] = 0.0
             end
         end
 
-        saveTensorField64("$output/$decompress_folder", tf)        
+        saveTensorFieldSymmetric64("$output/$decompress_folder", tf)        
     end
 
     remove("$output/row_1_col_1.cmp")
     remove("$output/row_1_col_2.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/$compressed_file.tar")
+    remove("$output/vals.bytes")
 
+    return [0.0]
 end
 
 function decompress2d(compressed_file, decompress_folder, output = "../output", verbose = false)
+    startTime = time()
 
     try
         run(`mkdir $output/$decompress_folder`)
@@ -147,7 +151,9 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
     run(`zstd -d $output/$compressed_file.tar.zst`)
+    zstdSplit = time()
     run(`tar xvf $output/$compressed_file.tar`)
+    tarSplit = time()
 
     cd(cwd)
 
@@ -235,14 +241,20 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
         eigenvectorSpecialCaseCodes = reshape(eigenvectorSpecialCaseArray, dims_tuple)
     end
 
+    readSplit = time()
+
     # Decompress from SZ and load into a tensor field
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)    
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
 
+    baseDecompressorSplit = time()
+
     dims_tuple::Tuple{Int64, Int64, Int64} = (dims[1], dims[2], dims[3])
     tf = loadTensorField2dFromFolder("$output", dims_tuple)
+
+    read2Split = time()
 
     next_lossless_full = 1
     next_lossless_d = 1
@@ -375,6 +387,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
         end # end for 
     end # end for
 
+    augmentSplit = time()
+
     # tf2 = loadTensorField2dFromFolder("../output/test", dims_tuple)
 
     # for t in 1:dims[3]
@@ -395,6 +409,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     # Save to file
     saveTensorField64("$output/$decompress_folder", tf)
 
+    saveSplit = time()
+
     remove("$output/row_1_col_1.dat")
     remove("$output/row_1_col_2.dat")
     remove("$output/row_2_col_1.dat")
@@ -404,9 +420,14 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     remove("$output/row_2_col_1.cmp")
     remove("$output/row_2_col_2.cmp")
     remove("$output/vals.bytes")
+
+    endTime = time()
+
+    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - tarSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
 end
 
 function decompress2dSymmetric(compressed_file, decompress_folder, bits, output = "../output")
+    startTime = time()
     try
         run(`mkdir $output/$decompress_folder`)
     catch
@@ -419,7 +440,9 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
     run(`zstd -d $output/$compressed_file.tar.zst`)
+    zstdSplit = time()
     run(`tar xvf $output/$compressed_file.tar`)
+    tarSplit = time()
 
     cd(cwd)
     
@@ -448,17 +471,17 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
         fullLossless = reshape(fullLosslessBase, dims_tuple)
     end
 
+    readSplit = time()
+
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
     run(`../SZ3-master/build/bin/sz3 -f -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-    run(`cp $output/$decompress_folder/row_1_col_2.dat $output/$decompress_folder/row_2_col_1.dat`)
 
-    remove("$output/row_1_col_1.cmp")
-    remove("$output/row_1_col_2.cmp")
-    remove("$output/row_2_col_2.cmp")
-    remove("$output/$compressed_file.tar")
+    baseDecompressorSplit = time()
 
-    tf = loadTensorField2dFromFolder("$output/$decompress_folder", dims_tuple)
+    tf = loadTensorField2dSymmetricFromFolder("$output/$decompress_folder", dims_tuple)
+
+    read2Split = time()
 
     # adjust
 
@@ -467,13 +490,13 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
         for j in 1:dims[2]
             for i in 1:dims[1]
                 if fullLossless[i,j,t] == 1
-                    nextTensor = SMatrix{2,2,Float64}(losslessValues[next_lossless], losslessValues[next_lossless+1], losslessValues[next_lossless+1], losslessValues[next_lossless+2])
+                    nextTensor = SVector{3,Float64}(losslessValues[next_lossless], losslessValues[next_lossless+1], losslessValues[next_lossless+2])
                     setTensor(tf, i, j, t, nextTensor)
                     next_lossless += 3
                 elseif codes[i,j,t] == 2^bits-1
                     intermediateTensor = getTensor(tf, i, j, t)
-                    trace = (intermediateTensor[1,1]+intermediateTensor[2,2])/2
-                    nextTensor = SMatrix{2,2,Float64}(losslessValues[next_lossless]+trace, losslessValues[next_lossless+1], losslessValues[next_lossless+1], -losslessValues[next_lossless]+trace)
+                    trace = (intermediateTensor[1]+intermediateTensor[3])/2
+                    nextTensor = SVector{3,Float64}(losslessValues[next_lossless]+trace, losslessValues[next_lossless+1], -losslessValues[next_lossless]+trace)
                     setTensor(tf, i, j, t, nextTensor)
                     next_lossless += 2
                 elseif codes[i,j,t] != 0
@@ -485,7 +508,21 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
         end
     end
 
-    saveTensorField64("$output/$decompress_folder", tf)
+    augmentSplit = time()
+
+    saveTensorFieldSymmetric64("$output/$decompress_folder", tf)
+
+    saveSplit = time()
+
+    remove("$output/row_1_col_1.cmp")
+    remove("$output/row_1_col_2.cmp")
+    remove("$output/row_2_col_2.cmp")
+    remove("$output/$compressed_file.tar")
+    remove("$output/vals.bytes")
+
+    endTime = time()
+
+    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - tarSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
 
 end
 

@@ -1,11 +1,10 @@
 include("utils.jl")
+include("conicUtils.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
 include("compress.jl")
 include("evaluation.jl")
-
-using Plots
 
 using .compress
 using .decompress
@@ -17,12 +16,11 @@ function main()
 
     folder = "../output/slice"
     dims = (65,65,1)
-    eb = 0.009
-    naive = true
-    mask = true
-    bits = 6 # number of bits used for quantization
+    eb = 0.01
 
-    symmetric_eval = false
+    naive = true
+    mask = false
+    bits = 6 # number of bits used for quantization
 
     println("hi")
     compression_start = time()
@@ -53,7 +51,7 @@ function main()
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2dSymmetric(folder,  "../output/reconstructed", dims, symmetric_eval, compressed_size, ct, dt)
+    printEvaluation2dSymmetric(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt)
 
 end
 

@@ -57,7 +57,7 @@ const CODE_LOSSLESS_FULL_64 = 19 # 💀
 export FloatMatrix
 export FloatMatrixSymmetric
 const FloatMatrix = SMatrix{2,2,Float64,4}
-const FloatMatrixSymmetrix = SVector{3,Float64}
+const FloatMatrixSymmetric = SVector{3,Float64}
 
 # eigenvector graph numbering system:
 export W_CN

@@ -1,6 +1,6 @@
-using PyCall
 using LinearAlgebra
 using DataStructures
+using Random
 
 struct TensorField
     size::Tuple{Int64,Int64}
@@ -146,6 +146,7 @@ function pixel_near(px,list)
 end
 
 function main()
+    Random.seed!(0)
     t1 = time()
     plt = pyimport("matplotlib.pyplot")
 
@@ -163,18 +164,22 @@ function main()
     a = time()
     a_file = open("$folder/row_1_col_1.dat", "r")
     b_file = open("$folder/row_1_col_2.dat", "r")
-    c_file = open("$folder/row_2_col_1.dat", "r")
     d_file = open("$folder/row_2_col_2.dat", "r")
 
     a_array = reshape( reinterpret( Float64, read(a_file) ), size )
     b_array = reshape( reinterpret( Float64, read(b_file) ), size )
-    c_array = reshape( reinterpret( Float64, read(c_file) ), size )
     d_array = reshape( reinterpret( Float64, read(d_file) ), size )
+
+    if asymmetric
+        c_file = open("$folder/row_2_col_1.dat", "r")
+        c_array = reshape( reinterpret( Float64, read(c_file) ), size )
+    else
+        c_array = b_array
+    end
 
     tf = TensorField(size, a_array, b_array, c_array, d_array)
 
     wedge_points = []
-    wedge_pixels = []
     trisector_points = []
 
     # identify critical points
@@ -225,8 +230,8 @@ function main()
 
                     if cp == 1
                         push!(wedge_points, (cx, cy))
-                        push!(wedge_pixels, to_pixel((cx,cy),scale))
                     else
+                        println((cx,cy))
                         push!(trisector_points, (cx,cy))
                     end
 
@@ -467,14 +472,20 @@ function main()
     plt.imshow(transpose(finalImage))
 
     for cp in trisector_points
-        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="black", s=100 )
-        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="white", s=60 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=100 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=60 )
     end
 
     for cp in wedge_points
-        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="white", s=100 )
-        plt.scatter( (cp[1]-1)*scale+1, (cp[2]-1)*scale+1, color="black", s=60 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=100 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=60 )
     end
+
+    plt.scatter( 0,0, color="black", s=100)
+    plt.scatter( 0,0, color="blue", s=60)
+
+    plt.scatter( 2,2, color="black", s=100)
+    plt.scatter( 2,2, color="blue", s=60)
 
     plt.show()
 end

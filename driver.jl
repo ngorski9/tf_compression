@@ -1,11 +1,10 @@
 include("utils.jl")
+include("conicUtils.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
 include("compress.jl")
 include("evaluation.jl")
-
-using Plots
 
 using .compress
 using .decompress
@@ -14,11 +13,11 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (25,65,1)
-    eb = 0.01
+    dims = (101,101,1)
+    eb = 0.005
     edgeError = 1.0
     naive = false
-    eigenvalue = false
+    eigenvalue = true
     eigenvector = true
 
     compression_start = time()
@@ -42,7 +41,7 @@ function main()
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2d(folder,  "../output/reconstructed", dims, -1.0, -1.0, compressed_size, ct, dt, edgeError, eigenvalue, eigenvector)
+    printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, edgeError, eigenvalue, eigenvector)
 end
 
 main()
