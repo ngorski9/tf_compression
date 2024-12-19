@@ -11,7 +11,7 @@ using .decompress
 using .tensorField
 using .utils
 
-function main()
+function main()::Cint
 
     folder = ""
     dims = (-1,-1,-1)
@@ -241,7 +241,7 @@ function main()
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,edgeEB,ratio,max error,psnr,ct,dt,tt,,mse,frobeniusMse,points,edges,circular points,cp types (ground),cp types (recon),")
+            write(outf, "dataset,target,eb,edgeEB,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,edges,circular points,cp types (ground),cp types (recon),")
             write(outf, "false ellipses,numPoints,numCells,setup 1,bc,setup 2,proc. points,ellipse check,proc. edges,")
             write(outf, "proc. cp,proc. ellipse,queue, total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
@@ -318,6 +318,8 @@ function main()
         write(outf, "$(dtv[5]),$(dtv[6]),$(dtv[7]),$(dtv[8])\n")
 
     end
+
+    return 0
 
 end
 

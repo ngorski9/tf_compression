@@ -266,7 +266,7 @@ function main()
 
         # write the data :((
         write(outf, "$name,$target,$eb,,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
-        write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
+        write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
         write(outf, ",$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),$(ctv[7]),")
         write(outf, "$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(ctv[14]),$(ctv[15]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
         write(outf, "$(dtv[5]),$(dtv[6]),$(dtv[7]),$(dtv[8])\n")
