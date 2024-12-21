@@ -13,8 +13,8 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (101,101,1)
-    eb = 0.005
+    dims = (150,450,1)
+    eb = 0.0003
     edgeError = 1.0
     naive = false
     eigenvalue = true
