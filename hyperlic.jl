@@ -1,6 +1,35 @@
 using LinearAlgebra
 using DataStructures
 using Random
+using PyCall
+
+function randomNoise(array)
+    width, height = size(array)
+    for j in 1:height
+        for i in 1:width
+            array[i,j] = rand()
+        end
+    end
+end
+
+function randomCircles(array, radius)
+    width, height = size(array)
+
+    for i in 1:width*height/radius
+        centerX = Int64(round(rand() * (width-1))+1)
+        centerY = Int64(round(rand() * (height-1))+1)
+        intensity = rand()
+        for xo in -radius:radius
+            for yo in -radius:radius
+                if xo^2 + yo^2 <= radius && 1 <= centerX + xo <= width && 1 <= centerY + yo <= height
+                    array[centerX+xo, centerY+yo] = intensity
+                end
+            end
+        end
+
+    end
+
+end
 
 struct TensorField
     size::Tuple{Int64,Int64}
@@ -44,7 +73,12 @@ function vector(A::Array{Float64}, dual=false)
         return vector
 
     else
-        return eigvecs(A)[:,2]
+        vals = eigvals(A)
+        if vals[1] > vals[2]
+            return eigvecs(A)[:,1]
+        else
+            return eigvecs(A)[:,2]
+        end
     end
 
 end
@@ -152,7 +186,8 @@ function main()
 
     folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 3
+    scale = 12
+    power = 1.5
     num_steps = 60 # Interpolation length
     max_path_tracing = 60 # kill after a certain number of steps to avoid loops
     block_size = 20
@@ -216,7 +251,8 @@ function main()
                 if cp == 1 || cp == 2
 
                     mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1] b_array[x2,y2] b_array[x3,y3] ; 1 1 1 ]
-                    μ = mat * [0 ; 0 ; 1]
+                    μ = (mat^-1) * [0 ; 0 ; 1]
+                    println(μ)
 
                     if k == 0
                         # bottom
@@ -231,7 +267,6 @@ function main()
                     if cp == 1
                         push!(wedge_points, (cx, cy))
                     else
-                        println((cx,cy))
                         push!(trisector_points, (cx,cy))
                     end
 
@@ -245,18 +280,23 @@ function main()
 
     imageSize = ( (size[1]-1)*scale, (size[2]-1)*scale )
     noise = zeros(Float64, imageSize )
+    # randomNoise(noise)
+    randomCircles(noise, scale-1)
     for j in 1:imageSize[2]
         for i in 2:imageSize[1]
             xo = (i-0.5)/scale+1.0
             yL = (j-0.7)/scale+1.0
             yH = (j-0.3)/scale+1.0
-            if interpolate(tf, [xo, yL] ) != [0.0 0.0 ; 0.0 0.0] && interpolate(tf, [xo,yH]) != [0.0 0.0 ; 0.0 0.0]
-                noise[i,j] = rand()
+
+            if interpolate(tf, [xo, yL] ) == [0.0 0.0 ; 0.0 0.0] && interpolate(tf, [xo,yH]) == [0.0 0.0 ; 0.0 0.0]
+                noise[i,j] = 0.0
             end
+
         end
     end
 
     finalImage = zeros(Float64, imageSize)
+    # finalImage = noise
     numHits = zeros(Int64, imageSize)
     
     # iterate and create streamlines
@@ -469,23 +509,42 @@ function main()
     print(t2-t1)
 
     # visualize
-    plt.imshow(transpose(finalImage))
+    finalImage = finalImage .^ power
+    plt.imshow(transpose(finalImage), cmap="gray")
 
     for cp in trisector_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=100 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=60 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=200 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=120 )
     end
 
     for cp in wedge_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=100 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=60 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=200 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=120 )
     end
 
-    plt.scatter( 0,0, color="black", s=100)
-    plt.scatter( 0,0, color="blue", s=60)
+    # for j in 1:size[2]
+    #     for i in 1:size[1]-1
+    #         plt.plot( [ (i-1)*scale-0.5, i*scale-0.5 ], [(j-1)*scale-0.5,(j-1)*scale-0.5], color="black" )
+    #     end
+    # end
 
-    plt.scatter( 2,2, color="black", s=100)
-    plt.scatter( 2,2, color="blue", s=60)
+    # for j in 1:size[2]-1
+    #     for i in 1:size[1]
+    #         plt.plot( [(i-1)*scale-0.5, (i-1)*scale-0.5], [(j-1)*scale-0.5, j*scale-0.5], color="black" )
+    #     end
+    # end
+
+    # for j in 1:size[2]-1
+    #     for i in 1:size[1]-1
+    #         plt.plot( [(i-1)*scale-0.5, i*scale-0.5], [j*scale-0.5, (j-1)*scale-0.5], color="black" )
+    #     end
+    # end
+
+    # plt.scatter( 0,0, color="black", s=100)
+    # plt.scatter( 0,0, color="blue", s=60)
+
+    # plt.scatter( 2,2, color="black", s=100)
+    # plt.scatter( 2,2, color="blue", s=60)
 
     plt.show()
 end

@@ -23,6 +23,7 @@ function main()::Cint
     eigenvector = false
     csv = ""
     output = ""
+    sizes = ""
 
     i = 1
     while i <= length(ARGS)
@@ -59,6 +60,9 @@ function main()::Cint
             i += 2
         elseif ARGS[i] == "--output"
             output = ARGS[i+1]
+            i += 2
+        elseif ARGS[i] == "--sizes"
+            sizes = ARGS[i+1]
             i += 2
         else
             println("ERROR: unknown argument $(ARGS[i])")
@@ -162,6 +166,12 @@ function main()::Cint
         ct = compression_end - compression_start
 
         compressed_size = filesize("$output/compressed_output.tar.zst")
+
+        if sizes != ""
+            sizes_file = open(sizes, "a")
+            write(sizes_file, string(compressed_size) * "\n")
+        end
+
         removeIfExists("$output/compressed_output.tar")
         decompression_start = time()
         if naive
