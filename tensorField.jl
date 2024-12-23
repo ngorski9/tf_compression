@@ -413,13 +413,24 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
 
 end
 
-function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, eigenvalue::Bool, eigenvector::Bool )
+function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, eigenvalue::Bool, eigenvector::Bool, show::Bool=false )
     if t11 == t12 && t21 == t22
         return true
     end
 
-    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21 )
-    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22 )
+    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21, show )
+
+    if show
+        println((evalClass1,evalLoc1,evecClass1,evecLoc1))
+        println("**********************************************")        
+    end
+
+    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22, show )
+
+    if show
+        println((evalClass2,evalLoc2,evecClass2,evecLoc2))
+        println("=========================")
+    end
 
     if length(evalClass1) > 0 && evalClass1[1] == 99 || length(evalClass2) > 0 && evalClass2[1] == 99
         return false
@@ -623,9 +634,8 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             small_t = round(min(t1, t2), digits=14)
             large_t = round(max(t1, t2), digits=14)
 
-            if p
-                println("t values",(small_t,large_t))
-            end
+            # Check if we find any intersection at an endpoint and adjust the category accordingly.
+            # I swear every imaginable degenerate case seems to occur at some point in time >:(
 
             if -0.0001*ϵ <= small_t < 0.0
                 small_t = 0.0
@@ -643,13 +653,65 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                 large_t = 1.0
             end
 
+            if small_t <= 0.0001*ϵ
+                if category == 2
+                    category = 1
+                elseif category == 3
+                    category = 0
+                elseif category == 4
+                    category = 3
+                elseif category == 5
+                    category = 2
+                end
+            end
+
+            if large_t <= 0.0001*ϵ
+                if category == 2
+                    category = 1
+                elseif category == 3
+                    category = 0
+                elseif category == 4
+                    category = 3
+                elseif category == 5
+                    category = 2
+                end
+            end
+
+            if small_t >= 1.0 - 0.0001*ϵ
+                if category == 2
+                    category = 0
+                elseif category == 3
+                    category = 1
+                elseif category == 4
+                    category = 2
+                elseif category == 5
+                    category = 3
+                end
+            end
+
+            if large_t >= 1.0 - 0.0001*ϵ
+                if category == 2
+                    category = 0
+                elseif category == 3
+                    category = 1
+                elseif category == 4
+                    category = 2
+                elseif category == 5
+                    category = 3
+                end
+            end
+
+            if p
+                println("t values",(small_t,large_t))
+            end
+
             if category == 2 || category == 3
 
                 if su == 0
                     push!(cross_values, (0, small_t, i))
                 elseif sw == 0
                     push!(cross_values, (0, large_t, i))
-                elseif 0 <= small_t <= 1
+                elseif 0 < small_t < 1
                     push!(cross_values, (0, small_t, i))
                 else
                     push!(cross_values, (0, large_t, i))
@@ -685,9 +747,12 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
         c = cross_values[i]
 
-        if c[1] == 0.0
+        if c[1] == 0
 
             if c[2] > 0.0001*ϵ && c[2] < 1-0.0001*ϵ
+                if p
+                    println("triggered by $c")
+                end
                 if (c[3] == 1 || s_is_larger[1]) && (c[3] == 2 || s_is_larger[2])
                     push!(eigenvalueEdgeClass, 0)
                     push!(eigenvalueEdgeLocations, c[2])

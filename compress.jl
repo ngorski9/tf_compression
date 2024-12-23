@@ -671,6 +671,14 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
                             reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
 
+                            if edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector ) !=
+                               edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector )
+                                edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true )
+                                edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, true )
+                                println("mismatch")
+                                exit()
+                            end
+
                             while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector )
                                 raise_precision(vertexCoords[e[1]]...)
                                 processPoint(vertexCoords[e[1]])
