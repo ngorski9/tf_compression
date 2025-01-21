@@ -666,11 +666,11 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             # Check if we find any intersection at an endpoint and adjust the category accordingly.
             # I swear every imaginable degenerate case seems to occur at some point in time >:(
 
-            if -margin <= small_t < 0.0
+            if -margin <= small_t < margin
                 small_t = 0.0
             end
 
-            if -margin <= large_t < 0.0
+            if -margin <= large_t < margin
                 large_t = 0.0
             end
 
@@ -776,6 +776,10 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
     for i in eachindex(cross_values)
         c = cross_values[i]
+
+        if p
+            println(("------------->", c[2], minCrossing, 1.0-minCrossing))
+        end
 
         if 0 <= c[2] <= minCrossing || 1.0-minCrossing <= c[2] <= 1.0 + minCrossing
             return ([99], [0.0], 0, [0.0])
