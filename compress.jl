@@ -16,7 +16,7 @@ export compress2dSymmetric
 export compress2dSymmetricNaive
 export compress2dSymmetricNaiveWithMask
 
-function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output", verbose=false)
+function compress2dNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output", baseCompressor="sz3", verbose=false)
     tf = loadTensorField2dFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -25,10 +25,20 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_1.dat -z $output/row_2_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    if baseCompressor == "sz3"
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_1.dat -z $output/row_2_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    elseif baseCompressor == "mgard"
+        run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_1_col_1.dat -c $output/row_1_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_1_col_2.dat -c $output/row_1_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_1.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_2.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+    else
+        println("ERROR: unrecognized base compressor $baseCompressor")
+        exit()
+    end
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
@@ -166,7 +176,7 @@ function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, 
     return [0.0]
 end
 
-function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false, eigenvalue=true, eigenvector=true)
+function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false, eigenvalue=true, eigenvector=true, minCrossing = 0.01, baseCompressor = "sz3")
     startTime = time()
     tf = loadTensorField2dFromFolder(containing_folder, dims)
     
@@ -205,10 +215,23 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     saveTensorField32(output, tf, "_g")
 
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_1_g.dat -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    if baseCompressor == "sz3"
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_1_g.dat -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    elseif baseCompressor == "mgard"
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_1_g.dat -c $output/row_1_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_2_g.dat -c $output/row_1_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_1_g.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_2_g.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_1.cmp -d $output/row_1_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_2.cmp -d $output/row_1_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_1.cmp -d $output/row_2_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_2.cmp -d $output/row_2_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+
+    end
 
     baseCompressorSplit = time()
 
@@ -671,15 +694,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
                             reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
 
-                            if edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector ) !=
-                               edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector )
-                                edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true )
-                                edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, true )
-                                println("mismatch")
-                                exit()
-                            end
+                            # if edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, false, minCrossing ) !=
+                            #    edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, false, minCrossing )
+                            #     edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true, minCrossing )
+                            #     edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, true, minCrossing )
+                            #     println("mismatch")
+                            #     exit()
+                            # end
 
-                            while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector )
+                            while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, false, minCrossing )
                                 raise_precision(vertexCoords[e[1]]...)
                                 processPoint(vertexCoords[e[1]])
 

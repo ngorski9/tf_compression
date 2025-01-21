@@ -47,7 +47,7 @@ function dot(a::Vector{Float64}, b::Vector{Float64})
     return a[1]*b[1] + a[2]*b[2]
 end
 
-function vector(A::Array{Float64}, dual=false)
+function vector(A::Array{Float64}, dual=false, scale::Float64=0.0)
 
     if A[1,1] == 0.0 && A[1,2] == 0.0 && A[2,1] == 0.0 && A[2,2] == 0.0
         return [0.0,0.0]
@@ -75,9 +75,17 @@ function vector(A::Array{Float64}, dual=false)
     else
         vals = eigvals(A)
         if vals[1] > vals[2]
-            return eigvecs(A)[:,1]
+            if scale == 0
+                return eigvecs(A)[:,1]
+            else
+                return scale*abs(vals[1])*eigvecs(A)[:,1]
+            end
         else
-            return eigvecs(A)[:,2]
+            if scale == 0
+                return eigvecs(A)[:,2]
+            else
+                return scale*abs(vals[2])*eigvecs(A)[:,2]
+            end
         end
     end
 
@@ -110,10 +118,10 @@ function interpolate(tf::TensorField,v::Vector{Float64})
 end
 
 # expensive lol
-function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector::Vector{Float64}, dual::Bool)
+function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector::Vector{Float64}, dual::Bool, evecScale::Float64=0.0)
 
     t1 = interpolate(tf, x)
-    e1 = vector(t1, dual)
+    e1 = vector(t1, dual, evecScale)
     if dot(lastVector, e1) < 0
         e1 *= -1
     end
@@ -124,7 +132,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t2 = interpolate(tf, xa)
-    e2 = vector(t2, dual)
+    e2 = vector(t2, dual, evecScale)
     if dot(lastVector, e2) < 0
         e2 *= -1
     end
@@ -135,7 +143,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t3 = interpolate(tf, xb)
-    e3 = vector(t3, dual)
+    e3 = vector(t3, dual, evecScale)
     if dot(lastVector, e3) < 0
         e3 *= -1
     end
@@ -146,7 +154,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     end
 
     t4 = interpolate(tf, xc)
-    e4 = vector(t4, dual)
+    e4 = vector(t4, dual, evecScale)
     if dot(lastVector, e4) < 0
         e4 *= -1
     end
@@ -180,16 +188,24 @@ function pixel_near(px,list)
 end
 
 function main()
-    Random.seed!(0)
+    Random.seed!(1)
     t1 = time()
     plt = pyimport("matplotlib.pyplot")
+    colors = pyimport("matplotlib.colors")
 
     folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 12
+    scale = 8
+    evecScale=0.0
     power = 1.5
-    num_steps = 60 # Interpolation length
-    max_path_tracing = 60 # kill after a certain number of steps to avoid loops
+
+    # old settings: num_steps: 60
+    # max_path_tracing = 60
+    # block_size = 20
+    # delta: 0.1
+
+    num_steps = 180 # Interpolation length
+    max_path_tracing = 180 # kill after a certain number of steps to avoid loops
     block_size = 20
     hit_threshold = 8
     δ = 0.1
@@ -225,13 +241,13 @@ function main()
                 if k == 0
                     # bottom
                     x1, y1 = (i,j)
-                    x2, y2 = (i,j+1)
-                    x3, y3 = (i+1,j)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i,j+1)
                 else
                     # top
                     x1, y1 = (i,j+1)
-                    x2, y2 = (i+1,j+1)
-                    x3, y3 = (i+1,j)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i+1,j+1)
                 end
 
                 l12 = (a_array[x1,y1] - d_array[x1,y1])*(b_array[x2,y2]+c_array[x2,y2]) - (a_array[x2,y2] - d_array[x2,y2])*(b_array[x1,y1]+c_array[x1,y1])
@@ -250,19 +266,26 @@ function main()
 
                 if cp == 1 || cp == 2
 
-                    mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1] b_array[x2,y2] b_array[x3,y3] ; 1 1 1 ]
+                    mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1]+c_array[x1,y1] b_array[x2,y2]+c_array[x2,y2] b_array[x3,y3]+c_array[x3,y3] ; 1 1 1 ]
                     μ = (mat^-1) * [0 ; 0 ; 1]
-                    println(μ)
+                    println([μ[1],μ[2],μ[3]])
 
-                    if k == 0
-                        # bottom
-                        cx = i + μ[3]
-                        cy = j + μ[2]
-                    else
-                        # top
-                        cx = i + 1 - μ[1]
-                        cy = j + 1 - μ[3]
-                    end
+                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
+                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
+
+                    # if k == 0
+                    #     # bottom
+                    #     cx = i + μ[3]
+                    #     cy = j + μ[2]
+                    # else
+                    #     # top
+                    #     # cx = i + 1 - μ[1]
+                    #     # cy = j + 1 - μ[3]
+                    #     cx = i + μ[1]
+                    #     cy = j + μ[3]
+                    # end
+
+                    # println((cx,cy))
 
                     if cp == 1
                         push!(wedge_points, (cx, cy))
@@ -338,7 +361,7 @@ function main()
 
                         vf = evecRoot
                         for step in 1:num_steps
-                            vf = rk4_vector(tf, xf, δ, vf, asymmetric)
+                            vf = rk4_vector(tf, xf, δ, vf, asymmetric, evecScale)
                             xf = xf + vf
                             if !inBounds(tf, xf)
                                 break
@@ -355,7 +378,7 @@ function main()
                         xb = seed
                         vb = -evecRoot
                         for step in 1:num_steps
-                            vb = rk4_vector(tf, xb, δ, vb, asymmetric)
+                            vb = rk4_vector(tf, xb, δ, vb, asymmetric, evecScale)
                             xb = xb + vb
                             if !inBounds(tf, xb)
                                 break
@@ -404,7 +427,7 @@ function main()
                             end
 
                             if !at_edge
-                                vf = rk4_vector(tf, xf, δ, vf, asymmetric)
+                                vf = rk4_vector(tf, xf, δ, vf, asymmetric, evecScale)
                                 xf = xf + vf
                                 if !inBounds(tf, xf)
                                     at_edge = true
@@ -461,7 +484,7 @@ function main()
                             end
 
                             if !at_edge
-                                vb = rk4_vector(tf, xb, δ, vb, asymmetric)
+                                vb = rk4_vector(tf, xb, δ, vb, asymmetric, evecScale)
                                 xb = xb + vb
                                 if !inBounds(tf, xb)
                                     at_edge = true
@@ -508,18 +531,21 @@ function main()
     t2 = time()
     print(t2-t1)
 
+    cmap_list = [(0.0,"#001f54"), (0.25,"#034078"), (0.7,"#1282a2"), (1.0,"#fefcfb")]
+    cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
+
     # visualize
     finalImage = finalImage .^ power
-    plt.imshow(transpose(finalImage), cmap="gray")
+    plt.imshow(transpose(finalImage), cmap=cmap)
 
     for cp in trisector_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=200 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=120 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=500 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=300 )
     end
 
     for cp in wedge_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="white", s=200 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="black", s=120 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=450 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=300 )
     end
 
     # for j in 1:size[2]

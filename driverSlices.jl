@@ -21,9 +21,11 @@ function main()::Cint
     slice = -1
     eigenvalue = false
     eigenvector = false
+    minCrossing = 0.0001
     csv = ""
     output = ""
     sizes = ""
+    baseCompressor = "sz3"
 
     i = 1
     while i <= length(ARGS)
@@ -64,6 +66,12 @@ function main()::Cint
         elseif ARGS[i] == "--sizes"
             sizes = ARGS[i+1]
             i += 2
+        elseif ARGS[i] == "--baseCompressor"
+            baseCompressor = ARGS[i+1]
+            i += 2
+        elseif ARGS[i] == "--minCrossing"
+            minCrossing = parse(Float64, ARGS[i+1])
+            i += 2
         else
             println("ERROR: unknown argument $(ARGS[i])")
             exit(1)
@@ -89,6 +97,11 @@ function main()::Cint
 
     if output == ""
         println("ERROR: missing argument --output")
+        badArgs = true
+    end
+
+    if baseCompressor == ""
+        println("ERROR: missing argument --baseCompressor")
         badArgs = true
     end
 
@@ -158,7 +171,7 @@ function main()::Cint
         if naive
             compress2dNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
         else
-            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, output, false, eigenvalue, eigenvector)
+            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor)
             ctv += compressionList
         end
 
@@ -177,7 +190,7 @@ function main()::Cint
         if naive
             decompress2dNaive("compressed_output", "reconstructed", output)
         else
-            decompressionList = decompress2d("compressed_output", "reconstructed", output)
+            decompressionList = decompress2d("compressed_output", "reconstructed", output, baseCompressor)
             dtv += decompressionList
         end
         decompression_end = time()
@@ -186,7 +199,7 @@ function main()::Cint
         totalCompressionTime += ct
         totalDecompressionTime += dt
 
-        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, edgeError, eigenvalue, eigenvector)
+        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, edgeError, eigenvalue, eigenvector, minCrossing)
 
         if !naive && !metrics[1]
             redirect_stdout(stdout_)

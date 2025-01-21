@@ -16,8 +16,12 @@ export pushIfAbsent!
 
 export ϵ
 export MAX_PRECISION
+export compressor
 const ϵ = 1e-11
 const MAX_PRECISION = 20
+
+export smoothness
+const smoothness = 0
 
 # cell types
 

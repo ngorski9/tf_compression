@@ -17,8 +17,11 @@ function main()
     folder = "../output/slice"
     dims = (65,65,1)
     eb = 0.01
+    # stress3xy slice 13 0.008899 is equivalent to 0.01 for mine
+    # stress3xy slice 24 0.0094
+    # stress3xy slice 10 is roughly 0.00875
 
-    naive = true
+    naive = false
     mask = false
     bits = 6 # number of bits used for quantization
 

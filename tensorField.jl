@@ -21,6 +21,7 @@ export recomposeTensorSymmetric
 export classifyTensorEigenvector
 export classifyTensorEigenvalue
 export classifyEdge
+export classifyEdgeOuter
 
 export saveTensorField32
 export saveTensorField64
@@ -413,19 +414,19 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
 
 end
 
-function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, eigenvalue::Bool, eigenvector::Bool, show::Bool=false )
+function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, eigenvalue::Bool, eigenvector::Bool, show::Bool=false, minCrossing::Float64 = 0.01 )
     if t11 == t12 && t21 == t22
         return true
     end
 
-    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21, show )
+    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21, show, minCrossing )
 
     if show
         println((evalClass1,evalLoc1,evecClass1,evecLoc1))
         println("**********************************************")        
     end
 
-    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22, show )
+    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22, show, minCrossing )
 
     if show
         println((evalClass2,evalLoc2,evecClass2,evecLoc2))
@@ -440,20 +441,32 @@ function edgesMatch( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::
 end
 
 # returns two bools for whether it matches for eigenvalue / eigenvector
-function edgesMatchSplit( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64 )
+function edgesMatchSplit( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, t22::FloatMatrix, eb::Float64, minCrossing = 0.01 )
+
     if t11 == t12 && t21 == t22
         return [true,true]
     end
 
     result = [false,false]
 
-    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21 )
-    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22 )
+    evalClass1, evalLoc1, evecClass1, evecLoc1 = classifyEdgeOuter( t11, t21, false, minCrossing )
+    evalClass2, evalLoc2, evecClass2, evecLoc2 = classifyEdgeOuter( t12, t22, false, minCrossing )
 
-    if length(evalClass1) > 0 && evalClass1[1] == 99 || length(evalClass2) > 0 && evalClass2[1] == 99
-        result[1] = false
+    if length(evalClass1) > 0 && evalClass1[1] == 99 && length(evalClass2) > 0 && evalClass2[1] == 99
+        println("this occurred")
+        result[1] = true
     else
         result[1] = (evalClass1 == evalClass2) && (length(evalClass1) == 0 || maximum( abs.(evalLoc1-evalLoc2) ) <= eb)
+        # if !result[1]
+        #     if evalClass1 == evalClass2
+        #         println((evalClass1, evalClass2, maximum(abs.(evalLoc1-evalLoc2))))
+        #         println(length(evalClass1) == 0)
+        #         println(eb)
+        #         println(maximum( abs.(evalLoc1-evalLoc2) ) <= eb)
+        #     else
+        #         println((evalClass1, evalClass2))
+        #     end
+        # end
     end
 
     result[2] = (evecClass1 == evecClass2) && (evecClass1 == 0 || maximum( abs.(evecLoc1-evecLoc2) ) <= eb)
@@ -461,10 +474,10 @@ function edgesMatchSplit( t11::FloatMatrix, t21::FloatMatrix, t12::FloatMatrix, 
     return result
 end
 
-function classifyEdgeOuter( t1::FloatMatrix, t2::FloatMatrix, p=false )
+function classifyEdgeOuter( t1::FloatMatrix, t2::FloatMatrix, p=false, minCrossing = 0.01 )
     decomp1 = decomposeTensor(t1)
     decomp2 = decomposeTensor(t2)
-    return classifyEdge(decomp1..., decomp2...,p)
+    return classifyEdge(decomp1..., decomp2...,p, minCrossing)
 end
 
 # returns a list of numbers with the following entries (ordered)
@@ -474,13 +487,24 @@ end
 #             0 signifying anisotropic stretching starts or ends being dominant
 # these correspond to vertex patterns from the visualization.
 # The fourth number corresponds to the bin number when using the bin method.
-function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, θ1::AbstractFloat, d2::AbstractFloat, r2::AbstractFloat, s2::AbstractFloat, θ2::AbstractFloat,p=false )
-
+function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, θ1::AbstractFloat, d2::AbstractFloat, r2::AbstractFloat, s2::AbstractFloat, θ2::AbstractFloat,p=false, minCrossing=1e-15 )
+    margin = 1e-13
     y1 = (d2-r2) / ( (d2-r2) - (d1 - r1) )
     y2 = (d2+r2) / ( (d2+r2) - (d1 + r1) )
 
-    if 0 <= y1 <= 1
-        if 0 <= y2 <= 1
+    if p
+        println(("initial y values", y1, y2))
+    end
+
+    # if -0.0001*ϵ <= y1 <= 0.0001*ϵ || -0.0001*ϵ <= y2 <= 0.0001*ϵ || 1.0-0.0001*ϵ <= y1 <= 1.0+0.0001*ϵ || 1.0-0.0001*ϵ <= y2 <= 1.0+0.0001*ϵ
+    #     if p
+    #         println("first degen")
+    #     end
+    #     return ([99], [0.0], 0, [0.0])
+    # end
+
+    if margin <= y1 <= 1-margin
+        if margin <= y2 <= 1-margin
             if y1 < y2
                 cross_values = [(-1, y1, 0), (-2,y2,0)]
             else
@@ -490,11 +514,15 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             cross_values = [(-1,y1,0)]
         end
     else
-        if 0 <= y2 <= 1
+        if margin <= y2 <= 1-margin
             cross_values = [(-2,y2,0)]
         else
             cross_values::Vector{Tuple{Int64,Float64,Int64}} = Vector{Tuple{Int64, Float64, Int64}}(undef,0)
         end
+    end
+
+    if p
+        println("cross values initial $cross_values")
     end
 
     u_base = s1^2
@@ -549,7 +577,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             println(("vals",su,sw,u,w))
         end
 
-        if su == 0 || sw == 0
+        if su == 0.0 || sw == 0.0
             # Degenerate case
             if su == sw
                 if v > 0
@@ -559,9 +587,9 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                     category = 1
                 end
             elseif su == 0
-                if v < -0.0001*ϵ && w > 0
+                if v < -margin && w > 0
                     category = 2
-                elseif v > 0.0001*ϵ && w < 0
+                elseif v > margin && w < 0
                     category = 3
                 elseif w > 0
                     category = 0
@@ -569,9 +597,9 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                     category = 1
                 end
             else
-                if u < 0 && v > 0.0001*ϵ
+                if u < 0 && v > margin
                     category = 2
-                elseif u > 0 && v < -0.0001*ϵ
+                elseif u > 0 && v < -margin
                     category = 3
                 elseif u > 0
                     category = 0
@@ -629,6 +657,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
 
             if p
                 println("before interp: $((u,v,w))")
+                println(category)
             end
 
             small_t = round(min(t1, t2), digits=14)
@@ -637,23 +666,23 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
             # Check if we find any intersection at an endpoint and adjust the category accordingly.
             # I swear every imaginable degenerate case seems to occur at some point in time >:(
 
-            if -0.0001*ϵ <= small_t < 0.0
+            if -margin <= small_t < 0.0
                 small_t = 0.0
             end
 
-            if -0.0001*ϵ <= large_t < 0.0
+            if -margin <= large_t < 0.0
                 large_t = 0.0
             end
 
-            if 1.0 < small_t < 1.0 + 0.0001*ϵ
+            if 1.0 < small_t < 1.0 + margin
                 small_t = 1.0
             end
 
-            if 1.0 < large_t < 1.0 + 0.0001*ϵ
+            if 1.0 < large_t < 1.0 + margin
                 large_t = 1.0
             end
 
-            if small_t <= 0.0001*ϵ
+            if 0.0 <= small_t <= margin
                 if category == 2
                     category = 1
                 elseif category == 3
@@ -665,7 +694,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                 end
             end
 
-            if large_t <= 0.0001*ϵ
+            if 0.0 <= large_t <= margin
                 if category == 2
                     category = 1
                 elseif category == 3
@@ -677,7 +706,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                 end
             end
 
-            if small_t >= 1.0 - 0.0001*ϵ
+            if 1.0 - margin <= small_t <= 1.0
                 if category == 2
                     category = 0
                 elseif category == 3
@@ -689,7 +718,7 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
                 end
             end
 
-            if large_t >= 1.0 - 0.0001*ϵ
+            if 1.0 - margin <= large_t <= 1.0             
                 if category == 2
                     category = 0
                 elseif category == 3
@@ -738,18 +767,23 @@ function classifyEdge( d1::AbstractFloat, r1::AbstractFloat, s1::AbstractFloat, 
     s_is_larger = [ intercept_categories[1] % 2 == 0, intercept_categories[2] % 2 == 0 ]
 
     if p
+        println("<<<<<<<<")        
         println(s_is_larger)
         println(cross_values)
         println(intercept_categories)
+        println("<<<<<<<<")
     end
 
     for i in eachindex(cross_values)
-
         c = cross_values[i]
+
+        if 0 <= c[2] <= minCrossing || 1.0-minCrossing <= c[2] <= 1.0 + minCrossing
+            return ([99], [0.0], 0, [0.0])
+        end
 
         if c[1] == 0
 
-            if c[2] > 0.0001*ϵ && c[2] < 1-0.0001*ϵ
+            if c[2] >= 0.0001*ϵ && c[2] <= 1-0.0001*ϵ
                 if p
                     println("triggered by $c")
                 end

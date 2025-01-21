@@ -13,19 +13,21 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (150,450,1)
-    eb = 0.0003
+    dims = (640,80,1)
+    eb = 0.01
     edgeError = 1.0
     naive = false
     eigenvalue = true
     eigenvector = true
+    minCrossing = 0.0001
+    baseCompressor = "sz3"
 
     compression_start = time()
 
     if naive
-        compress2dNaive(folder, dims, "compressed_output", eb)
+        compress2dNaive(folder, dims, "compressed_output", eb, "../output", baseCompressor)
     else
-        compress2d(folder, dims, "compressed_output", eb, edgeError, "../output", true, eigenvalue, eigenvector)
+        compress2d(folder, dims, "compressed_output", eb, edgeError, "../output", true, eigenvalue, eigenvector, minCrossing, baseCompressor)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -34,14 +36,14 @@ function main()
     removeIfExists("../output/compressed_output.tar")
     decompression_start = time()
     if naive
-        decompress2dNaive("compressed_output", "reconstructed")
+        decompress2dNaive("compressed_output", "reconstructed", "../output", baseCompressor)
     else
-        decompress2d("compressed_output", "reconstructed")
+        decompress2d("compressed_output", "reconstructed", "../output", baseCompressor)
     end
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, edgeError, eigenvalue, eigenvector)
+    printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, edgeError, eigenvalue, eigenvector, minCrossing)
 end
 
 main()

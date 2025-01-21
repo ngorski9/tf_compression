@@ -75,7 +75,7 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
 end
 
 # edge iteration is hardcoded for the specific mesh
-function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
+function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB, minCrossing)
 
     # hit edges & miss edges
     result = [0 0 ; 0 0]
@@ -106,7 +106,7 @@ function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB)
                     t21 = getTensor(tf1, i2, j2, t)
                     t22 = getTensor(tf2, i2, j2, t)
 
-                    eValMatch, eVecMatch = edgesMatchSplit( t11, t21, t12, t22, edgeEB )
+                    eValMatch, eVecMatch = edgesMatchSplit( t11, t21, t12, t22, edgeEB, minCrossing )
 
                     if eValMatch
                         result[1,1] += 1
@@ -362,14 +362,17 @@ function maxErrorAndRange(tf_ground::TensorField2dSymmetric, tf_reconstructed::T
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, minCrossing)
     cellMatching = topologyCellMatching(tf1, tf2)
     ellipseMatching_ = ellipseMatching(tf1, tf2)
+
+    println("type frequencies: $(getTypeFrequencies(tf1))")
+    println("type frequencies: $(getTypeFrequencies(tf2))")
 
     if (!eigenvector || vertexMatching[2,2] == 0) && (!eigenvalue || vertexMatching[1,2] == 0) && (!eigenvalue || edgeMatching[1,2] == 0) && (!eigenvector || edgeMatching[2,2] == 0) && (!eigenvector || sum(cellMatching) == cellMatching[1]) && (!eigenvalue || (ellipseMatching_[2] == 0 && ellipseMatching_[3] == 0)) && (ellipseMatching_[5] == 0 && ellipseMatching_[6] == 0)
         result = "GOOD"
@@ -414,12 +417,12 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
 
 end
 
-function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true)
+function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
     vertexMatching = topologyVertexMatching(tf1, tf2)
-    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB)
+    edgeMatching = topologyEdgeMatching(tf1, tf2, edgeEB, minCrossing)
     cellMatching = topologyCellMatching(tf1, tf2)
     cellTypeFrequenciesGround = getTypeFrequencies(tf1)
     cellTypeFrequenciesRecon = getTypeFrequencies(tf2)
