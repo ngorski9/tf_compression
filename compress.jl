@@ -35,9 +35,14 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
         run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_1_col_2.dat -c $output/row_1_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
         run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_1.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
         run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_2.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+    elseif baseCompressor == "sperr"
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
     else
         println("ERROR: unrecognized base compressor $baseCompressor")
-        exit()
+        exit(1)
     end
 
     vals_file = open("$output/vals.bytes", "w")
@@ -70,7 +75,7 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
 
 end
 
-function compress2dSymmetricNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+function compress2dSymmetricNaive(containing_folder, dims, output_file, relative_error_bound, output = "../output", baseCompressor = "sz3")
     tf = loadTensorField2dSymmetricFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -79,9 +84,18 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
 
     aeb = relative_error_bound * (max_entry - min_entry)
 
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    if baseCompressor == "sz3"
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    elseif baseCompressor == "sperr"
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+    else
+        println("ERROR: unrecognized base compressor $baseCompressor")
+        exit(1)
+    end
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
@@ -111,7 +125,7 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
     return [0.0]
 end
 
-function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, relative_error_bound, output = "../output")
+function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, relative_error_bound, output = "../output", baseCompressor = "sz3")
     tf = loadTensorField2dSymmetricFromFolder(containing_folder, dims)
 
     # prepare derived attributes for compression
@@ -145,9 +159,18 @@ function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, 
     aeb = relative_error_bound * (max_entry - min_entry)
 
     maskBytes = huffmanEncode(vec(mask))
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+
+    if baseCompressor == "sz3"
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    elseif baseCompressor == "sperr"
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+    else
+        println("ERROR: unrecognized base compressor $baseCompressor")
+    end
 
     vals_file = open("$output/vals.bytes", "w")
     write(vals_file, dims[1])
@@ -176,7 +199,7 @@ function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, 
     return [0.0]
 end
 
-function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false, eigenvalue=true, eigenvector=true, minCrossing = 0.01, baseCompressor = "sz3")
+function compress2d(containing_folder, dims, output_file, relative_error_bound, edgeEB=1.0, output="../output", verbose=false, eigenvalue=true, eigenvector=true, minCrossing = 0.01, baseCompressor = "sz3", parameter=1.0)
     startTime = time()
     tf = loadTensorField2dFromFolder(containing_folder, dims)
     
@@ -216,21 +239,30 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     saveTensorField32(output, tf, "_g")
 
     if baseCompressor == "sz3"
-        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_1_g.dat -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $(parameter*aeb)`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $(parameter*aeb)`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_1_g.dat -z $output/row_2_col_1.cmp -o $output/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $(parameter*aeb)`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $(parameter*aeb)`)
     elseif baseCompressor == "mgard"
-        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_1_g.dat -c $output/row_1_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_2_g.dat -c $output/row_1_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_1_g.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_2_g.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_1_g.dat -c $output/row_1_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_1_col_2_g.dat -c $output/row_1_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_1_g.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -z -t s -i $output/row_2_col_2_g.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
 
-        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_1.cmp -d $output/row_1_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_2.cmp -d $output/row_1_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_1.cmp -d $output/row_2_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
-        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_2.cmp -d $output/row_2_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_1.cmp -d $output/row_1_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_1_col_2.cmp -d $output/row_1_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_1.cmp -d $output/row_2_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+        run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_2.cmp -d $output/row_2_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
+    elseif baseCompressor == "sperr"
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $(parameter*aeb)`)
 
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_1.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $(parameter*aeb)`)
     end
 
     baseCompressorSplit = time()
@@ -703,6 +735,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             # end
 
                             while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, false, minCrossing )
+                                edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true, minCrossing )
+                                readline()
                                 raise_precision(vertexCoords[e[1]]...)
                                 processPoint(vertexCoords[e[1]])
 
@@ -1119,7 +1153,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
 end
 
-function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, bits, output = "../output")
+function compress2dSymmetric(containing_folder, dims, output_file, relative_error_bound, bits, output = "../output", baseCompressor = "sz3")
     startTime = time()
     tf = loadTensorField2dSymmetricFromFolder(containing_folder, dims)
 
@@ -1146,9 +1180,22 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
     saveTensorFieldSymmetric32(output, tf, "_g")
 
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
-    run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    if baseCompressor == "sz3"
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_1_g.dat -z $output/row_1_col_1.cmp -o $output/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+        run(`../SZ3-master/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
+    elseif baseCompressor == "sperr"
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $aeb`)
+        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $aeb`)        
+    else
+        println("ERROR: unrecognized base compressor $baseCompressor")
+        exit(1)
+    end
 
     baseCompressorSplit = time()
 
@@ -1598,7 +1645,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
     remove("$output/row_2_col_2.dat")
     remove("$output/row_1_col_1_g.dat")
     remove("$output/row_1_col_2_g.dat")
-    remove("$output/row_2_col_2_g.dat")    
+    remove("$output/row_2_col_2_g.dat")
     remove("$output/vals.bytes")
 
     endTime = time()

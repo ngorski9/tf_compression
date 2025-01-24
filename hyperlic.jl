@@ -195,7 +195,7 @@ function main()
 
     folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 8
+    scale = 2
     evecScale=0.0
     power = 1.5
 

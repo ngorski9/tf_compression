@@ -21,7 +21,7 @@ struct conicEquation
 end
 
 function interpolationConic(u1::Float64, u2::Float64, u3::Float64)
-    return conicEquation( u2-u1, 2*(u2-u1)*(u3-u1), (u3-u1)^2, 2*u1*(u2-u1), 2*u1*(u3-u1), u1^2 )
+    return conicEquation( (u2-u1)^2, 2*(u2-u1)*(u3-u1), (u3-u1)^2, 2*u1*(u2-u1), 2*u1*(u3-u1), u1^2 )
 end
 
 function add(eq1::conicEquation, eq2::conicEquation)

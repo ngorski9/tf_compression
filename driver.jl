@@ -14,20 +14,24 @@ using .utils
 function main()
     folder = "../output/slice"
     dims = (101,101,1)
-    eb = 0.02325
+    eb = 0.01
     edgeError = 1.0
     naive = false
     eigenvalue = true
-    eigenvector = true
+    eigenvector = false
     minCrossing = 0.0001
-    baseCompressor = "sz3"
+    baseCompressor = "sperr"
+    parameter = 1.0
+
+    # ocean slice 14 (i think its 14) sperr 0.01 27.01, equiv 0.0034 26.98
+    # eigenvalue only: 31 equiv 0.0047
 
     compression_start = time()
 
     if naive
         compress2dNaive(folder, dims, "compressed_output", eb, "../output", baseCompressor)
     else
-        compress2d(folder, dims, "compressed_output", eb, edgeError, "../output", true, eigenvalue, eigenvector, minCrossing, baseCompressor)
+        compress2d(folder, dims, "compressed_output", eb, edgeError, "../output", true, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -38,7 +42,7 @@ function main()
     if naive
         decompress2dNaive("compressed_output", "reconstructed", "../output", baseCompressor)
     else
-        decompress2d("compressed_output", "reconstructed", "../output", baseCompressor)
+        decompress2d("compressed_output", "reconstructed", "../output", baseCompressor, parameter)
     end
     decompression_end = time()
     dt = decompression_end - decompression_start

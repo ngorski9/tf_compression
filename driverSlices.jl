@@ -22,10 +22,12 @@ function main()::Cint
     eigenvalue = false
     eigenvector = false
     minCrossing = 0.0001
+    parameter = 1.0
     csv = ""
     output = ""
     sizes = ""
     baseCompressor = "sz3"
+    verbose = false
 
     i = 1
     while i <= length(ARGS)
@@ -72,6 +74,12 @@ function main()::Cint
         elseif ARGS[i] == "--minCrossing"
             minCrossing = parse(Float64, ARGS[i+1])
             i += 2
+        elseif ARGS[i] == "--compressorParameter"
+            parameter = parse(Float64, ARGS[i+1])
+            i += 2
+        elseif ARGS[i] == "--verbose"
+            verbose = true
+            i += 1
         else
             println("ERROR: unknown argument $(ARGS[i])")
             exit(1)
@@ -153,10 +161,13 @@ function main()::Cint
 
         println("t = $t")
 
-        redirect_stdout(devnull)
+        if !verbose
+            redirect_stdout(devnull)
+        end
 
         try
-            run(`rm -r $output/slice`)
+            run(`rm -r $output`)
+            run(`mkdir $output`)
         catch
         end
 
@@ -169,9 +180,9 @@ function main()::Cint
         compression_start = time()
 
         if naive
-            compress2dNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
+            compress2dNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, baseCompressor)
         else
-            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor)
+            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
             ctv += compressionList
         end
 
@@ -188,9 +199,9 @@ function main()::Cint
         removeIfExists("$output/compressed_output.tar")
         decompression_start = time()
         if naive
-            decompress2dNaive("compressed_output", "reconstructed", output)
+            decompress2dNaive("compressed_output", "reconstructed", output, baseCompressor)
         else
-            decompressionList = decompress2d("compressed_output", "reconstructed", output, baseCompressor)
+            decompressionList = decompress2d("compressed_output", "reconstructed", output, baseCompressor, parameter)
             dtv += decompressionList
         end
         decompression_end = time()
@@ -243,7 +254,18 @@ function main()::Cint
     end
     ratio = 256.0/averageBitrate
 
+    averageMSEByRangeSquared = totalMSEByRangeSquared
+    averageFrobeniusMSEByRangeSquared = totalFrobeniusMSEByRangeSquared
+
+    if slice == -1
+        averageMSEByRangeSquared /= dims[3]
+        averageFrobeniusMSEByRangeSquared /= dims[3]
+    end
+
+    psnr = -10 * log(10, averageMSEByRangeSquared)
+
     println("compression ratio: $ratio")
+    println("psnr: $psnr")
     println("compression time: $totalCompressionTime")
     println("decompression time: $totalDecompressionTime")
     println("trial time: $trialTime")
@@ -301,16 +323,6 @@ function main()::Cint
         if naive
             target = target * " (NAIVE)"
         end
-
-        averageMSEByRangeSquared = totalMSEByRangeSquared
-        averageFrobeniusMSEByRangeSquared = totalFrobeniusMSEByRangeSquared
-
-        if slice == -1
-            averageMSEByRangeSquared /= dims[3]
-            averageFrobeniusMSEByRangeSquared /= dims[3]
-        end
-
-        psnr = -10 * log(10, averageMSEByRangeSquared)
 
         numPoints = dims[1]*dims[2]
         numCells = (dims[1]-1)*(dims[2]-1)*2

@@ -22,6 +22,7 @@ function main()
     bits = 6
     csv = ""
     output = ""
+    baseCompressor = "sz3"
 
     i = 1
     while i <= length(ARGS)
@@ -51,6 +52,9 @@ function main()
             i += 2
         elseif ARGS[i] == "--output"
             output = ARGS[i+1]
+            i += 2
+        elseif ARGS[i] == "--baseCompressor"
+            baseCompressor = ARGS[i+1]
             i += 2
         else
             println("ERROR: Unknown argument $(ARGS[i])")
@@ -129,12 +133,12 @@ function main()
 
         if naive
             if mask
-                compress2dSymmetricNaiveWithMask("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
+                compress2dSymmetricNaiveWithMask("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, baseCompressor)
             else
-                compress2dSymmetricNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output)
+                compress2dSymmetricNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, baseCompressor)
             end
         else
-            ctVector = compress2dSymmetric("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, bits, output)
+            ctVector = compress2dSymmetric("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, bits, output, baseCompressor)
             ctv += ctVector
         end
 
@@ -146,12 +150,12 @@ function main()
         decompression_start = time()
         if naive
             if mask
-                decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed", output)
+                decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed", output, baseCompressor)
             else
-                decompress2dSymmetricNaive("compressed_output", "reconstructed", output)
+                decompress2dSymmetricNaive("compressed_output", "reconstructed", output, baseCompressor)
             end
         else
-            dtVector = decompress2dSymmetric("compressed_output", "reconstructed", bits, output)
+            dtVector = decompress2dSymmetric("compressed_output", "reconstructed", bits, output, baseCompressor)
             dtv += dtVector
         end
         decompression_end = time()

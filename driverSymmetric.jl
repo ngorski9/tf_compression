@@ -16,25 +16,29 @@ function main()
 
     folder = "../output/slice"
     dims = (65,65,1)
-    eb = 0.01
+    eb = 0.0089
+
     # stress3xy slice 13 0.008899 is equivalent to 0.01 for mine
     # stress3xy slice 24 0.0094
-    # stress3xy slice 10 is roughly 0.00875
+    # stress3xy slice 10 is roughly 0.00875 (sz3)
 
-    naive = false
+    # slice 10 (sperr) gives 38.39 0.0089 equiv
+
+    naive = true
     mask = false
     bits = 6 # number of bits used for quantization
+    baseCompressor = "sperr"
 
     println("hi")
     compression_start = time()
     if naive
         if mask
-            compress2dSymmetricNaiveWithMask(folder, dims, "compressed_output", eb)
+            compress2dSymmetricNaiveWithMask(folder, dims, "compressed_output", eb, "../output", baseCompressor)
         else
-            compress2dSymmetricNaive(folder, dims, "compressed_output", eb)    
+            compress2dSymmetricNaive(folder, dims, "compressed_output", eb, "../output", baseCompressor)
         end
     else
-        compress2dSymmetric(folder, dims, "compressed_output", eb, bits)
+        compress2dSymmetric(folder, dims, "compressed_output", eb, bits, "../output", baseCompressor)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -44,12 +48,12 @@ function main()
     decompression_start = time()
     if naive
         if mask
-            decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed")
+            decompress2dSymmetricNaiveWithMask("compressed_output", "reconstructed", "../output", baseCompressor)
         else
-            decompress2dSymmetricNaive("compressed_output", "reconstructed")
+            decompress2dSymmetricNaive("compressed_output", "reconstructed", "../output", baseCompressor)
         end
     else
-        decompress2dSymmetric("compressed_output", "reconstructed", bits)
+        decompress2dSymmetric("compressed_output", "reconstructed", bits, "../output", baseCompressor)
     end    
     decompression_end = time()
     dt = decompression_end - decompression_start
