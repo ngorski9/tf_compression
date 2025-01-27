@@ -48,6 +48,33 @@ function evaluate(eq::conicEquation, x::Float64, y::Float64)
     return eq.A*x^2 + eq.B*x*y + eq.C*y^2 + eq.D*x + eq.E*y + eq.F
 end
 
+# intersect the conic with the line ax + by + c = 0
+function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Floa64, c::Float64)
+    if b != 0.0
+        qa = a/b
+        qc = c/b
+
+        # find x which is roots of quadratic equation formed by substituting y = (-ax-c)/b
+        intersections_x = quadraticFormula( eq.A - qa*eq.B + (qa^2)*eq.C, -qc*eq.B + 2*qa*qc*eq.C + eq.D - qa*eq.E, (qc^2)*eq.C - qc*eq.E + eq.F )
+        if intersections_x[1] == Inf
+            return ((Inf,Inf),(Inf,Inf))
+        else
+            x1 = intersections_x[1]
+            y1 = (-a*x1-c)/b
+
+            if intersections_x[2] == Inf
+                return ((x1,y1),(Inf,Inf))
+            else
+                x2 = intersections_x[2]
+                y2 = (-a*x2-c)/b
+                return ((x1,y1),(x2,y2))
+            end
+        end
+    else
+        
+    end
+end
+
 function quadraticFormula(a::Float64, b::Float64, c::Float64)
     disc = b^2-4*a*c
 

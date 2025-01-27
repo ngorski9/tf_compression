@@ -7,18 +7,18 @@ using ..cellTopology
 using StaticArrays
 
 function main()
-    d1 = 2.8
-    d2 = 3.2
-    d3 = 4.2
-    w1 = 4.27
-    w2 = 0.73
-    w3 = 2.9
-    r1 = -4.7
-    r2 = -1.7
-    r3 = 4.5
-    θ1 = 4.5
-    θ2 = 5.27
-    θ3 = 1.5
+    d1 = 1.7
+    d2 = 1.6
+    d3 = 0.9
+    w1 = 9.5
+    w2 = 9.5
+    w3 = 9.5
+    r1 = 0.8
+    r2 = 2.2
+    r3 = 2.4
+    θ1 = 2.75
+    θ2 = 1.77
+    θ3 = -0.8
 
     M1 = SMatrix{2,2,Float64}(( d1 + w1*cos(θ1), r1 + w1*sin(θ1), -r1+w1*sin(θ1), d1-w1*cos(θ1) ))
     M2 = SMatrix{2,2,Float64}(( d2 + w2*cos(θ2), r2 + w2*sin(θ2), -r2+w2*sin(θ2), d2-w2*cos(θ2) ))

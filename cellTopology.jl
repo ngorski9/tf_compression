@@ -148,8 +148,71 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         DIntercepts[numDIntercepts] = (DConicHIntercepts[2], 1-DConicHIntercepts[2])
     end
 
-    println(numRIntercepts)
-    println(RIntercepts)
+    if 0 <= RConicXIntercepts[1] <= 1
+        numRIntercepts = 1
+        RIntercepts[1] = (RConicXIntercepts[1], 0.0)
+    end
+
+    if 0 <= RConicXIntercepts[2] <= 1
+        numRIntercepts += 1
+        RIntercepts[numRIntercepts] = (RConicXIntercepts[2], 0.0)
+    end
+
+    if 0 <= RConicYIntercepts[1] <= 1
+        numRIntercepts += 1
+        RIntercepts[numRIntercepts] = (0.0,RConicYIntercepts[1])
+    end
+
+    if 0 <= RConicYIntercepts[2] <= 1
+        numRIntercepts += 1
+        RIntercepts[numRIntercepts] = (0.0,RConicYIntercepts[2])
+    end
+
+    if 0 <= RConicHIntercepts[1] <= 1
+        numRIntercepts += 1
+        RIntercepts[numRIntercepts] = (RConicHIntercepts[1], 1-RConicHIntercepts[1])
+    end
+
+    if 0 <= RConicHIntercepts[2] <= 1
+        numRIntercepts += 1
+        RIntercepts[numRIntercepts] = (RConicHIntercepts[2], 1-RConicHIntercepts[2])
+    end
+
+    # Check if either is an internal ellipse
+    # Check that each conic (a) does not not intersect the triangle, (b) is an ellipse, and (c) has a center inside the triangle.
+    # Checking whether or not the conic is an ellipse follows from the sign of the discriminant.
+    d_ellipse = discriminant(DConic) < 0.0
+    r_ellipse = discriminant(RConic) < 0.0
+    d_internal_ellipse = false
+    r_internal_ellipse = false
+
+    if numDIntercepts == 0 && d_ellipse
+        d_center = center(DConic)
+        if d_center[1] >= 0.0 && d_center[2] >= 0.0 && d_center[2] < 1.0 - d_center[1]
+            d_internal_ellipse = true
+        end
+    end
+
+    if numRIntercepts == 0 && r_ellipse
+        r_center = center(RConic)
+        if r_center[1] >= 0.0 && r_center[2] >= 0.0 && r_center[2] < 1.0 - r_center[1]
+            r_internal_ellipse = true
+        end
+    end
+
+    # if the two conics do not intersect the triangle, and neither is an internal ellipse,
+    # then the triangle is a standard white triangle.
+
+    if numDIntercepts == 0 && numRIntercepts == 0 && !d_internal_ellipse && !r_internal_ellipse
+        return cellEigenvalueTopology(vertexTypes, DPArray, DNArray, RPArray, RNArray)
+    end
+
+    # If we made it this far, it means that this is an "interesting" case :(
+
+    # So now we need to intersect the conics with each other. We can find the intersection points
+    # where each individual conic intersects the lines r=d and r=-d.
+
+    
 
 end
 
