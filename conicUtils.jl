@@ -2,10 +2,14 @@ module conicUtils
 
 using ..utils
 
-export checkDSEllipse
-export checkRSEllipse
-export checkDSEllipseProper
-export checkRSEllipseProper
+export interpolationConic
+export add
+export sub
+export center
+export discriminant
+export evaluate
+export quadraticFormula
+export to_string
 
 # This entire file assumes the interpolation paradigm where we are linearly interpolating three tensors in a triangle.
 # We assume that the first one is (0,0), the second (1,0), and the third (0,1). However, the goal here is just to determine
@@ -67,79 +71,8 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
 
 end
 
-# This may preserve a few too many cells, but I believe it is very rare anyway.
-function ellipseInCell(eq::conicEquation)
-    # check that the equation represents an ellipse
-    if discriminant(eq) >= 0
-        return false
-    end
-
-    # check that the center lies within the cell
-    c = center(eq)
-    if !(0 <= c[1] <= 1 && 0 <= c[2] <= 1 && c[1] <= c[2])
-        return false
-    end
-
-    # find the sign of the center to determine the sign of evaluation that is the inside of the ellipse.
-    # That way we can test if the vertices are inside of the ellipse.
-    s = sign(evaluate(eq, c...))
-    return sign(evaluate(eq, 0.0, 0.0)) != s && sign(evaluate(eq, 1.0, 0.0)) != s && sign(evaluate(eq, 0.0, 1.0)) != s
-end
-
-# verify that the ellipse is properly contained within the given cell (i.e. it really does not intersect the boundary)
-function ellipseInCellProper(eq::conicEquation)
-    if ellipseInCell(eq)
-
-        roots1 = quadraticFormula(eq.A, eq.D, eq.F) # edge from (0,0) to (1,0) parametrized by (t,0)
-        roots2 = quadraticFormula(eq.C, eq.E, eq.F) # edge from (0,0) to (0,1) parametrized by (0,t)
-        roots3 = quadraticFormula(eq.A-eq.B+eq.C, eq.B-2*eq.C+eq.D-eq.E, eq.C+eq.E+eq.F) # edge from (0,1) to (1,0) parametrized by (t,1-t)
-
-        return !(0 <= roots1[1] <= 1 || 0 <= roots1[2] <= 1 || 0 <= roots2[1] <= 1 || 0 <= roots2[2] <= 1 || 0 <= roots3[1] <= 1 || 0 <= roots3[2] <= 1)
-    else
-        return false
-    end
-end
-
-function checkDSEllipse(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
-    dConic = interpolationConic( tensor1[1,1]+tensor1[2,2], tensor2[1,1]+tensor2[2,2], tensor3[1,1]+tensor3[2,2] )
-    sConic1 = interpolationConic( tensor1[1,1]-tensor1[2,2], tensor2[1,1]-tensor2[2,2], tensor3[1,1]-tensor3[2,2] )
-    sConic2 = interpolationConic( tensor1[2,1]+tensor1[1,2], tensor2[2,1]+tensor2[1,2], tensor3[2,1]+tensor3[1,2] )
-
-    conic = sub(add(sConic1, sConic2), dConic)
-
-    return ellipseInCell(conic)
-end
-
-function checkRSEllipse(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
-    rConic = interpolationConic( tensor1[2,1]-tensor1[1,2], tensor2[2,1]-tensor2[1,2], tensor3[2,1]-tensor3[1,2] )
-    sConic1 = interpolationConic( tensor1[1,1]-tensor1[2,2], tensor2[1,1]-tensor2[2,2], tensor3[1,1]-tensor3[2,2] )
-    sConic2 = interpolationConic( tensor1[2,1]+tensor1[1,2], tensor2[2,1]+tensor2[1,2], tensor3[2,1]+tensor3[1,2] )
-
-    conic = sub(add(sConic1, sConic2), rConic)
-
-    return ellipseInCell(conic)
-end
-
-# Do not just approximate, but actually show that the ellipse really is inside the cell.
-function checkDSEllipseProper(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
-    dConic = interpolationConic( tensor1[1,1]+tensor1[2,2], tensor2[1,1]+tensor2[2,2], tensor3[1,1]+tensor3[2,2] )
-    sConic1 = interpolationConic( tensor1[1,1]-tensor1[2,2], tensor2[1,1]-tensor2[2,2], tensor3[1,1]-tensor3[2,2] )
-    sConic2 = interpolationConic( tensor1[2,1]+tensor1[1,2], tensor2[2,1]+tensor2[1,2], tensor3[2,1]+tensor3[1,2] )
-
-    conic = sub(add(sConic1, sConic2), dConic)
-
-    return ellipseInCellProper(conic)
-end
-
-# Do not just approximate, but actually show that the ellipse really is inside the cell.
-function checkRSEllipseProper(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
-    rConic = interpolationConic( tensor1[2,1]-tensor1[1,2], tensor2[2,1]-tensor2[1,2], tensor3[2,1]-tensor3[1,2] )
-    sConic1 = interpolationConic( tensor1[1,1]-tensor1[2,2], tensor2[1,1]-tensor2[2,2], tensor3[1,1]-tensor3[2,2] )
-    sConic2 = interpolationConic( tensor1[2,1]+tensor1[1,2], tensor2[2,1]+tensor2[1,2], tensor3[2,1]+tensor3[1,2] )
-
-    conic = sub(add(sConic1, sConic2), rConic)
-
-    return ellipseInCellProper(conic)
+function to_string(eq::conicEquation)
+    return string(eq.A) * "x^2 + " * string(eq.B) * "xy + " * string(eq.C) * "y^2 + " * string(eq.D) * "x + " * string(eq.E) * "y + " * string(eq.F)
 end
 
 end
