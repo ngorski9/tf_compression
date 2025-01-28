@@ -10,6 +10,7 @@ export discriminant
 export evaluate
 export quadraticFormula
 export to_string
+export intersectWithStandardFormLine
 
 # This entire file assumes the interpolation paradigm where we are linearly interpolating three tensors in a triangle.
 # We assume that the first one is (0,0), the second (1,0), and the third (0,1). However, the goal here is just to determine
@@ -49,7 +50,7 @@ function evaluate(eq::conicEquation, x::Float64, y::Float64)
 end
 
 # intersect the conic with the line ax + by + c = 0
-function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Floa64, c::Float64)
+function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Float64, c::Float64)
     if b != 0.0
         qa = a/b
         qc = c/b
@@ -71,7 +72,15 @@ function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Floa64,
             end
         end
     else
-        
+        qc = -c/a
+        intersections_y = quadraticFormula( eq.C, eq.B*qc + eq.E, eq.A*qc*qc + eq.D*qc + eq.F )
+        if intersections_y[1] == Inf
+            return ((Inf,Inf),(Inf,Inf))
+        elseif intersections_y[2] == Inf
+            return ((qc,intersetions_y[1]),(Inf,Inf))
+        else
+            return ((qc,intersections_y[1]),(qc,intersections_y[2]))
+        end
     end
 end
 
