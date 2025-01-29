@@ -108,6 +108,16 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
     end
 end
 
+function hyperbola_intersection(point::Tuple{Float64,Float64},center::Tuple{Float64,Float64},axis::Tuple{Float64,Float64},coef::Float64,code::Int8)
+    return Intersection( coef*((point[1] - center[1]) * axis[1] + (point[2] - center[2]) * axis[2]), 0, code )
+end
+
+function ellipse_intersection(point::Tuple{Float64,Float64},center::Tuple{Float64,Float64},axis1::Tuple{Float64,Float64},axis2::Tuple{Float64,Float64},code::Int8)
+    return Intersection( (point[1]-center[1])*axis1[1] + (point[2]-center[2])*axis1[2],
+                         (point[1]-center[1])*axis2[1] + (point[2]-center[2])*axis2[2],
+                         code )
+end
+
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
@@ -449,7 +459,14 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     RPPoints = Vector{Intersection}(undef, numRP)
     RNPoints = Vector{Intersection}(undef, numRN)
 
-    
+    # checks for hyperbola orientation. 0 = not yet checked, 1 = positive is up, 2 = negative is up.
+
+    d_hyperbola_orientation = 0
+    r_hyperbola_orientation = 0
+
+    for i in eachindex(DIntercepts)
+        if DInterceptClasses[i] == 
+    end
 
 end
 
