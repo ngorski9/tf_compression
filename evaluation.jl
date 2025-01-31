@@ -2,8 +2,9 @@ using Statistics
 
 using ..tensorField
 using ..conicUtils
+using ..cellTopology
 
-function getTypeFrequencies(tf::TensorField2d)
+function getCPTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
     types = [0,0,0,0]
     for t in 1:T
@@ -19,7 +20,7 @@ function getTypeFrequencies(tf::TensorField2d)
     return types
 end
 
-function getTypeFrequencies(tf::TensorField2dSymmetric)
+function getCPTypeFrequencies(tf::TensorField2dSymmetric)
     x,y,T = tf.dims
     types = [0,0,0,0]
     for t in 1:T
@@ -74,81 +75,21 @@ function topologyVertexMatching(tf1::TensorField2d, tf2::TensorField2d)
     return result
 end
 
-# edge iteration is hardcoded for the specific mesh
-function topologyEdgeMatching(tf1::TensorField2d, tf2::TensorField2d, edgeEB, minCrossing)
-
-    # hit edges & miss edges
-    result = [0 0 ; 0 0]
-    freqs = Dict()
-
-    x, y, T = tf1.dims
-
-    for t in 1:T
-        for i1 in 1:x
-            for j1 in 1:y
-                for edgeClass in 1:3
-
-                    if edgeClass == 1 && i1 != 1
-                        i2 = i1 - 1
-                        j2 = j1
-                    elseif edgeClass == 2 && j1 != 1
-                        i2 = i1
-                        j2 = j1 - 1
-                    elseif edgeClass == 3 && i1 != x && j1 != 1
-                        i2 = i1 + 1
-                        j2 = j1 - 1
-                    else
-                        continue
-                    end
-
-                    t11 = getTensor(tf1, i1, j1, t)
-                    t12 = getTensor(tf2, i1, j1, t)
-                    t21 = getTensor(tf1, i2, j2, t)
-                    t22 = getTensor(tf2, i2, j2, t)
-
-                    eValMatch, eVecMatch = edgesMatchSplit( t11, t21, t12, t22, edgeEB, minCrossing )
-
-                    if eValMatch
-                        result[1,1] += 1
-                    else
-                        result[1,2] += 1
-                    end
-
-                    if eVecMatch
-                        result[2,1] += 1
-                    else
-                        result[2,2] += 1
-                    end
-
-                end
-            end
-        end
-    end
-
-    things = []
-    for k in keys(freqs)
-        push!(things, (k, freqs[k]))
-    end
-
-    sort!(things, by=f(x)=x[2])
-
-    return result
-
-end
-
 function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
     # Same, FP, FN, FT, FP (degenerate), FN (degenerate), FT (degenerate)
     # Critical -> Degen or Degen -> Critical = FT (degenerate)
-    result = [0,0,0,0,0,0,0]
+    result = [0,0,0,0,0,0,0,0,0]
 
-    SAME = 1
+    SAME = 1 # checks circular points
     FP = 2
     FN = 3
     FT = 4
     FPD = 5
     FND = 6
     FTD = 7
+    TSAME = 8 # does the internal topology match or no
+    TDIF = 9
 
     x, y, T = tf1.dims
     x -= 1
@@ -184,6 +125,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                             result[FTD] += 1
                         end
                     end
+
+                    
 
                 end
             end

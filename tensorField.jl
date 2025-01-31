@@ -3,6 +3,7 @@ module tensorField
 using LinearAlgebra
 using StaticArrays
 using ..utils
+using ..cellTopology
 
 export TensorField2d
 export TensorField2dSymmetric
@@ -276,6 +277,14 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
         return CP_NORMAL
     end
 
+end
+
+function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
+    return classifyCellEigenvalue( getTensorsAtCell( tf, x, y, t, top )... )
+end
+
+function cellTopologyMatches( tf::TensorField2d, tf2::TensorField2d )
+    return cellTopologyMatches
 end
 
 function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )

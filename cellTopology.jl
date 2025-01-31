@@ -5,6 +5,8 @@ using ..conicUtils
 using StaticArrays
 
 export classifyCellEigenvalue
+export cellTopologyMatches
+export cyclicListMatch
 
 struct cellEigenvalueTopology
     vertexTypes::SArray{Tuple{3}, Int8}
@@ -20,6 +22,23 @@ struct Intersection
     code::Int8
 end
 
+# override sort function for intersections
+function Base.isless(first::Intersection, second::Intersection)
+    if first.y >= 0
+        if second.y >= 0
+            return first.x > second.x
+        else
+            return true
+        end
+    else
+        if second.y >= 0
+            return false
+        else
+            return first.x < second.x
+        end
+    end
+end
+
 # intersection codes
 const BLANK::Int8 = 0
 const e1::Int8 = 1
@@ -29,7 +48,6 @@ const DPRP::Int8 = 4 # d positive r positive
 const DPRN::Int8 = 5 # d positive r negative
 const DNRP::Int8 = 6 # d negative r positive
 const DNRN::Int8 = 7 # d negative r negative
-const INTERIOR_ELLIPSE::Int8 = 8
 
 # used for specifying that certain intersections are invalid / do not count.
 const NULL = -1
@@ -40,6 +58,16 @@ const DN::Int8 = 1
 const RP::Int8 = 2
 const RN::Int8 = 3
 const S::Int8 = 4
+
+function getCellEdgeFromPoint(point::Tuple{Float64,Float64})
+    if point[2] == 0.0
+        return e1
+    elseif point[1] == 0.0
+        return e3
+    else
+        return e2
+    end
+end
 
 function classifyTensor(d,r,s)
     if abs(d) >= abs(r) && abs(d) >= s
@@ -64,13 +92,21 @@ function is_inside_triangle(x::Float64,y::Float64)
 end
 
 # returns the signs of d and r when the |d|=s and |r|=s curves intersect.
-function DSignAt(d1::Float64, d2::Float64, d3::Float64, x::Float64, y::Float64)
+function DRSignAt(d1::Float64, d2::Float64, d3::Float64, x::Float64, y::Float64, same_sign::Bool)
     d = (d2-d1)*x + (d3-d1)*y + d1
 
-    if d > 0
-        return DP
+    if same_sign
+        if d > 0
+            return DPRP
+        else
+            return DNRN
+        end
     else
-        return DN
+        if d > 0
+            return DPRN
+        else
+            return DNRP
+        end
     end
 end
 
@@ -109,13 +145,87 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
 end
 
 function hyperbola_intersection(point::Tuple{Float64,Float64},center::Tuple{Float64,Float64},axis::Tuple{Float64,Float64},coef::Float64,code::Int8)
-    return Intersection( coef*((point[1] - center[1]) * axis[1] + (point[2] - center[2]) * axis[2]), 0, code )
+    return Intersection( coef*((point[1] - center[1]) * axis[1] + (point[2] - center[2]) * axis[2]), -1.0, code )
 end
 
 function ellipse_intersection(point::Tuple{Float64,Float64},center::Tuple{Float64,Float64},axis1::Tuple{Float64,Float64},axis2::Tuple{Float64,Float64},code::Int8)
     return Intersection( (point[1]-center[1])*axis1[1] + (point[2]-center[2])*axis1[2],
                          (point[1]-center[1])*axis2[1] + (point[2]-center[2])*axis2[2],
                          code )
+end
+
+# extremely verbose, but I need all of this to be essentially inlined, so that's why
+# I made it into a macro.
+# first seven are variables. Positive is true if we're working with positive and 0 otherwise.
+macro orientHyperbolaAndPush(point,center,axis1,axis2,orientation,list,code,positive)
+    if positive
+        return :(
+            if $(esc(orientation)) == 0
+                if ($(esc(point))[1] - $(esc(center))[1]) * $(esc(axis2))[1] + ($(esc(point))[2] - $(esc(center))[2]) * $(esc(axis2))[2] > 0
+                    $(esc(orientation)) = 1
+                    push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), 1.0, $(esc(code))))
+                else
+                    $(esc(orientation)) = 2
+                    push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), -1.0, $(esc(code))))
+                end
+            elseif $(esc(orientation)) == 1
+                push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), 1.0, $(esc(code))))
+            else
+                push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), -1.0, $(esc(code))))    
+            end
+        )
+    else
+        return :(   # :(
+            if $(esc(orientation)) == 0
+                if ($(esc(point))[1] - $(esc(center))[1]) * $(esc(axis2))[1] + ($(esc(point))[2] - $(esc(center))[2]) * $(esc(axis2))[2] > 0
+                    $(esc(orientation)) = 2
+                    push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), 1.0, $(esc(code))))
+                else
+                    $(esc(orientation)) = 1
+                    push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), -1.0, $(esc(code))))                    
+                end
+            elseif $(esc(orientation)) == 2
+                push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), 1.0, $(esc(code))))
+            else
+                push!($(esc(list)), hyperbola_intersection($(esc(point)), $(esc(center)), $(esc(axis1)), -1.0, $(esc(code))))    
+            end
+        )
+    end
+end
+
+# everything is a variable except for d_positive and r_positive, which are set by the macro above.
+macro placeIntersectionPointInLists(point,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DList,RList,d_ellipse,r_ellipse,d_orientation,r_orientation,code,d_positive,r_positive)
+    return :(begin
+
+    if $(esc(d_ellipse))
+        push!($(esc(DList)), ellipse_intersection($(esc(point)), $(esc(d_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(code))))
+    else
+        @orientHyperbolaAndPush($(esc(point)),$(esc(d_center)),$(esc(DVector1)),$(esc(DVector2)),$(esc(d_orientation)),$(esc(DList)),$(esc(code)),$d_positive)
+    end
+
+    if $(esc(r_ellipse))
+        push!($(esc(RList)), ellipse_intersection($(esc(point)), $(esc(r_center)), $(esc(RVector1)), $(esc(RVector2)), $(esc(code))))
+    else
+        @orientHyperbolaAndPush($(esc(point)),$(esc(r_center)),$(esc(RVector1)),$(esc(RVector2)),$(esc(r_orientation)),$(esc(RList)),$(esc(code)),$r_positive)
+    end
+
+    end)
+end
+
+# likewise, we define checking intersection points as a macro in order to reduce huge amounts of repeated code
+# all are variables.
+macro checkIntersectionPoint(point,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPList,DNList,RPList,RNList,d_ellipse,r_ellipse,d_orientation,r_orientation,code)
+    return :(
+    if $(esc(code)) == DPRP
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, true)
+    elseif $(esc(code)) == DPRN
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, false)
+    elseif $(esc(code)) == DNRP
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, true)
+    else
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, false)
+    end
+    )
 end
 
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
@@ -348,19 +458,19 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     rnd_intersection_2 = NULL
 
     if is_inside_triangle(rpd_intersections[1][1], rpd_intersections[1][2])
-        rpd_intersection_1 = DSignAt(d1, d2, d3, rpd_intersections[1][1], rpd_intersections[1][2])
+        rpd_intersection_1 = DRSignAt(d1, d2, d3, rpd_intersections[1][1], rpd_intersections[1][2], true)
     end
 
     if is_inside_triangle(rpd_intersections[2][1], rpd_intersections[2][2])
-        rpd_intersection_2 = DSignAt(d1, d2, d3, rpd_intersections[2][1], rpd_intersections[2][2])
+        rpd_intersection_2 = DRSignAt(d1, d2, d3, rpd_intersections[2][1], rpd_intersections[2][2], true)
     end
 
     if is_inside_triangle(rnd_intersections[1][1], rnd_intersections[1][2])
-        rnd_intersection_1 = DSignAt(d1, d2, d3, rnd_intersections[1][1], rnd_intersections[1][2])
+        rnd_intersection_1 = DRSignAt(d1, d2, d3, rnd_intersections[1][1], rnd_intersections[1][2], false)
     end
 
     if is_inside_triangle(rnd_intersections[2][1], rnd_intersections[2][2])
-        rnd_intersection_2 = DSignAt(d1, d2, d3, rnd_intersections[2][1], rnd_intersections[2][2])
+        rnd_intersection_2 = DRSignAt(d1, d2, d3, rnd_intersections[2][1], rnd_intersections[2][2], false)
     end
 
     if rpd_intersection_1 == DP
@@ -454,20 +564,142 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
-    DPPoints = Vector{Intersection}(undef, numDP)
-    DNPoints = Vector{Intersection}(undef, numDN)
-    RPPoints = Vector{Intersection}(undef, numRP)
-    RNPoints = Vector{Intersection}(undef, numRN)
+    DPPoints = Vector{Intersection}(undef, 0)
+    DNPoints = Vector{Intersection}(undef, 0)
+    RPPoints = Vector{Intersection}(undef, 0)
+    RNPoints = Vector{Intersection}(undef, 0)
 
-    # checks for hyperbola orientation. 0 = not yet checked, 1 = positive is up, 2 = negative is up.
+    sizehint!(DPPoints, numDP)
+    sizehint!(DNPoints, numDN)
+    sizehint!(RPPoints, numRP)
+    sizehint!(RNPoints, numRN)
 
-    d_hyperbola_orientation = 0
-    r_hyperbola_orientation = 0
+    # for hyperbola: 0: not oriented. 1: positive is up. 2: negative is up
+    # not used for ellipse
+    d_orientation = 0
+    r_orientation = 0
+    d_center = center(DConic)
+    r_center = center(RConic)
 
-    for i in eachindex(DIntercepts)
-        if DInterceptClasses[i] == 
+    if d_ellipse
+        for i in eachindex(DIntercepts)
+            if DInterceptClasses[i] == DP
+                push!(DPPoints, ellipse_intersection(DIntercepts[i], d_center, DVector1, DVector2, getCellEdgeFromPoint(DIntercepts[i])))
+            elseif DInterceptClasses[i] == DN
+                push!(DNPoints, ellipse_intersection(DIntercepts[i], d_center, DVector1, DVector2, getCellEdgeFromPoint(DIntercepts[i])))
+            end
+        end
+    else
+        # verbose, but I need to reduce the number of checks that happen
+        for i in eachindex(DIntercepts)
+            if DInterceptClasses[i] == DP
+                @orientHyperbolaAndPush(DIntercepts[i],d_center,DVector1,DVector2,d_orientation,DPPoints,getCellEdgeFromPoint(DIntercepts[i]),true)
+            elseif DInterceptClasses[i] == DN
+                @orientHyperbolaAndPush(DIntercepts[i],d_center,DVector1,DVector2,d_orientation,DNPoints,getCellEdgeFromPoint(DIntercepts[i]),false)
+            end
+        end
     end
 
+    if r_ellipse
+        for i in eachindex(RIntercepts)
+            if RInterceptClasses[i] == RP
+                push!(RPPoints, ellipse_intersection(RIntercepts[i], r_center, RVector1, RVector2, getCellEdgeFromPoint(RIntercepts[i])))
+            elseif RInterceptClasses[i] == RN
+                push!(RNPoints, ellipse_intersection(RIntercepts[i], r_center, RVector1, RVector2, getCellEdgeFromPoint(RIntercepts[i])))
+            end
+        end
+    else
+        # verbose, but I need to reduce the number of checks that happen
+        for i in eachindex(RIntercepts)
+            if RInterceptClasses[i] == RP
+                @orientHyperbolaAndPush(RIntercepts[i],r_center,RVector1,RVector2,r_orientation,RPPoints,getCellEdgeFromPoint(RIntercepts[i]),true)
+            elseif RInterceptClasses[i] == RN
+                @orientHyperbolaAndPush(RIntercepts[i],r_center,RVector1,RVector2,r_orientation,RNPoints,getCellEdgeFromPoint(RIntercepts[i]),false)
+            end
+        end
+    end
+
+    # then check each of the four intersection points
+    # using macros here actually saved ~200 lines of code (not an exaggeration)
+    if rpd_intersection_1 != NULL
+        @checkIntersectionPoint(rpd_intersections[1],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_1)
+    end
+
+    if rpd_intersection_2 != NULL
+        @checkIntersectionPoint(rpd_intersections[2],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_2)
+    end
+
+    if rnd_intersection_1 != NULL
+        @checkIntersectionPoint(rnd_intersections[1],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_1)
+    end
+
+    if rnd_intersection_2 != NULL
+        @checkIntersectionPoint(rnd_intersections[2],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_2)
+    end
+
+    # custom sort function that ensures the clockwise ordering that we were shooting for.
+    sort!(DPPoints)
+    sort!(DNPoints)
+    sort!(RPPoints)
+    sort!(RNPoints)
+
+    for i in eachindex(DPPoints)
+        DPArray[i] = DPPoints[i].code
+    end
+
+    for i in eachindex(DNPoints)
+        DNArray[i] = DNPoints[i].code
+    end
+    
+    for i in eachindex(RPPoints)
+        RPArray[i] = RPPoints[i].code
+    end
+
+    for i in eachindex(RNPoints)
+        RNArray[i] = RNPoints[i].code
+    end
+
+    # what a racket
+    return cellEigenvalueTopology(vertexTypes, DPArray, DNArray, RPArray, RNArray)
+
+end
+
+function cyclicListMatch(first,second)
+    commonLen = 0
+    for i in 1:10
+        if first[i] == 0
+            if second[i] != 0
+                return false
+            else
+                break
+            end
+        end
+        commonLen += 1
+    end
+
+    if commonLen == 0
+        return true
+    end
+
+    for off in 0:(commonLen-1)
+        bad = false
+        for i in 1:commonLen
+            if first[i] != second[ (i+off-1)%commonLen+1 ]
+                bad = true
+                break
+            end
+        end
+        if !bad
+            return true
+        end
+    end
+
+    return false
+end
+
+# check if the topology of two cells match
+function cellTopologyMatches(a::cellEigenvalueTopology, b::cellEigenvalueTopology)
+    return (a.vertexTypes == b.vertexTypes) && cyclicListMatch(a.DNArray, b.DNArray) && cyclicListMatch(a.DPArray, b.DPArray) && cyclicListMatch(a.RPArray, b.RPArray) && cyclicListMatch(a.RNArray, b.RNArray)
 end
 
 end
