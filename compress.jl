@@ -9,6 +9,7 @@ using ..decompress
 using ..huffman
 using ..utils
 using ..conicUtils
+using ..cellTopology
 
 export compress2d
 export compress2dNaive
@@ -585,10 +586,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     numCellsProcessed = 0.0
     numCellsModified = 0.0
     individualPointsTime = 0.0
-    detectEllipsesTime = 0.0
-    edgesTime = 0.0
     circularPointsTime = 0.0
-    processEllipsesTime = 0.0
+    cellTopologyTime = 0.0
     queueTime = 0.0
 
     for t in 1:dims[3]
@@ -603,6 +602,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     queueTime += pushSplit2 - pushSplit1
 
                     while length(stack) > 0
+
+                        individualSplit1 = time()
+
                         numCellsProcessed += 1
                         x,y,top,processNewVertices = pop!(stack)
 
@@ -613,162 +615,33 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                         if processNewVertices
 
-                            ellipseCheckT1 = time()
-                            # first check for any ellipses inside of the cells and go from there.
-                            tensors = getTensorsAtCell(tf, x, y, t, top)
-                            if checkRSEllipse(tensors...) || (eigenvalue && checkDSEllipse(tensors...))
-                                has_ellipses[x,y,t,Int64(top)+1] = true
-
-                                precisions[vertexCoords[1]...] = 8
-                                precisions[vertexCoords[2]...] = 8
-                                precisions[vertexCoords[3]...] = 8
-
-                                setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
-
-                                θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
-                                θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
-                                θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
-
-                                if top
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
-                                    vertices_modified[4] = true
-                                else
-                                    vertices_modified[1] = true
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
-                                end
-
-                                ellipseCheckT2 = time()
-                                detectEllipsesTime += ellipseCheckT2 - ellipseCheckT1
-
+                            # identify then process new vertices
+                            if top
+                                newVertices = [3]
                             else
-
-                                ellipseCheckT2 = time()
-                                detectEllipsesTime += ellipseCheckT2 - ellipseCheckT1
-
-                                if top
-                                    newVertices = [3]
-                                else
-                                    if x == 1
-                                        if y == 1
-                                            newVertices = [1,2,3]
-                                        else
-                                            newVertices = [3]
-                                        end
-                                    elseif y == 1
-                                        newVertices = [2]
+                                if x == 1
+                                    if y == 1
+                                        newVertices = [1,2,3]
                                     else
-                                        newVertices::Array{Int64} = Array{Int64}(undef,0)
+                                        newVertices = [3]
                                     end
-                                end
-
-
-                                # Single vertex: swap values into place.
-                                for v in newVertices
-                                    processPoint(vertexCoords[v])
-                                end
-                            
-                                processPointT2 = time()
-                                individualPointsTime += processPointT2 - ellipseCheckT2
-
-                            end
-
-                        end
-
-                        edgesSplit1 = time()
-
-                        # Edges
-                        if top
-                            newEdges = [(1,3), (2,3)]
-                        else
-                            if x == 1
-                                if y == 1
-                                    newEdges = [(1,2), (1,3), (2,3)]
+                                elseif y == 1
+                                    newVertices = [2]
                                 else
-                                    newEdges = [(1,3), (2,3)]
+                                    newVertices::Array{Int64} = Array{Int64}(undef,0)
                                 end
-                            elseif y == 1
-                                newEdges = [(1,2), (2,3)]
-                            else
-                                newEdges = [(2,3)]
                             end
-                        end
 
-                        for e in newEdges
-                            # if x == 46 && y == 30 && !top
-                            #     println("===============")
-                            #     println("checking an edge")
-                            #     println((vertexCoords[e[1]],vertexCoords[e[2]]))
 
-                            #     println(edgesMatch( getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), edgeEB ))
-                            #     println(edgesMatch( getTensor(tf, vertexCoords[e[2]]...), getTensor(tf, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), edgeEB ))
-
-                            #     println(getTensor(tf2, vertexCoords[e[1]]...))
-                            #     println(getTensor(tf2, vertexCoords[e[2]]...))
-                            #     a1,b1,c1,d1 = classifyEdge(getTensor(tf2, vertexCoords[e[1]]...), getTensor(tf2, vertexCoords[e[2]]...), true)
-                            #     a2,b2,c2,d2 = classifyEdge(getTensor(tf2, vertexCoords[e[2]]...), getTensor(tf2, vertexCoords[e[1]]...), true)
-                            #     println((a1,b1,c1,d1))
-                            #     println((a2,b2,c2,d2))
-                            #     println("------------")
-                            #     println(getTensor(tf, vertexCoords[e[1]]...))
-                            #     println(getTensor(tf, vertexCoords[e[2]]...))                                
-                            #     a1,b1,c1,d1 = classifyEdge(getTensor(tf, vertexCoords[e[1]]...), getTensor(tf, vertexCoords[e[2]]...), true)
-                            #     a2,b2,c2,d2 = classifyEdge(getTensor(tf, vertexCoords[e[2]]...), getTensor(tf, vertexCoords[e[1]]...), true)                                
-                            #     println((a1,b1,c1,d1))
-                            #     println((a2,b2,c2,d2))                                
-                            # end
-
-                            groundTensor1 = getTensor(tf, vertexCoords[e[1]]...)
-                            groundTensor2 = getTensor(tf, vertexCoords[e[2]]...)
-                            reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
-                            reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
-
-                            # if edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, false, minCrossing ) !=
-                            #    edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, false, minCrossing )
-                            #     edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true, minCrossing )
-                            #     edgesMatch( groundTensor2, groundTensor1, reconTensor2, reconTensor1, edgeEB, eigenvalue, eigenvector, true, minCrossing )
-                            #     println("mismatch")
-                            #     exit()
-                            # end
-
-                            while !edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, false, minCrossing )
-                                edgesMatch( groundTensor1, groundTensor2, reconTensor1, reconTensor2, edgeEB, eigenvalue, eigenvector, true, minCrossing )
-                                readline()
-                                raise_precision(vertexCoords[e[1]]...)
-                                processPoint(vertexCoords[e[1]])
-
-                                raise_precision(vertexCoords[e[2]]...)
-                                processPoint(vertexCoords[e[2]])
-
-                                reconTensor1 = getTensor(tf2, vertexCoords[e[1]]...)
-                                reconTensor2 = getTensor(tf2, vertexCoords[e[2]]...)
-
-                                # record which vertices was modified in order to check previous cells.
-                                if top
-                                    if e[1] == 1 || e[2] == 1
-                                        vertices_modified[3] = true
-                                    end
-
-                                    if e[1] == 2 || e[2] == 2
-                                        vertices_modified[2] = true
-                                    end
-
-                                    if e[1] == 3 || e[2] == 3
-                                        vertices_modified[4] = true
-                                    end
-                                else
-                                    vertices_modified[e[1]] = true
-                                    vertices_modified[e[2]] = true
-                                end
+                            # Single vertex: swap values into place.
+                            for v in newVertices
+                                processPoint(vertexCoords[v])
                             end
 
                         end
 
-                        edgesSplit2 = time()
-                        edgesTime += edgesSplit2 - edgesSplit1
+                        individualSplit2 = time()
+                        individualPointsTime = individualSplit2 - individualSplit1
 
                         # Process individual cells to check circular points.
                         if eigenvector
@@ -878,35 +751,67 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         circularPointsSplit = time()
-                        circularPointsTime += circularPointsSplit - edgesSplit2
+                        circularPointsTime += circularPointsSplit - individualSplit2
 
-                        # verify that there are no ellipses within the current reconstructed cell
-                        tensors = getTensorsAtCell(tf2,x,y,t,top)
-                        while !has_ellipses[x,y,t,Int64(top)+1] && (checkRSEllipse(tensors...) || (eigenvalue && checkDSEllipse(tensors...)))
-                            raise_precision(vertexCoords[1]...)
-                            processPoint(vertexCoords[1])
+                        # process cell topology
+                        if eigenvalue
+                            gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
+                            rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                            while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
+                                     gt.RPArray == rt.RPArray && gt.RNArray == rt.RNArray && (!eigenvector || (gt.vertexTypesEigenvector == rt.vertexTypesEigenvector &&
+                                     gt.RPArrayVec == rt.RPArrayVec && gt.RNArrayVec == rt.RNArrayVec )))
 
-                            raise_precision(vertexCoords[2]...)
-                            processPoint(vertexCoords[2])
+                                raise_precision(vertexCoords[1]...)
+                                processPoint(vertexCoords[1])
+    
+                                raise_precision(vertexCoords[2]...)
+                                processPoint(vertexCoords[2])
+    
+                                raise_precision(vertexCoords[3]...)
+                                processPoint(vertexCoords[3])
+    
+                                if top
+                                    vertices_modified[2] = true
+                                    vertices_modified[3] = true
+                                    vertices_modified[4] = true
+                                else
+                                    vertices_modified[1] = true
+                                    vertices_modified[2] = true
+                                    vertices_modified[3] = true
+                                end
 
-                            raise_precision(vertexCoords[3]...)
-                            processPoint(vertexCoords[3])
-
-                            if top
-                                vertices_modified[2] = true
-                                vertices_modified[3] = true
-                                vertices_modified[4] = true
-                            else
-                                vertices_modified[1] = true
-                                vertices_modified[2] = true
-                                vertices_modified[3] = true
+                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)                                
                             end
 
-                            tensors = getTensorsAtCell(tf2,x,y,t,top)
+                        elseif eigenvector
+                            gt = tensorField.classifyCellEigenvector(tf, x, y, t, top)
+                            rt = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                            while gt.vertexTypes != rt.vertexTypes || gt.RPArray != rt.RPArray || gt.RNArray != rt.RNArray
+                                raise_precision(vertexCoords[1]...)
+                                processPoint(vertexCoords[1])
+    
+                                raise_precision(vertexCoords[2]...)
+                                processPoint(vertexCoords[2])
+    
+                                raise_precision(vertexCoords[3]...)
+                                processPoint(vertexCoords[3])
+    
+                                if top
+                                    vertices_modified[2] = true
+                                    vertices_modified[3] = true
+                                    vertices_modified[4] = true
+                                else
+                                    vertices_modified[1] = true
+                                    vertices_modified[2] = true
+                                    vertices_modified[3] = true
+                                end
+
+                                rt = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                            end
                         end
 
-                        ellipseProcessSplit = time()
-                        processEllipsesTime = ellipseProcessSplit - circularPointsSplit
+                        cellTopologySplit = time()
+                        cellTopologyTime = cellTopologySplit - circularPointsSplit
 
                         if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
                             push!(stack, (x,y,top,false))
@@ -976,7 +881,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         finalQueueSplit = time()
-                        queueTime += finalQueueSplit - ellipseProcessSplit
+                        queueTime += finalQueueSplit - cellTopologySplit
 
                     end # end while length(stack) > 0
 
@@ -1147,8 +1052,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     endTime = time()
 
-    return [ setup1Split - startTime, baseCompressorSplit - setup1Split, setup2Split - baseCompressorSplit, individualPointsTime, detectEllipsesTime, 
-             edgesTime, circularPointsTime, processEllipsesTime, queueTime, processSplit - setup2Split, numCellsModified, numCellsProcessed, 
+    return [ setup1Split - startTime, baseCompressorSplit - setup1Split, setup2Split - baseCompressorSplit, individualPointsTime, circularPointsTime, 
+            cellTopologyTime, queueTime, processSplit - setup2Split, numCellsModified, numCellsProcessed, 
              writeToFileSplit - processSplit, losslessCompressSplit - writeToFileSplit, endTime - losslessCompressSplit ]
 
 end
@@ -1650,8 +1555,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
     endTime = time()
 
-    return [ setup1Split - startTime, baseCompressorSplit - setup1Split, setup2Split - baseCompressorSplit, individualPointsTime, 0.0, 
-             0.0, circularPointsTime, 0.0, queueTime, processSplit - setup2Split, numCellsModified, numCellsProcessed, writeToFileSplit - processSplit, 
+    return [ setup1Split - startTime, baseCompressorSplit - setup1Split, setup2Split - baseCompressorSplit, individualPointsTime,
+             circularPointsTime, queueTime, processSplit - setup2Split, numCellsModified, numCellsProcessed, writeToFileSplit - processSplit, 
              losslessCompressSplit - writeToFileSplit, endTime - losslessCompressSplit ]     
 end
 

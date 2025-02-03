@@ -19,9 +19,9 @@ function main()
     edgeError = 1.0
     naive = false
     eigenvalue = true
-    eigenvector = false
+    eigenvector = true
     minCrossing = 0.0001
-    baseCompressor = "sperr"
+    baseCompressor = "sz3"
     parameter = 1.0
 
     # ocean slice 14 (i think its 14) sperr 0.01 27.01, equiv 0.0034 26.98

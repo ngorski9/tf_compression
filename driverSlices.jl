@@ -137,20 +137,17 @@ function main()::Cint
     totalFrobeniusMSEByRangeSquared = 0.0
     maxErrorByRange = 0.0
     totalVertexMatching = [0.0 0.0 ; 0.0 0.0]
-    totalEdgeMatching = [0.0 0.0 ; 0.0 0.0]
-    totalCellMatching = [0,0,0,0,0,0,0]
+    totalCellMatching = [0,0,0,0,0,0,0,0,0,0,0]
     totalCellTypeFrequenciesGround = [0,0,0,0]
     totalCellTypeFrequenciesRecon = [0,0,0,0]
-    totalEllipseMatching = [0,0,0,0,0,0,0,0]
-    ctv = zeros(Float64, (15,)) # compression time vector
+    ctv = zeros(Float64, (13,)) # compression time vector
     dtv = zeros(Float64, (8,)) # decompression time vector
     
     falseVertexEigenvector = 0
     falseVertexEigenvalue = 0
-    falseEdgeEigenvalue = 0
-    falseEdgeEigenvector = 0
-    falseCell = 0
-    falseEllipse = 0
+    falseCellCriticalPoint = 0
+    falseCellTopologyEigenvalue = 0
+    falseCellTopologyEigenvector = 0
 
     tf = loadTensorField2dFromFolder(folder, dims)
 
@@ -224,22 +221,17 @@ function main()::Cint
         totalMSEByRangeSquared += metrics[4]
         totalFrobeniusMSEByRangeSquared += metrics[5]
         totalVertexMatching += metrics[6]
-        totalEdgeMatching += metrics[7]
-        totalCellMatching += metrics[8]
-        totalCellTypeFrequenciesGround += metrics[9]
-        totalCellTypeFrequenciesRecon += metrics[10]
-        totalEllipseMatching += metrics[11]
+        totalCellMatching += metrics[7]
+        totalCellTypeFrequenciesGround += metrics[8]
+        totalCellTypeFrequenciesRecon += metrics[9]
 
         if naive
+            numCells = (dims[1]-1)*(dims[2]-1)
             falseVertexEigenvalue += metrics[6][1,2]
             falseVertexEigenvector += metrics[6][2,2]
-            falseEdgeEigenvalue += metrics[7][1,2]
-            falseEdgeEigenvector += metrics[7][2,2]
-            falseCell += sum(metrics[8]) - metrics[8][1]
-            falseEllipse += metrics[11][5] + metrics[11][6]
-            if eigenvalue
-                falseEllipse += metrics[11][2] + metrics[11][3]
-            end
+            falseCellCriticalPoint += numCells - metrics[8][1]
+            falseCellTopologyEigenvalue += metrics[9]
+            falseCellTopologyEigenvector += metrics[11]
         end
 
         redirect_stdout(stdout_)
@@ -274,10 +266,7 @@ function main()::Cint
     if naive
         println("false vertex eigenvalue: $falseVertexEigenvalue")
         println("false vertex eigenvector: $falseVertexEigenvector")
-        println("false edge eigenvalue: $falseEdgeEigenvalue")
-        println("false edge eigenvector: $falseEdgeEigenvector")
         println("false cell: $falseCell")
-        println("false ellipse: $falseEllipse")
     end
 
     if csv != ""
@@ -287,9 +276,9 @@ function main()::Cint
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,edgeEB,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,edges,circular points,cp types (ground),cp types (recon),")
-            write(outf, "false ellipses,numPoints,numCells,setup 1,bc,setup 2,proc. points,ellipse check,proc. edges,")
-            write(outf, "proc. cp,proc. ellipse,queue, total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
+            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+            write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points")
+            write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
         end
 
@@ -339,18 +328,15 @@ function main()::Cint
             return str
         end
 
-        totalVertexMatchingS = s(totalVertexMatching)
-        totalEdgeMatchingS = s(totalEdgeMatching)
         totalCellMatchingS = s(totalCellMatching)
         totalCellTypeFrequenciesGroundS = s(totalCellTypeFrequenciesGround)
         totalCellTypeFrequenciesReconS = s(totalCellTypeFrequenciesRecon)
-        totalEllipseMatchingS = s(totalEllipseMatching)
 
         # write the data :((
-        write(outf, "$name,$target,$eb,$edgeError,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,$averageMSEByRangeSquared,")
-        write(outf, "$averageFrobeniusMSEByRangeSquared,$totalVertexMatchingS,$totalEdgeMatchingS,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS,")
-        write(outf, "$totalCellTypeFrequenciesReconS,$totalEllipseMatchingS,$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),")
-        write(outf, "$(ctv[7]),$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(ctv[14]),$(ctv[15]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
+        write(outf, "$name,$target,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,$averageMSEByRangeSquared,")
+        write(outf, "$averageFrobeniusMSEByRangeSquared,$(totalVertexMatching[1,2]),$(totalVertexMatching[2,2]),$(totalCellMatching[9]),$(totalCellMatching[11]),$totalCellMatchingS,")
+        write(outf, "$totalCellTypeFrequenciesGroundS,$totalCellTypeFrequenciesReconS,$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),")
+        write(outf, "$(ctv[7]),$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
         write(outf, "$(dtv[5]),$(dtv[6]),$(dtv[7]),$(dtv[8])\n")
 
     end

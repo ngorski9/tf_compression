@@ -23,6 +23,7 @@ export classifyTensorEigenvector
 export classifyTensorEigenvalue
 export classifyEdge
 export classifyEdgeOuter
+export cellTopologyMatches
 
 export saveTensorField32
 export saveTensorField64
@@ -279,12 +280,20 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
 
 end
 
-function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
-    return classifyCellEigenvalue( getTensorsAtCell( tf, x, y, t, top )... )
+function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool, eigenvector::Bool, verbose::Bool = false)
+    if top
+        return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
+    else
+        return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t), eigenvector, verbose )
+    end
 end
 
-function cellTopologyMatches( tf::TensorField2d, tf2::TensorField2d )
-    return cellTopologyMatches
+function classifyCellEigenvector( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
+    if top
+        return cellTopology.classifyCellEigenvector( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t) )
+    else
+        return cellTopology.classifyCellEigenvector( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t) )
+    end
 end
 
 function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )

@@ -77,7 +77,7 @@ function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Float64
         if intersections_y[1] == Inf
             return ((Inf,Inf),(Inf,Inf))
         elseif intersections_y[2] == Inf
-            return ((qc,intersetions_y[1]),(Inf,Inf))
+            return ((qc,intersections_y[1]),(Inf,Inf))
         else
             return ((qc,intersections_y[1]),(qc,intersections_y[2]))
         end

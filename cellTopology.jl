@@ -5,15 +5,26 @@ using ..conicUtils
 using StaticArrays
 
 export classifyCellEigenvalue
-export cellTopologyMatches
-export cyclicListMatch
+export classifyCellEigenvector
 
-struct cellEigenvalueTopology
-    vertexTypes::SArray{Tuple{3}, Int8}
+# we use the same struct for if we are comparing both vec and val as if we are just doing val.
+# just vec is a separate struct.
+# I am not happy that I have to extend this to the eigenvector manifold. >:(
+struct cellTopologyEigenvalue
+    vertexTypesEigenvalue::SArray{Tuple{3}, Int8}
+    vertexTypesEigenvector::SArray{Tuple{3}, Int8}
     DPArray::MArray{Tuple{10}, Int8}
     DNArray::MArray{Tuple{10}, Int8}
     RPArray::MArray{Tuple{10}, Int8}
     RNArray::MArray{Tuple{10}, Int8}
+    RPArrayVec::MArray{Tuple{3}, Int8} # stores number of intersections with each edge
+    RNArrayVec::MArray{Tuple{3}, Int8}
+end
+
+struct cellTopologyEigenvector
+    vertexTypes::SArray{Tuple{3}, Int8}
+    RPArray::MArray{Tuple{3},Int8}
+    RNArray::MArray{Tuple{3},Int8}
 end
 
 struct Intersection
@@ -48,16 +59,28 @@ const DPRP::Int8 = 4 # d positive r positive
 const DPRN::Int8 = 5 # d positive r negative
 const DNRP::Int8 = 6 # d negative r positive
 const DNRN::Int8 = 7 # d negative r negative
+const INTERNAL_ELLIPSE = 8
 
 # used for specifying that certain intersections are invalid / do not count.
 const NULL = -1
 
-# cell region types
+# cell region types (eigenvalue)
 const DP::Int8 = 0
 const DN::Int8 = 1
 const RP::Int8 = 2
 const RN::Int8 = 3
 const S::Int8 = 4
+const RPTrumped = 5 # used for detecting P vs N for vertex eigenvector
+const RNTrumped = 6
+
+# cell region types (eigenvector)
+const RRP::Int8 = 5
+const DegenRP::Int8 = 6
+const SRP::Int8 = 6
+const SYM::Int8 = 7
+const SRN::Int8 = 8
+const DegenRN::Int8 = 9
+const RRN::Int8 = 10
 
 function getCellEdgeFromPoint(point::Tuple{Float64,Float64})
     if point[2] == 0.0
@@ -69,7 +92,7 @@ function getCellEdgeFromPoint(point::Tuple{Float64,Float64})
     end
 end
 
-function classifyTensor(d,r,s)
+function classifyTensorEigenvalue(d,r,s)
     if abs(d) >= abs(r) && abs(d) >= s
         if d > 0
             return DP
@@ -84,6 +107,28 @@ function classifyTensor(d,r,s)
         end
     else
         return S
+    end
+end
+
+function classifyTensorEigenvector(r,s)
+    if r > 0.0
+        if r > s
+            return RRP
+        elseif r == s
+            return DegenRP
+        else
+            return SRP
+        end
+    elseif r == 0
+        return SYM
+    else
+        if -r > s
+            return RRN
+        elseif -r == s
+            return DegenRN
+        else
+            return SRN
+        end
     end
 end
 
@@ -106,6 +151,25 @@ function DRSignAt(d1::Float64, d2::Float64, d3::Float64, x::Float64, y::Float64,
             return DPRN
         else
             return DNRP
+        end
+    end
+end
+
+function classifyEllipseCenter(d1::Float64, d2::Float64, d3::Float64, r1::Float64, r2::Float64, r3::Float64, x::Float64, y::Float64)
+    d = (d2-d1)*x + (d3-d1)*y + d1
+    r = (r2-r1)*x + (r3-r1)*y + r1
+
+    if abs(d) > abs(r)
+        if d > 0
+            return DP
+        else
+            return DN
+        end
+    else
+        if r > 0
+            return RP
+        else
+            return RN
         end
     end
 end
@@ -136,7 +200,11 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
     if abs(d) > abs(r)
-        return NULL
+        if r > 0
+            return RPTrumped
+        else
+            return RNTrumped
+        end
     elseif r > 0
         return RP
     else
@@ -231,11 +299,14 @@ end
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
-function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
+# The final bool tells whether we simultaneously compute eigenvector topology.
+function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,verbose::Bool=false)
     DPArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
     DNArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
     RPArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
     RNArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
+    RPArrayVec = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+    RNArrayVec = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
 
     # we work with everything *2. It does not change the results.
 
@@ -257,12 +328,18 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     sin3 = M3[1,2]+M3[2,1]
     s3 = sqrt(cos3^2+sin3^2)
 
-    vertexTypes = SArray{Tuple{3},Int8}((classifyTensor(d1,r1,s1), classifyTensor(d2,r2,s2), classifyTensor(d3,r3,s3)))
+    vertexTypesEigenvalue = SArray{Tuple{3},Int8}((classifyTensorEigenvalue(d1,r1,s1), classifyTensorEigenvalue(d2,r2,s2), classifyTensorEigenvalue(d3,r3,s3)))
 
-    if ( abs(d1) >= s1 && abs(d2) >= s2 && abs(d3) >= s3 && ( ( d1 >= 0 && d2 >= 0 && d3 >= 0) || ( d1 <= 0 && d2 <= 0 && d3 <= 0 ) ) ) ||
+    if eigenvector
+        vertexTypesEigenvector = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3, s3)))
+    else
+        vertexTypesEigenvector = SArray{Tuple{3},Int8}((0,0,0))
+    end
+
+    if ( !eigenvector && abs(d1) >= s1 && abs(d2) >= s2 && abs(d3) >= s3 && ( ( d1 >= 0 && d2 >= 0 && d3 >= 0) || ( d1 <= 0 && d2 <= 0 && d3 <= 0 ) ) ) ||
        ( abs(r1) >= s1 && abs(r2) >= s2 && abs(r3) >= s3 && ( ( r1 >= 0 && r2 >= 0 && r3 >= 0) || ( r1 <= 0 && r2 <= 0 && r3 <= 0 ) ) ) 
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
-        return cellEigenvalueTopology(vertexTypes, DPArray, DNArray, RPArray, RNArray)
+        return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
     end
 
     # generate conics and intersect them with the triangles:
@@ -350,7 +427,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     d_internal_ellipse = false
     r_internal_ellipse = false
 
-    if length(DIntercepts) == 0 && d_ellipse
+    if length(DIntercepts) == 0 && d_ellipse && (!eigenvector || !(abs(d1) >= s1 && abs(d2) >= s2 && abs(d3) >= s3) )
         d_center = center(DConic)
         if is_inside_triangle(d_center[1], d_center[2])
             d_internal_ellipse = true
@@ -368,7 +445,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # then the triangle is a standard white triangle.
 
     if length(DIntercepts) == 0 && length(RIntercepts) == 0 && !d_internal_ellipse && !r_internal_ellipse
-        return cellEigenvalueTopology(vertexTypes, DPArray, DNArray, RPArray, RNArray)
+        return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
     end
 
     # If we made it this far, it means that this is an "interesting" case :(
@@ -410,7 +487,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 
     for i in eachindex(DIntercepts)
         intercept_point = DIntercepts[i]
-        if intercept_point[2] == 0.0 
+        if intercept_point[2] == 0.0
             # intersects side 1
             class = DCellIntersection(d2, d1, r2, r1, intercept_point[1])
         elseif intercept_point[1] == 0.0 
@@ -430,17 +507,43 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
+    # also fill out eigenvector stuff here...
     for i in eachindex(RIntercepts)
         intercept_point = RIntercepts[i]
         if intercept_point[2] == 0.0 
             # intersects side 1
             class = RCellIntersection(d2, d1, r2, r1, intercept_point[1])
+
+            if eigenvector
+                if class == RP || class == RPTrumped
+                    RPArrayVec[1] += 1
+                else
+                    RNArrayVec[1] += 1
+                end
+            end
+
         elseif intercept_point[1] == 0.0 
             # intersects side 3
             class = RCellIntersection(d3, d1, r3, r1, intercept_point[2])
+
+            if eigenvector
+                if class == RP || class == RPTrumped
+                    RPArrayVec[3] += 1
+                else
+                    RNArrayVec[3] += 1
+                end
+            end            
         else
             # intersects side 2
             class = RCellIntersection(d2, d3, r2, r3, intercept_point[1])
+
+            if eigenvector
+                if class == RP || class == RPTrumped
+                    RPArrayVec[2] += 1
+                else
+                    RNArrayVec[2] += 1
+                end
+            end            
         end
 
         RInterceptClasses[i] = class
@@ -659,47 +762,141 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         RNArray[i] = RNPoints[i].code
     end
 
-    # what a racket
-    return cellEigenvalueTopology(vertexTypes, DPArray, DNArray, RPArray, RNArray)
+    if d_internal_ellipse && length(DPPoints) == 0 && length(DNPoints) == 0
+        d_center_class = classifyEllipseCenter(d1, d2, d3, r1, r2, r3, d_center[1], d_center[2])
+        if d_center_class == DP
+            DPArray[1] = INTERNAL_ELLIPSE
+        elseif d_center_class == DN
+            DNArray[1] = INTERNAL_ELLIPSE
+        end
+    end
 
-end
-
-function cyclicListMatch(first,second)
-    commonLen = 0
-    for i in 1:10
-        if first[i] == 0
-            if second[i] != 0
-                return false
+    if r_internal_ellipse
+        if eigenvector
+            if (r2-r1)*r_center[1]+(r3-r1)*r_center[2]+r1 >= 0
+                RPArrayVec[1] = INTERNAL_ELLIPSE
             else
-                break
+                RNArrayVec[1] = INTERNAL_ELLIPSE
             end
         end
-        commonLen += 1
-    end
 
-    if commonLen == 0
-        return true
-    end
-
-    for off in 0:(commonLen-1)
-        bad = false
-        for i in 1:commonLen
-            if first[i] != second[ (i+off-1)%commonLen+1 ]
-                bad = true
-                break
+        if length(RPPoints) == 0 && length(RNPoints) == 0
+            r_center_class = classifyEllipseCenter(d1,d2,d3,r1,r2,r3,r_center[1],r_center[2])
+            if r_center_class == RP
+                RPArray[1] = INTERNAL_ELLIPSE
+            elseif r_center_class == RN
+                RNArray[1] = INTERNAL_ELLIPSE
             end
         end
-        if !bad
-            return true
-        end
+
     end
 
-    return false
+    # what a racket
+    return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
 end
 
-# check if the topology of two cells match
-function cellTopologyMatches(a::cellEigenvalueTopology, b::cellEigenvalueTopology)
-    return (a.vertexTypes == b.vertexTypes) && cyclicListMatch(a.DNArray, b.DNArray) && cyclicListMatch(a.DPArray, b.DPArray) && cyclicListMatch(a.RPArray, b.RPArray) && cyclicListMatch(a.RNArray, b.RNArray)
+function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
+    RPArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+    RNArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+
+    # we work with everything *2. It does not change the results.
+
+    r1 = M1[2,1]-M1[1,2]
+    cos1 = M1[1,1]-M1[2,2]
+    sin1 = M1[1,2]+M1[2,1]
+    s1 = sqrt(cos1^2+sin1^2)
+
+    r2 = M2[2,1]-M2[1,2]
+    cos2 = M2[1,1]-M2[2,2]
+    sin2 = M2[1,2]+M2[2,1]
+    s2 = sqrt(cos2^2+sin2^2)
+
+    r3 = M3[2,1]-M3[1,2]
+    cos3 = M3[1,1]-M3[2,2]
+    sin3 = M3[1,2]+M3[2,1]
+    s3 = sqrt(cos3^2+sin3^2)
+
+    vertexTypes = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3,s3)))
+
+    if abs(r1) >= s1 && abs(r2) >= s2 && abs(r3) >= s3 && ( ( r1 >= 0 && r2 >= 0 && r3 >= 0) || ( r1 <= 0 && r2 <= 0 && r3 <= 0 ) )
+       # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
+        return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
+    end
+
+    # generate conics and intersect them with the triangles:
+
+    RBase = interpolationConic(r1, r2, r3)
+    sinBase = interpolationConic(sin1, sin2, sin3)
+    cosBase = interpolationConic(cos1, cos2, cos3)
+    sinPlusCos = add(sinBase, cosBase)
+
+    RConic = sub(RBase, sinPlusCos)
+
+    RConicXIntercepts = quadraticFormula(RConic.A, RConic.D, RConic.F) # gives x coordinate
+    RConicYIntercepts = quadraticFormula(RConic.C, RConic.E, RConic.F) # gives y coordinate
+    # hypotenuse intercepts. Gives x coordinate
+    RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
+
+    if 0 <= RConicXIntercepts[1] <= 1
+        if RConicXIntercepts[1]*r2 + (1-RConicXIntercepts[1])*r1 > 0
+            RPArray[1] += 1
+        else
+            RNArray[1] += 1
+        end
+    end
+
+    if 0 <= RConicXIntercepts[2] <= 1
+        if RConicXIntercepts[2]*r2 + (1-RConicXIntercepts[2])*r1 > 0
+            RPArray[1] += 1
+        else
+            RNArray[1] += 1
+        end
+    end
+
+    if 0 < RConicYIntercepts[1] <= 1
+        if RConicYIntercepts[1]*r3 + (1-RConicYIntercepts[1])*r1 > 0
+            RPArray[3] += 1
+        else
+            RNArray[3] += 1
+        end
+    end
+
+    if 0 < RConicYIntercepts[2] <= 1
+        if RConicYIntercepts[2]*r3 + (1-RConicYIntercepts[2])*r1 > 0
+            RPArray[3] += 1
+        else
+            RNArray[3] += 1
+        end
+    end
+
+    if 0 < RConicHIntercepts[1] < 1
+        if RConicHIntercepts[1]*r2 + (1-RConicHIntercepts[1])*r3 > 0
+            RPArray[2] += 1
+        else
+            RNArray[2] += 1
+        end
+    end
+
+    if 0 < RConicHIntercepts[2] < 1
+        if RConicHIntercepts[2]*r2 + (1-RConicHIntercepts[2])*r3 > 0
+            RPArray[2] += 1
+        else
+            RNArray[2] += 1
+        end
+    end
+
+    if RPArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && RNArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && discriminant(RConic) < 0
+        r_center = center(RConic)
+        if r_center[1] > 0 && r_center[2] > 0 && r_center[2] < 1.0 - r_center[1]
+            if (r2-r1)*r_center[1] + (r3-r1)*r_center[2] + r1 > 0
+                RPArray[1] = INTERNAL_ELLIPSE
+            else
+                RNArray[1] = INTERNAL_ELLIPSE
+            end
+        end
+    end
+
+    return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
 end
 
 end
