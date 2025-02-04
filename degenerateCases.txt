@@ -1,0 +1,51 @@
+double roots: completely ignore them, both for conic-conic and conic-edge
+intersections. We grant two exceptions: 
+	- if a hyperbola has a degenerate point along an edge, then we treat 
+	  that as an edge crossing for both sides of the hyperbola.
+	- if we have a double root at a corner, then this is handled the same
+	  as a corner intersection.
+
+conic-conic intersection along an edge: We ignore these intersections and
+instead treat it as though both of those conics intersect the edge, but not
+each other. It turns out that we cannot actually keep both line intersections
+always. Thus, we assume that the intersection occurs ~outside~ the triangle
+and then use an algorithm that we developed in order to figure out which
+line intersections will be kept and which will be removed based on the
+directions of various things.
+
+conic-corner intersection: we track these with separate intersection codes.
+An intersection can be classified as occurring at an edge or at a corner.
+In order to prevent this intersection from getting picked up by multiple
+edges, we handle corner intersections involving the x-axis in edge 1 only,
+and corner intersections involving the 2/3 corner in edge 3 only. Iif a 
+hyperbola has a degenerate point at a corner, this is treated as a separate 
+symbol. Thus, the case where a vertex is uniformly zero is actually handled.
+For the eigenvector manifold, we also have a zero symbol to denote that 
+yr=ys=0 at that corner.
+
+conic-conic intersection at corner: We again ignore this intersection, but
+track the fact that both conics intersect the same corner using the above
+case.
+
+two hyperbolas have the same degenerate point in the same place:
+	- We mark where the particular intersection point occurs (along
+	  whichever edge or corner). We order this point along with the
+	  other points. From here, the rest of the topology is determined
+	  by the same invariant as before.
+
+we have uniform zeros at two corners:
+	- The topology will be single-color determined by the class of the
+	  third vertex, so no additional handling is needed.
+
+One of the conics is just a single line:
+	- If it is a single line where all of the quadratic terms are 0, then there is no problem.
+	- If it is a single line where a quadratic term is not zero, this means that there is either
+	  no shaded region, or the entire domain is the shaded region. In either case, we ignore the
+	  conic completely.
+		- We detect this case by checking if all intercepts are double roots, but the
+		  discriminant is positive, and the quadratic terms do not vanish.
+
+One of the conics is just a single point:
+	- ignore it
+	- We check this by evaluating if the conic is an ellipse, and if so, does the center
+	  evaluate to 0

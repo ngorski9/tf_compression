@@ -11,6 +11,9 @@ export evaluate
 export quadraticFormula
 export to_string
 export intersectWithStandardFormLine
+export gradient
+export tangentDerivative
+export conicEquation
 
 # This entire file assumes the interpolation paradigm where we are linearly interpolating three tensors in a triangle.
 # We assume that the first one is (0,0), the second (1,0), and the third (0,1). However, the goal here is just to determine
@@ -47,6 +50,24 @@ end
 
 function evaluate(eq::conicEquation, x::Float64, y::Float64)
     return eq.A*x^2 + eq.B*x*y + eq.C*y^2 + eq.D*x + eq.E*y + eq.F
+end
+
+# returns a normalized vector that is tangent to the curve of eq=0 at the point (x,y)
+# (note that F does not affect anything here)
+function tangentDerivative(eq::conicEquation,x::Float64,y::Float64)
+    denom = eq.B*x+2*eq.C*y+eq.E
+    if denom == 0.0
+        return (0.0,1.0)
+    else
+        m = (-2*eq.A*x-eq.B*y-eq.D)/denom
+        mag = sqrt(1+m^2)
+        return (1.0/mag,m/mag)
+    end
+end
+
+# returns the gradient of the conic equation as a function of x and y at the point (x,y)
+function gradient(eq::conicEquation,x::Float64,y::Float64)
+    return (2*eq.A*x+eq.B*y+eq.D, eq.B*x+2*eq.C*y+eq.E)
 end
 
 # intersect the conic with the line ax + by + c = 0
@@ -97,7 +118,7 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
         if b == 0.0
             return (Inf, Inf)
         else
-            return (-c/b,Inf)
+            return (-c/b,-c/b)
         end
     elseif a > 0.0
         return ( (-b - sr) / (2*a), (-b + sr) / (2*a) )

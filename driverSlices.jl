@@ -226,12 +226,12 @@ function main()::Cint
         totalCellTypeFrequenciesRecon += metrics[9]
 
         if naive
-            numCells = (dims[1]-1)*(dims[2]-1)
+            numCells = 2*(dims[1]-1)*(dims[2]-1)
             falseVertexEigenvalue += metrics[6][1,2]
             falseVertexEigenvector += metrics[6][2,2]
-            falseCellCriticalPoint += numCells - metrics[8][1]
-            falseCellTopologyEigenvalue += metrics[9]
-            falseCellTopologyEigenvector += metrics[11]
+            falseCellCriticalPoint += numCells - metrics[7][1]
+            falseCellTopologyEigenvalue += metrics[7][9]
+            falseCellTopologyEigenvector += metrics[7][11]
         end
 
         redirect_stdout(stdout_)
@@ -266,7 +266,9 @@ function main()::Cint
     if naive
         println("false vertex eigenvalue: $falseVertexEigenvalue")
         println("false vertex eigenvector: $falseVertexEigenvector")
-        println("false cell: $falseCell")
+        println("false cell eigenvalue: $falseCellTopologyEigenvalue")
+        println("false cell eigenvector: $falseCellTopologyEigenvector")
+        println("false cell topology cp: $falseCellCriticalPoint")
     end
 
     if csv != ""

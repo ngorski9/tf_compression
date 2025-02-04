@@ -635,7 +635,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             # Single vertex: swap values into place.
                             for v in newVertices
-                                processPoint(vertexCoords[v])
+                                if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
+                                    precisions[vertexCoords[v]...] = 8
+                                    setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
+                                    θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
+                                else
+                                    processPoint(vertexCoords[v])
+                                end
                             end
 
                         end
