@@ -135,6 +135,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                     end
 
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
+                    println(top1)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
                 
                     total += 1
