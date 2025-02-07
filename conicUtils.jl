@@ -14,6 +14,39 @@ export intersectWithStandardFormLine
 export gradient
 export tangentDerivative
 export conicEquation
+export curvature
+export classifyAndReturnCenter
+
+export HYPERBOLA
+export ELLIPSE
+export INTERSECTING_LINES
+export PARABOLA
+export PARALLEL_INNER
+export PARALLEL_OUTER
+export SIDEWAYS_PARABOLA
+export PARALLEL_INNER_HORIZONTAL
+export PARALLEL_OUTER_HORIZONTAL
+export POINT
+export LINE
+export HORIZONTAL_LINE
+export VERTICAL_LINE
+export EMPTY
+
+# we only deal with the cases that can actually come up.
+const HYPERBOLA = 0
+const ELLIPSE = 1
+const INTERSECTING_LINES = 3
+const PARABOLA = 2
+const PARALLEL_INNER = 4
+const PARALLEL_OUTER = 5
+const SIDEWAYS_PARABOLA = 6
+const PARALLEL_INNER_HORIZONTAL = 7
+const PARALLEL_OUTER_HORIZONTAL = 8
+const POINT = 9
+const LINE = 10
+const HORIZONTAL_LINE = 11
+const VERTICAL_LINE = 12
+const EMPTY = 13 # entire domain or nothing
 
 # This entire file assumes the interpolation paradigm where we are linearly interpolating three tensors in a triangle.
 # We assume that the first one is (0,0), the second (1,0), and the third (0,1). However, the goal here is just to determine
@@ -41,7 +74,15 @@ function sub(eq1::conicEquation, eq2::conicEquation)
 end
 
 function center(eq::conicEquation)
-    return ( (eq.B*eq.E - 2*eq.C*eq.D)/(4*eq.A*eq.C-eq.B^2), (eq.B*eq.D - 2*eq.A*eq.E)/(4*eq.A*eq.C-eq.B^2) )
+    disc = dicriminant(eq)
+    if disc != 0.0
+        # not a parabola or a one sided line
+        return ( (eq.B*eq.E - 2*eq.C*eq.D)/disc, (eq.B*eq.D - 2*eq.A*eq.E)/disc )
+    else
+        if B != 0.0
+
+        end
+    end
 end
 
 function discriminant(eq::conicEquation)
@@ -68,6 +109,17 @@ end
 # returns the gradient of the conic equation as a function of x and y at the point (x,y)
 function gradient(eq::conicEquation,x::Float64,y::Float64)
     return (2*eq.A*x+eq.B*y+eq.D, eq.B*x+2*eq.C*y+eq.E)
+end
+
+# returns the curvature of given conic equation at point (x,y)
+function curvature(eq::conicEquation,x::Float64,y::Float64)
+    Fx = 2*eq.A*x + eq.B*y + eq.D
+    Fy = eq.B*x + 2*eq.C*y + eq.E
+    Fxx = 2*eq.A
+    Fxy = eq.B
+    Fyy = 2*eq.C
+
+    return abs( Fxx*Fy^2 - 2*Fx*Fy*Fxy + Fyy*Fx^2 ) / ( Fx^2 + Fy^2 )^1.5
 end
 
 # intersect the conic with the line ax + by + c = 0
@@ -130,6 +182,66 @@ end
 
 function to_string(eq::conicEquation)
     return string(eq.A) * "x^2 + " * string(eq.B) * "xy + " * string(eq.C) * "y^2 + " * string(eq.D) * "x + " * string(eq.E) * "y + " * string(eq.F)
+end
+
+function classifyAndReturnCenter(eq::conicEquation)
+    disc = discriminant(eq)
+    if disc < 0
+        center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
+        if evaluate(eq, center[1], center[2]) == 0
+            return (POINT, center)
+        else
+            return (ELLIPSE, center)
+        end
+    elseif disc > 0
+        center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
+        if evaluate(eq, center[1], center[2]) == 0
+            return (INTERSECTING_LINES, center)
+        else
+            return (HYPERBOLA, center)
+        end
+    else
+        if eq.B != 0 || eq.A != 0
+            x1 = (-eq.B*eq.E - 2*eq.A*eq.D) / (4*eq.A*eq.A + eq.B^2)
+            center = (x1,0.0)
+            grad = gradient(eq, x1, 0.0)
+            if grad[1] == 0.0 && grad[2] == 0.0
+                if eq.A > 0
+                    return (PARALLEL_OUTER, center)
+                else
+                    return (PARALLEL_INNER, center)
+                end
+            else
+                return (PARABOLA, center)
+            end
+        else
+            if eq.C != 0
+                center = (0.0,-eq.E/(2*eq.C))
+                if eq.D == 0
+                    if eq.C > 0
+                        return (PARALLEL_OUTER_HORIZONTAL, center)
+                    else
+                        return (PARALLEL_INNER_HORIZONTAL, center)
+                    end
+                else
+                    return (SIDEWAYS_PARABOLA, center)
+                end
+            else
+                if eq.D == 0.0
+                    if eq.E == 0.0
+                        return (EMPTY, (0.0,0.0))
+                    else
+                        return (VERTICAL_LINE, (0.0,-eq.F/eq.E))
+                    end
+                elseif eq.E == 0.0
+                    return (HORIZONTAL_LINE, (-eq.F/eq.D,0.0))
+                else
+                    return (LINE, (-eq.F/eq.D,0.0))
+                end
+            end
+        end
+    end
+
 end
 
 end

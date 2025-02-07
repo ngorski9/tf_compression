@@ -8,17 +8,17 @@ using StaticArrays
 
 function main()
     d1 = -1.1
-    d2 = 2.0
+    d2 = 1.2
     d3 = 0.5
-    w1 = 2.7
-    w2 = 2.0
-    w3 = 1.0
-    r1 = -0.6
+    w1 = 0.3
+    w2 = 0.4
+    w3 = 3.0
+    r1 = 0.3
     r2 = 0.4
-    r3 = -0.6
-    θ1 = 3.72
-    θ2 = 5.9
-    θ3 = 2.0
+    r3 = 3.0
+    θ1 = 0.1
+    θ2 = 0.0
+    θ3 = 0.0
 
     M1 = SMatrix{2,2,Float64}(( d1 + w1*cos(θ1), r1 + w1*sin(θ1), -r1+w1*sin(θ1), d1-w1*cos(θ1) ))
     M2 = SMatrix{2,2,Float64}(( d2 + w2*cos(θ2), r2 + w2*sin(θ2), -r2+w2*sin(θ2), d2-w2*cos(θ2) ))
