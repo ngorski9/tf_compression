@@ -16,7 +16,7 @@ function main()
             for k in 0:1
                 top = Bool(k)
                 topology = classifyCellEigenvalue(getTensorsAtCell(tf,i,j,1,top)..., true)
-                write(outf, string(topology) * "\n")
+                write(outf, string((i,j,k)) * " " * string(topology) * "\n")
             end
         end
     end
