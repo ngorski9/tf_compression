@@ -1096,7 +1096,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         RNArray[i] = RNPoints[i].code
     end
 
-    if d_type == ELLIPSE && length(DPPoints) == 0 && length(DNPoints) == 0
+    if d_type == ELLIPSE && !any_d_intercepts && (!eigenvector || (abs(d1) < s1 && abs(d2) < s2 && abs(d3) < s3))
         d_center_class = classifyEllipseCenter(d1, d2, d3, r1, r2, r3, d_center[1], d_center[2])
         if d_center_class == DP
             DPArray[length(DPPoints)+1] = INTERNAL_ELLIPSE
@@ -1114,7 +1114,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             end
         end
 
-        if length(RPPoints) == 0 && length(RNPoints) == 0
+        if !any_r_intercepts
             r_center_class = classifyEllipseCenter(d1,d2,d3,r1,r2,r3,r_center[1],r_center[2])
             if r_center_class == RP
                 RPArray[1] = INTERNAL_ELLIPSE
