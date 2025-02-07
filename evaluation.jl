@@ -1,4 +1,5 @@
 using Statistics
+using StaticArrays
 
 using ..tensorField
 using ..conicUtils
@@ -93,6 +94,11 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
     VECSAME = 10
     VECDIF = 11
 
+    multicolor = 0
+    corner_intersection = 0
+    zero_corner = 0
+    total = 0
+
     x, y, T = tf1.dims
     x -= 1
     y -= 1
@@ -131,23 +137,24 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
                 
+                    total += 1
+
+                    if top1.DPArray != MArray{Tuple{10}, Int8}(zeros(Int8, 10)) || top1.DNArray != MArray{Tuple{10}, Int8}(zeros(Int8, 10)) || top1.RPArray != MArray{Tuple{10}, Int8}(zeros(Int8, 10)) || top1.RNArray != MArray{Tuple{10}, Int8}(zeros(Int8, 10))
+                        multicolor += 1
+                    end
+
+                    if 9 in top1.DPArray || 10 in top1.DPArray || 11 in top1.DPArray || 9 in top1.DNArray || 10 in top1.DNArray || 11 in top1.DNArray || 9 in top1.RPArray || 10 in top1.RPArray || 11 in top1.RPArray || 9 in top1.RNArray || 10 in top1.RNArray || 11 in top1.RNArray
+                        corner_intersection += 1
+                    end
+
+                    if top1.vertexTypesEigenvalue[1] == 17 || top1.vertexTypesEigenvalue[2] == 17 || top1.vertexTypesEigenvalue[3] == 17
+                        zero_corner += 1
+                    end
+
                     if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && top1.DPArray == top2.DPArray && top1.DNArray == top2.DNArray && top1.RPArray == top2.RPArray && top1.RNArray == top2.RNArray
                         result[VALSAME] += 1
                     else
                         result[VALDIF] += 1
-                        tensors = getTensorsAtCell(tf1, i, j, t, Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))
-                        # println("---")
-                        # tensors = getTensorsAtCell(tf2, i, j, t, Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))                        
-                        # println((i,j,t,Bool(k)))
-                        # println(top1)
-                        # println(top2)
-                        # exit()
                     end
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2
@@ -160,6 +167,10 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
             end
         end
     end
+
+    println("multicolor: $multicolor / $total")
+    println("corner intersection: $corner_intersection / $total")
+    println("zero corner: $zero_corner / $total")
 
     return result
 
