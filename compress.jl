@@ -908,12 +908,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
     println("processing codes...")
 
+    num_full_lossless = 0
+
     for t in 1:dims[3]
         for j in 1:dims[2]
             for i in 1:dims[1]
                 base_codes[i,j,t] = type_codes[i,j,t] | (precisions[i,j,t] << 4)
 
                 if precisions[i,j,t] >= 8
+                    num_full_lossless += 1
                     θ_and_sfix_codes[i,j,t] = 0
                     eigenvector_special_cases[i,j,t] = 0
                     d_codes[i,j,t] = 127
@@ -953,6 +956,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             end
         end
     end
+
+    println(num_full_lossless)
+    exit()
 
     baseCodeBytes = huffmanEncode(vec(base_codes))
     θAndSfixBytes = huffmanEncode(vec(θ_and_sfix_codes))
