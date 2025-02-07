@@ -16,9 +16,9 @@ function main()
     r1 = 0.3
     r2 = 0.4
     r3 = 3.0
-    θ1 = 0.1
+    θ1 = 0.0
     θ2 = 0.0
-    θ3 = 0.0
+    θ3 = 0.1
 
     M1 = SMatrix{2,2,Float64}(( d1 + w1*cos(θ1), r1 + w1*sin(θ1), -r1+w1*sin(θ1), d1-w1*cos(θ1) ))
     M2 = SMatrix{2,2,Float64}(( d2 + w2*cos(θ2), r2 + w2*sin(θ2), -r2+w2*sin(θ2), d2-w2*cos(θ2) ))

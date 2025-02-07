@@ -160,7 +160,7 @@ end
 function quadraticFormula(a::Float64, b::Float64, c::Float64)
     disc = b^2-4*a*c
 
-    if disc < 0.0
+    if disc < 1e-10
         return (Inf,Inf)
     end
 

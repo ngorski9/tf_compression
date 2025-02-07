@@ -196,11 +196,11 @@ function is_inside_triangle(x::Float64,y::Float64)
     return x >= 0.0 && y >= 0.0 && y <= 1.0-x
 end
 
-function valid_intersection_at_edge(DConic::conicEquation, RConic::conicEquation, x::Float64, y::Float64)
+function valid_intersection_at_edge(DConic::conicEquation, RConic::conicEquation, x::Float64, y::Float64, DX, DY, DH, RX, RY, RH)
     return ( !(isClose(x,0.0) && isClose(y,0.0)) && !(isClose(x,0.0) && isClose(y,1.0)) && !(isClose(x,1.0) && isClose(y,0.0)) ) &&
-           (y != 0.0 || (dot(tangentDerivative(DConic, x, y), (0.0,1.0)) == 0 ⊻ dot(tangentDerivative(RConic,x, y), (0.0,1.0)) == 0)) &&
-           (y != 1.0 - x || (dot(tangentDerivative(DConic, x, y), (-1.0,-1.0)) == 0 ⊻ dot(tangentDerivative(RConic,x, y), (-1.0,-1.0)) == 0)) &&
-           (x != 0.0 || (dot(tangentDerivative(DConic, x, y), (1.0,0.0)) == 0 ⊻ dot(tangentDerivative(RConic,x, y), (1.0,0.0)) == 0))
+           (!isClose(y, 0.0) || (x in DX && x in RX && ((dot(tangentDerivative(DConic, x, y), (0.0,1.0)) == 0.0) ⊻ (dot(tangentDerivative(RConic,x, y), (0.0,1.0)) == 0.0)))) &&
+           (!isClose(y, 1.0-x) || (x in DH && x in RH && ((dot(tangentDerivative(DConic, x, y), (-1.0,-1.0)) == 0.0) ⊻ (dot(tangentDerivative(RConic,x, y), (-1.0,-1.0)) == 0.0)))) &&
+           (!isClose(x,0.0) || (y in DY && y in RY && ((dot(tangentDerivative(DConic, x, y), (1.0,0.0)) == 0.0) ⊻ (dot(tangentDerivative(RConic,x, y), (1.0,0.0)) == 0.0))))
 end
 
 # returns the signs of d and r when the |d|=s and |r|=s curves intersect.
@@ -661,6 +661,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 else               
                     if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                         doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, $P==DP)
+
                         @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N)
                     end
                     if $do_eigenvector && $(esc(do_eigenvector_runtime))
@@ -730,7 +731,7 @@ function getAxesAndCheckIfSortAsEllipse(eq::conicEquation, class::Int64)
     elseif class == HYPERBOLA || class == INTERSECTING_LINES
         if eq.B == 0
             disc = sign(eq.F - eq.D^2 / (4 * eq.A) - eq.E^2 / (4 * eq.C))
-            if disc == sign(A) || disc == 0 && eq.A < 0 
+            if disc == sign(eq.A) || disc == 0 && eq.A < 0 
                 return ((-1.0,0.0), (0.0,1.0), false)
             else
                 return ((0.0,1.0), (1.0,0.0), false)
@@ -868,8 +869,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     RConicYIntercepts = quadraticFormula(RConic.C, RConic.E, RConic.F) # gives y coordinate
     # hypotenuse intercepts. Gives x coordinate
     RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
-
-    println(DConicXIntercepts)
 
     # first, check for degenerate cases of (a) single line with no intersection region, and (b) single point.
     # in either of these cases, we completely ignore the given conic.
@@ -1036,21 +1035,21 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         rnd_intersection_2 = NULL
 
         if rpd_intersections[1] != rpd_intersections[2] # non-transverse intersections are not counted
-            if is_inside_triangle(rpd_intersections[1][1], rpd_intersections[1][2]) && valid_intersection_at_edge(DConic, RConic, rpd_intersections[1][1], rpd_intersections[1][2])
+            if is_inside_triangle(rpd_intersections[1][1], rpd_intersections[1][2]) && valid_intersection_at_edge(DConic, RConic, rpd_intersections[1][1], rpd_intersections[1][2], DConicXIntercepts, DConicYIntercepts, DConicHIntercepts, RConicXIntercepts, RConicYIntercepts, RConicHIntercepts)
                 rpd_intersection_1 = DRSignAt(d1, d2, d3, rpd_intersections[1][1], rpd_intersections[1][2], true)
             end
 
-            if is_inside_triangle(rpd_intersections[2][1], rpd_intersections[2][2]) && valid_intersection_at_edge(DConic, RConic, rpd_intersections[2][1], rpd_intersections[2][2]) 
+            if is_inside_triangle(rpd_intersections[2][1], rpd_intersections[2][2]) && valid_intersection_at_edge(DConic, RConic, rpd_intersections[2][1], rpd_intersections[2][2], DConicXIntercepts, DConicYIntercepts, DConicHIntercepts, RConicXIntercepts, RConicYIntercepts, RConicHIntercepts) 
                 rpd_intersection_2 = DRSignAt(d1, d2, d3, rpd_intersections[2][1], rpd_intersections[2][2], true)
             end
         end
 
         if rpd_intersections[1] != rpd_intersections[2]
-            if is_inside_triangle(rnd_intersections[1][1], rnd_intersections[1][2]) && valid_intersection_at_edge(DConic, RConic, rnd_intersections[1][1], rnd_intersections[1][2])
+            if is_inside_triangle(rnd_intersections[1][1], rnd_intersections[1][2]) && valid_intersection_at_edge(DConic, RConic, rnd_intersections[1][1], rnd_intersections[1][2], DConicXIntercepts, DConicYIntercepts, DConicHIntercepts, RConicXIntercepts, RConicYIntercepts, RConicHIntercepts)
                 rnd_intersection_1 = DRSignAt(d1, d2, d3, rnd_intersections[1][1], rnd_intersections[1][2], false)                
             end
 
-            if is_inside_triangle(rnd_intersections[2][1], rnd_intersections[2][2])  && valid_intersection_at_edge(DConic, RConic, rnd_intersections[2][1], rnd_intersections[2][2])
+            if is_inside_triangle(rnd_intersections[2][1], rnd_intersections[2][2])  && valid_intersection_at_edge(DConic, RConic, rnd_intersections[2][1], rnd_intersections[2][2], DConicXIntercepts, DConicYIntercepts, DConicHIntercepts, RConicXIntercepts, RConicYIntercepts, RConicHIntercepts)
                 rnd_intersection_2 = DRSignAt(d1, d2, d3, rnd_intersections[2][1], rnd_intersections[2][2], false)
             end
         end
