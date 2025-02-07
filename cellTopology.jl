@@ -74,13 +74,13 @@ const RPTrumped = 5 # used for detecting P vs N for vertex eigenvector
 const RNTrumped = 6
 
 # cell region types (eigenvector)
-const RRP::Int8 = 5
-const DegenRP::Int8 = 6
-const SRP::Int8 = 6
-const SYM::Int8 = 7
-const SRN::Int8 = 8
-const DegenRN::Int8 = 9
-const RRN::Int8 = 10
+const RRP::Int8 = 10
+const DegenRP::Int8 = 11
+const SRP::Int8 = 12
+const SYM::Int8 = 13
+const SRN::Int8 = 14
+const DegenRN::Int8 = 15
+const RRN::Int8 = 16
 
 function getCellEdgeFromPoint(point::Tuple{Float64,Float64})
     if point[2] == 0.0
