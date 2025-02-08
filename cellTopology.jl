@@ -1044,7 +1044,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             end
         end
 
-        if rpd_intersections[1] != rpd_intersections[2]
+        if rnd_intersections[1] != rnd_intersections[2]
             if is_inside_triangle(rnd_intersections[1][1], rnd_intersections[1][2]) && valid_intersection_at_edge(DConic, RConic, rnd_intersections[1][1], rnd_intersections[1][2], DConicXIntercepts, DConicYIntercepts, DConicHIntercepts, RConicXIntercepts, RConicYIntercepts, RConicHIntercepts)
                 rnd_intersection_1 = DRSignAt(d1, d2, d3, rnd_intersections[1][1], rnd_intersections[1][2], false)                
             end
@@ -1095,8 +1095,8 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     for i in eachindex(RNPoints)
         RNArray[i] = RNPoints[i].code
     end
-
-    if d_type == ELLIPSE && !any_d_intercepts && (!eigenvector || (abs(d1) < s1 && abs(d2) < s2 && abs(d3) < s3))
+                                                                                                            # we only check d1 since either all are greater than s1 or all are less
+    if d_type == ELLIPSE && !any_d_intercepts && length(DPPoints) == 0 && length(DNPoints) == 0 && is_inside_triangle(d_center[1], d_center[2]) && (!eigenvector || abs(d1) < s1)
         d_center_class = classifyEllipseCenter(d1, d2, d3, r1, r2, r3, d_center[1], d_center[2])
         if d_center_class == DP
             DPArray[length(DPPoints)+1] = INTERNAL_ELLIPSE
@@ -1105,8 +1105,8 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
-    if r_type == ELLIPSE
-        if eigenvector && RPArrayVec == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && RNArrayVec == MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+    if !any_r_intercepts && r_type == ELLIPSE && is_inside_triangle(r_center[1], r_center[2])
+        if eigenvector
             if (r2-r1)*r_center[1]+(r3-r1)*r_center[2]+r1 >= 0
                 RPArrayVec[1] = INTERNAL_ELLIPSE
             else
@@ -1114,7 +1114,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             end
         end
 
-        if !any_r_intercepts
+        if length(RPPoints) == 0 && length(RNPoints) == 0
             r_center_class = classifyEllipseCenter(d1,d2,d3,r1,r2,r3,r_center[1],r_center[2])
             if r_center_class == RP
                 RPArray[1] = INTERNAL_ELLIPSE

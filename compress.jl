@@ -265,7 +265,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_1.dat --pwe $(parameter*aeb)`)
         run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $(parameter*aeb)`)
     end
-    exit()
+
     baseCompressorSplit = time()
 
     tf2 = loadTensorField2dFromFolder(output, dims)

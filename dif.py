@@ -11,8 +11,13 @@ if __name__ == "__main__":
     for line in inf2:
         lines2.append(line)
     
+    num = 0
+
     for i in range(len(lines1)):
         if lines1[i] != lines2[i]:
+            num += 1
             print(lines1[i])
             print(lines2[i])
             print("-------")
+
+    print(num)
