@@ -10,6 +10,7 @@ using ..huffman
 using ..utils
 using ..conicUtils
 using ..cellTopology
+using ..cellTopologyOld
 
 export compress2d
 export compress2dNaive
@@ -635,13 +636,14 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             # Single vertex: swap values into place.
                             for v in newVertices
-                                if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
-                                    precisions[vertexCoords[v]...] = 8
-                                    setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
-                                    θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
-                                else
-                                    processPoint(vertexCoords[v])
-                                end
+                                # if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
+                                #     precisions[vertexCoords[v]...] = 8
+                                #     setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
+                                #     θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
+                                # else
+                                #     processPoint(vertexCoords[v])
+                                # end
+                                processPoint(vertexCoords[v])
                             end
 
                         end
@@ -761,8 +763,34 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                         # process cell topology
                         if eigenvalue
-                            gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
-                            rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                            gt = tensorField.classifyCellEigenvalueOld(tf, x, y, t, top, eigenvector)
+                            rt = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
+
+                            # gtOld = tensorField.classifyCellEigenvalueOld(tf, x, y, t, top, eigenvector)
+                            # rtOld = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
+
+                            # if !cellTopologyOld.compare(gt, gtOld)
+                            #     println((x,y,t,top))
+                            #     println(gt)
+                            #     println(gtOld)
+                            #     println("------------")
+                            #     tensors = getTensorsAtCell(tf, x, y, t, top)
+                            #     println(decomposeTensor(tensors[1]))
+                            #     println(decomposeTensor(tensors[2]))
+                            #     println(decomposeTensor(tensors[3]))
+                            # end
+
+                            # if !cellTopologyOld.compare(rt, rtOld)
+                            #     println((x,y,t,top))
+                            #     println(rt)
+                            #     println(rtOld)
+                            #     println("------------")
+                            #     tensors = getTensorsAtCell(tf2, x, y, t, top)
+                            #     println(decomposeTensor(tensors[1]))
+                            #     println(decomposeTensor(tensors[2]))
+                            #     println(decomposeTensor(tensors[3]))
+                            # end
+                            
                             while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
                                      gt.RPArray == rt.RPArray && gt.RNArray == rt.RNArray && (!eigenvector || (gt.vertexTypesEigenvector == rt.vertexTypesEigenvector &&
                                      gt.RPArrayVec == rt.RPArrayVec && gt.RNArrayVec == rt.RNArrayVec )))
@@ -786,7 +814,19 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                                rt = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
+                                # rtOld = tensorField.classifyCellEigenvalueOld(tf2,x,y,t,top,eigenvector)
+
+                                # if !cellTopologyOld.compare(rt, rtOld)
+                                #     println((x,y,t,top))
+                                #     println(rt)
+                                #     println(rtOld)
+                                #     println("------------")
+                                #     tensors = getTensorsAtCell(tf2, x, y, t, top)
+                                #     println(decomposeTensor(tensors[1]))
+                                #     println(decomposeTensor(tensors[2]))
+                                #     println(decomposeTensor(tensors[3]))
+                                # end
                             end
 
                         elseif eigenvector

@@ -4,6 +4,7 @@ using LinearAlgebra
 using StaticArrays
 using ..utils
 using ..cellTopology
+using ..cellTopologyOld
 
 export TensorField2d
 export TensorField2dSymmetric
@@ -285,6 +286,14 @@ function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64
         return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
     else
         return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t), eigenvector, verbose )
+    end
+end
+
+function classifyCellEigenvalueOld( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool, eigenvector::Bool, verbose::Bool = false)
+    if top
+        return cellTopologyOld.classifyCellEigenvalueOld( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
+    else
+        return cellTopologyOld.classifyCellEigenvalueOld( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t), eigenvector, verbose )
     end
 end
 

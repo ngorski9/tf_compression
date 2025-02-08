@@ -74,15 +74,8 @@ function sub(eq1::conicEquation, eq2::conicEquation)
 end
 
 function center(eq::conicEquation)
-    disc = dicriminant(eq)
-    if disc != 0.0
-        # not a parabola or a one sided line
-        return ( (eq.B*eq.E - 2*eq.C*eq.D)/disc, (eq.B*eq.D - 2*eq.A*eq.E)/disc )
-    else
-        if B != 0.0
-
-        end
-    end
+    disc = discriminant(eq)
+    return ( (eq.B*eq.E - 2*eq.C*eq.D)/disc, (eq.B*eq.D - 2*eq.A*eq.E)/disc )
 end
 
 function discriminant(eq::conicEquation)
