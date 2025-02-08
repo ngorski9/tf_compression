@@ -145,7 +145,7 @@ const Z::Int8 = 17 # all zeros.
 # end
 
 function classifyTensorEigenvalue(d,r,s)
-    if abs(d) >= abs(r) && abs(d) >= s
+    if abs(d) >= abs(r) && abs(d) > s
         if d > 0
             return DP
         elseif d < 0
@@ -153,7 +153,7 @@ function classifyTensorEigenvalue(d,r,s)
         else
             return Z
         end
-    elseif abs(r) >= abs(d) && abs(r) >= abs(s)
+    elseif abs(r) >= abs(d) && abs(r) > s
         if r > 0
             return RP
         elseif r < 0
@@ -572,7 +572,8 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
     if -1e-10 <= $(esc(intercepts))[1] <= 1.0 + 1e-10
         $(esc(any_intercepts)) = true        
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[1])
-        if $(esc(intercepts))[1] == $(esc(intercepts))[2]
+        if $(esc(intercepts))[1] == $(esc(intercepts))[2] && isClose(dot(gradient($(esc(conic)),$x($(esc(intercepts))[1]),$y($(esc(intercepts))[1])),$edge_inside ),0.0)
+            # transverse intersection. I can't believe that I needed to include the second clause. I swear literally EVERY degenerate case HAS to appear >:(
             if isClose($(esc(intercepts))[1],0.0)
                 if $check_low && (class == $Z || (
                 doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside) &&
@@ -609,7 +610,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
                 end
 
-            elseif isClose($(esc(intercepts))[1],0.0)
+            elseif isClose($(esc(intercepts))[1],1.0)
                 if $check_high && (class == $Z || (
                 doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside) && 
                 ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
@@ -634,7 +635,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 end
             end
 
-            if -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10
+            if $(esc(intercepts))[1] != $(esc(intercepts))[2] && -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10
                 class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[2])
                 if isClose($(esc(intercepts))[2],0.0)
                     if $check_low && (class == $Z || (

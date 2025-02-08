@@ -285,7 +285,7 @@ function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64
     if top
         return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
     else
-        return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t), eigenvector, verbose )
+        return cellTopology.classifyCellEigenvalue( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x, y+1, t), eigenvector, verbose )
     end
 end
 
@@ -293,7 +293,7 @@ function classifyCellEigenvalueOld( tf::TensorField2d, x::Int64, y::Int64, t::In
     if top
         return cellTopologyOld.classifyCellEigenvalueOld( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
     else
-        return cellTopologyOld.classifyCellEigenvalueOld( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t), eigenvector, verbose )
+        return cellTopologyOld.classifyCellEigenvalueOld( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x, y+1, t), eigenvector, verbose )
     end
 end
 
@@ -301,7 +301,7 @@ function classifyCellEigenvector( tf::TensorField2d, x::Int64, y::Int64, t::Int6
     if top
         return cellTopology.classifyCellEigenvector( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t) )
     else
-        return cellTopology.classifyCellEigenvector( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y, t) )
+        return cellTopology.classifyCellEigenvector( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x, y+1, t) )
     end
 end
 

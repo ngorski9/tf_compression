@@ -74,7 +74,7 @@ function sub(eq1::conicEquation, eq2::conicEquation)
 end
 
 function center(eq::conicEquation)
-    disc = discriminant(eq)
+    disc = -discriminant(eq)
     return ( (eq.B*eq.E - 2*eq.C*eq.D)/disc, (eq.B*eq.D - 2*eq.A*eq.E)/disc )
 end
 

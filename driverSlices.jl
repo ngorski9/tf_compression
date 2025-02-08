@@ -1,6 +1,7 @@
 include("utils.jl")
 include("conicUtils.jl")
 include("cellTopology.jl")
+include("cellTopologyOld.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")

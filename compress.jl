@@ -763,8 +763,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                         # process cell topology
                         if eigenvalue
-                            gt = tensorField.classifyCellEigenvalueOld(tf, x, y, t, top, eigenvector)
-                            rt = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
+                            gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
+                            rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
 
                             # gtOld = tensorField.classifyCellEigenvalueOld(tf, x, y, t, top, eigenvector)
                             # rtOld = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
@@ -773,22 +773,29 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             #     println((x,y,t,top))
                             #     println(gt)
                             #     println(gtOld)
-                            #     println("------------")
+                            #     println("------------ (one)")
                             #     tensors = getTensorsAtCell(tf, x, y, t, top)
                             #     println(decomposeTensor(tensors[1]))
                             #     println(decomposeTensor(tensors[2]))
                             #     println(decomposeTensor(tensors[3]))
+                            #     # println(tensors[1])
+                            #     # println(tensors[2])
+                            #     # println(tensors[3])                                
+                            #     # println(cellTopologyOld.classifyCellEigenvalueOld(tensors[1], tensors[2], tensors[3], true))
                             # end
 
                             # if !cellTopologyOld.compare(rt, rtOld)
                             #     println((x,y,t,top))
                             #     println(rt)
                             #     println(rtOld)
-                            #     println("------------")
+                            #     println("------------ (two)")
                             #     tensors = getTensorsAtCell(tf2, x, y, t, top)
                             #     println(decomposeTensor(tensors[1]))
                             #     println(decomposeTensor(tensors[2]))
                             #     println(decomposeTensor(tensors[3]))
+                            #     # println(tensors[1])
+                            #     # println(tensors[2])
+                            #     # println(tensors[3])                                
                             # end
                             
                             while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
@@ -814,18 +821,21 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
-                                # rtOld = tensorField.classifyCellEigenvalueOld(tf2,x,y,t,top,eigenvector)
+                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                                # rtOld = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
 
                                 # if !cellTopologyOld.compare(rt, rtOld)
                                 #     println((x,y,t,top))
                                 #     println(rt)
                                 #     println(rtOld)
-                                #     println("------------")
+                                #     println("------------ (three)")
                                 #     tensors = getTensorsAtCell(tf2, x, y, t, top)
                                 #     println(decomposeTensor(tensors[1]))
                                 #     println(decomposeTensor(tensors[2]))
                                 #     println(decomposeTensor(tensors[3]))
+                                #     # println(tensors[1])
+                                #     # println(tensors[2])
+                                #     # println(tensors[3])
                                 # end
                             end
 
