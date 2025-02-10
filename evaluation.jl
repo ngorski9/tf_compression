@@ -258,7 +258,7 @@ function maxErrorAndRange(tf_ground::TensorField2dSymmetric, tf_reconstructed::T
 
 end
 
-function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, edgeEB = 1.0, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
+function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, compression_time::Float64 = -1.0, decompression_time::Float64 = -1.0, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 
@@ -309,7 +309,7 @@ function printEvaluation2d(ground::String, reconstructed::String, dims::Tuple{In
 
 end
 
-function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, edgeEB = 1.0, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
+function evaluationList2d(ground::String, reconstructed::String, dims::Tuple{Int64, Int64, Int64}, eb::Float64, compressed_size::Int64 = -1, eigenvalue = true, eigenvector = true, minCrossing = 0.01)
     tf1 = loadTensorField2dFromFolder(ground, dims)
     tf2 = loadTensorField2dFromFolder(reconstructed, dims)
 

@@ -108,7 +108,7 @@ const RNTrumped = 7
 const DZ::Int8 = 8 # used for detecting degenerate intersections.
 const RZ::Int8 = 9
 
-# cell region types (eigenvector)
+# vertex types (eigenvector)
 const RRP::Int8 = 10
 const DegenRP::Int8 = 11
 const SRP::Int8 = 12
@@ -116,6 +116,7 @@ const SYM::Int8 = 13
 const SRN::Int8 = 14
 const DegenRN::Int8 = 15
 const RRN::Int8 = 16
+const Z::Int8 = 17
 
 # function getCellEdgeFromPoint(root::Root)
 #     if root.y == 0.0

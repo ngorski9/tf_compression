@@ -17,7 +17,6 @@ function main()::Cint
     folder = ""
     dims = (-1,-1,-1)
     eb = -1.0
-    edgeError = 1.0
     naive = false
     slice = -1
     eigenvalue = false
@@ -40,9 +39,6 @@ function main()::Cint
             i += 4
         elseif ARGS[i] == "--eb"
             eb = parse(Float64,ARGS[i+1])
-            i += 2
-        elseif ARGS[i] == "--edgeEB"
-            edgeError = parse(Float64,ARGS[i+1])
             i += 2
         elseif ARGS[i] == "--naive"
             naive = true
@@ -180,7 +176,7 @@ function main()::Cint
         if naive
             compress2dNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, baseCompressor)
         else
-            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, edgeError, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
+            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
             ctv += compressionList
         end
 
@@ -208,7 +204,7 @@ function main()::Cint
         totalCompressionTime += ct
         totalDecompressionTime += dt
 
-        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, edgeError, eigenvalue, eigenvector, minCrossing)
+        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, eigenvalue, eigenvector, minCrossing)
 
         if !naive && !metrics[1]
             redirect_stdout(stdout_)
@@ -279,7 +275,7 @@ function main()::Cint
 
             # write header :(
             write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
-            write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points")
+            write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points,")
             write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
         end
