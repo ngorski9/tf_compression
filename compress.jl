@@ -10,7 +10,6 @@ using ..huffman
 using ..utils
 using ..conicUtils
 using ..cellTopology
-using ..cellTopologyOld
 
 export compress2d
 export compress2dNaive
@@ -649,7 +648,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         individualSplit2 = time()
-                        individualPointsTime = individualSplit2 - individualSplit1
+                        individualPointsTime += individualSplit2 - individualSplit1
 
                         # Process individual cells to check circular points.
                         if eigenvector
@@ -765,38 +764,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         if eigenvalue
                             gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
                             rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
-
-                            # gtOld = tensorField.classifyCellEigenvalueOld(tf, x, y, t, top, eigenvector)
-                            # rtOld = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
-
-                            # if !cellTopologyOld.compare(gt, gtOld)
-                            #     println((x,y,t,top))
-                            #     println(gt)
-                            #     println(gtOld)
-                            #     println("------------ (one)")
-                            #     tensors = getTensorsAtCell(tf, x, y, t, top)
-                            #     println(decomposeTensor(tensors[1]))
-                            #     println(decomposeTensor(tensors[2]))
-                            #     println(decomposeTensor(tensors[3]))
-                            #     # println(tensors[1])
-                            #     # println(tensors[2])
-                            #     # println(tensors[3])                                
-                            #     # println(cellTopologyOld.classifyCellEigenvalueOld(tensors[1], tensors[2], tensors[3], true))
-                            # end
-
-                            # if !cellTopologyOld.compare(rt, rtOld)
-                            #     println((x,y,t,top))
-                            #     println(rt)
-                            #     println(rtOld)
-                            #     println("------------ (two)")
-                            #     tensors = getTensorsAtCell(tf2, x, y, t, top)
-                            #     println(decomposeTensor(tensors[1]))
-                            #     println(decomposeTensor(tensors[2]))
-                            #     println(decomposeTensor(tensors[3]))
-                            #     # println(tensors[1])
-                            #     # println(tensors[2])
-                            #     # println(tensors[3])                                
-                            # end
                             
                             while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
                                      gt.RPArray == rt.RPArray && gt.RNArray == rt.RNArray && (!eigenvector || (gt.vertexTypesEigenvector == rt.vertexTypesEigenvector &&
@@ -822,21 +789,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 end
 
                                 rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
-                                # rtOld = tensorField.classifyCellEigenvalueOld(tf2, x, y, t, top, eigenvector)
-
-                                # if !cellTopologyOld.compare(rt, rtOld)
-                                #     println((x,y,t,top))
-                                #     println(rt)
-                                #     println(rtOld)
-                                #     println("------------ (three)")
-                                #     tensors = getTensorsAtCell(tf2, x, y, t, top)
-                                #     println(decomposeTensor(tensors[1]))
-                                #     println(decomposeTensor(tensors[2]))
-                                #     println(decomposeTensor(tensors[3]))
-                                #     # println(tensors[1])
-                                #     # println(tensors[2])
-                                #     # println(tensors[3])
-                                # end
                             end
 
                         elseif eigenvector
@@ -867,7 +819,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         cellTopologySplit = time()
-                        cellTopologyTime = cellTopologySplit - circularPointsSplit
+                        cellTopologyTime += cellTopologySplit - circularPointsSplit
 
                         if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
                             push!(stack, (x,y,top,false))
@@ -1193,6 +1145,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                     queueTime += queueT2 - queueT1
 
                     while length(stack) > 0
+                        processPointT1 = time()
+
                         numCellsProcessed += 1
                         x,y,top,checkNewVertices = pop!(stack)
 
@@ -1200,8 +1154,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                         vertices_modified = [false,false,false,false]
 
                         if checkNewVertices
-
-                            processPointT1 = time()
 
                             if top
                                 if getTensor(tf, x+1,y+1,t) == SVector{3,Float64}(0.0,0.0,0.0)
@@ -1231,9 +1183,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                 end
                             end
 
-                            processPointT2 = time()
-                            individualPointsTime += processPointT2 - processPointT1
-
                         end
 
                         if checking
@@ -1243,6 +1192,9 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                 println(("neighbor", (x,y,t,top)))
                             end
                         end
+
+                        processPointT2 = time()
+                        individualPointsTime += processPointT2 - processPointT1
 
                         circularPointsT1 = time()
 

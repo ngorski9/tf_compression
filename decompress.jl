@@ -468,7 +468,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     endTime = time()
 
-    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - tarSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
+    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - readSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
 end
 
 function decompress2dSymmetric(compressed_file, decompress_folder, bits, output = "../output", baseCompressor = "sz3")
@@ -576,7 +576,7 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
 
     endTime = time()
 
-    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - tarSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
+    return [zstdSplit - startTime, tarSplit - zstdSplit, readSplit - tarSplit, baseDecompressorSplit - readSplit, read2Split - baseDecompressorSplit, augmentSplit - read2Split, saveSplit - augmentSplit, endTime - saveSplit ]
 
 end
 

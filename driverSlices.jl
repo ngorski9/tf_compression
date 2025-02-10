@@ -1,7 +1,6 @@
 include("utils.jl")
 include("conicUtils.jl")
 include("cellTopology.jl")
-include("cellTopologyOld.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
@@ -279,7 +278,7 @@ function main()::Cint
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
             write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points")
             write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")

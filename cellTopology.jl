@@ -145,7 +145,7 @@ const Z::Int8 = 17 # all zeros.
 # end
 
 function classifyTensorEigenvalue(d,r,s)
-    if abs(d) >= abs(r) && abs(d) > s
+    if abs(d) >= abs(r) && abs(d) > s && !isRelativelyClose(abs(d), s)
         if d > 0
             return DP
         elseif d < 0
@@ -153,7 +153,7 @@ function classifyTensorEigenvalue(d,r,s)
         else
             return Z
         end
-    elseif abs(r) >= abs(d) && abs(r) > s
+    elseif abs(r) >= abs(d) && abs(r) > s && !isRelativelyClose(abs(r),s)
         if r > 0
             return RP
         elseif r < 0
@@ -167,19 +167,19 @@ function classifyTensorEigenvalue(d,r,s)
 end
 
 function classifyTensorEigenvector(r,s)
-    if r > 0.0
+    if isClose(r, 0.0)
+        if isClose(s, 0.0)
+            return Z
+        else
+            return SYM
+        end
+    elseif r > 0.0
         if isRelativelyClose(r,s)
             return DegenRP
         elseif r > s
             return RRP
         else
             return SRP
-        end
-    elseif r == 0
-        if s == 0.0
-            return Z
-        else
-            return SYM
         end
     else
         if isRelativelyClose(-r,s)
@@ -343,19 +343,24 @@ macro orientHyperbolaAndPush(point,center,axis1,axis2,orientation,list,code,posi
 end
 
 # everything is a variable except for d_positive and r_positive, which are set by the macro above.
-macro placeIntersectionPointInLists(point,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DList,RList,d_ellipse,r_ellipse,d_orientation,r_orientation,code,d_positive,r_positive)
+macro placeIntersectionPointInLists(point,d_conic,r_conic,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DList,RList,d_ellipse,r_ellipse,d_orientation,r_orientation,code,d_positive,r_positive)
     return :(begin
 
+    dGrad = normalizedGradient($(esc(d_conic)), $(esc(point))[1], $(esc(point))[2])
+    rGrad = normalizedGradient($(esc(r_conic)), $(esc(point))[1], $(esc(point))[2])
+    dTangentVec = tangentDerivative(dGrad)
+    rTangentVec = tangentDerivative(rGrad)
+
     if $(esc(d_ellipse))
-        push!($(esc(DList)), ellipse_intersection($(esc(point)), $(esc(d_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(code))))
+        push!($(esc(DList)), ellipse_intersection($(esc(point)), $(esc(d_center)), $(esc(DVector1)), $(esc(DVector2)), Int8(sign(dot(dTangentVec,rGrad))) * $(esc(code))))
     else
-        @orientHyperbolaAndPush($(esc(point)),$(esc(d_center)),$(esc(DVector1)),$(esc(DVector2)),$(esc(d_orientation)),$(esc(DList)),$(esc(code)),$d_positive)
+        @orientHyperbolaAndPush($(esc(point)),$(esc(d_center)),$(esc(DVector1)),$(esc(DVector2)),$(esc(d_orientation)),$(esc(DList)), Int8(sign(dot(dTangentVec,rGrad))) * $(esc(code)),$d_positive)
     end
 
     if $(esc(r_ellipse))
-        push!($(esc(RList)), ellipse_intersection($(esc(point)), $(esc(r_center)), $(esc(RVector1)), $(esc(RVector2)), $(esc(code))))
+        push!($(esc(RList)), ellipse_intersection($(esc(point)), $(esc(r_center)), $(esc(RVector1)), $(esc(RVector2)), Int8(sign(dot(rTangentVec,dGrad))) * $(esc(code))))
     else
-        @orientHyperbolaAndPush($(esc(point)),$(esc(r_center)),$(esc(RVector1)),$(esc(RVector2)),$(esc(r_orientation)),$(esc(RList)),$(esc(code)),$r_positive)
+        @orientHyperbolaAndPush($(esc(point)),$(esc(r_center)),$(esc(RVector1)),$(esc(RVector2)),$(esc(r_orientation)),$(esc(RList)), Int8(sign(dot(rTangentVec,dGrad))) * $(esc(code)),$r_positive)
     end
 
     end)
@@ -363,36 +368,37 @@ end
 
 # likewise, we define checking intersection points as a macro in order to reduce huge amounts of repeated code
 # all are variables.
-macro checkIntersectionPoint(point,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPList,DNList,RPList,RNList,d_ellipse,r_ellipse,d_orientation,r_orientation,code)
+macro checkIntersectionPoint(point,d_conic,r_conic,d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPList,DNList,RPList,RNList,d_ellipse,r_ellipse,d_orientation,r_orientation,code)
     return :(
     if $(esc(code)) == DPRP
-        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, true)
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_conic)), $(esc(r_conic)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, true)
     elseif $(esc(code)) == DPRN
-        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, false)
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_conic)), $(esc(r_conic)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DPList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), true, false)
     elseif $(esc(code)) == DNRP
-        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, true)
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_conic)), $(esc(r_conic)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RPList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, true)
     else
-        @placeIntersectionPointInLists($(esc(point)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, false)
+        @placeIntersectionPointInLists($(esc(point)), $(esc(d_conic)), $(esc(r_conic)), $(esc(d_center)), $(esc(r_center)), $(esc(DVector1)), $(esc(DVector2)), $(esc(RVector1)), $(esc(RVector2)), $(esc(DNList)), $(esc(RNList)), $(esc(d_ellipse)), $(esc(r_ellipse)), $(esc(d_orientation)), $(esc(r_orientation)), $(esc(code)), false, false)
     end
     )
 end
 
-macro pushCodeFromSign(PList, NList, point, crossingCode, signCode, positiveTest, negativeTest)
+# negative means leaving, positive means entering
+macro pushCodeFromSign(PList, NList, point, crossingCode, signCode, positiveTest, negativeTest, entering)
     return :(
         if $(esc(signCode)) == $positiveTest
-            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCode))
+            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
         elseif $(esc(signCode)) == $negativeTest
-            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCode))
+            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
         end
     )
 end
 
-macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest)
+macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest, entering)
     return :(
         if $(esc(signCode)) == $positiveTest
-            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCode))
+            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
         elseif $(esc(signCode)) == $negativeTest
-            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCode))
+            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
         elseif $(esc(signCode)) == $zeroTest
             push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
             push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
@@ -406,20 +412,19 @@ end
 
 # returns a tuple of bools for whether, assuming that the two conic equations cross a boundary defined by vector axis at point, where inside points inside the triangle,
 # does the conic equation defined by eq1 cross into the boundary or not
-function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEquation, point::Tuple{Float64,Float64}, axis::Tuple{Float64,Float64}, inside::Tuple{Float64,Float64}, d::Bool)
-    d1 = tangentDerivative(eq1, point[1], point[2])
-    d2 = tangentDerivative(eq2, point[1], point[2])
-    if d1 != d2
-        d1DotAxis = dot(d1, axis)
-        if d1DotAxis == 0.0
-            return dot(gradient(eq2,x,y),inside) < 0
+function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEquation, point::Tuple{Float64,Float64}, axis::Tuple{Float64,Float64}, inside::Tuple{Float64,Float64}, tangentVector::Tuple{Float64, Float64}, d::Bool)
+    tangentVector2 = tangentDerivative(eq2, point[1], point[2])
+    if tangentVector != tangentVector2
+        d1DotInside = dot(tangentVector, inside)
+        if isClose(d1DotInside, 0.0)
+            return dot(gradient(eq2,point[1],point[2]),axis) < 0
         else
-            d2DotAxis = dot(d2, axis)
-            if d2DotAxis == 0.0
-                return dot(gradient(eq2,x,y),axis) < 0
+            d2DotInside = dot(tangentVector2, inside)
+            if d2DotInside == 0.0
+                return dot(normalizedGradient(eq2,point[1],point[2]),axis) < 0
             else
-                grad = gradient(eq2, point[1], point[2])
-                if sign(dot(d1,inside))*dot(d1,axis) < sign(dot(d2,inside))*dot(d2,axis)
+                grad = normalizedGradient(eq2, point[1], point[2])
+                if sign(dot(tangentVector,inside))*dot(tangentVector,axis) < sign(dot(tangentVector2,inside))*dot(tangentVector2,axis)
                     return dot(grad,axis) > 0
                 else
                     return dot(grad,axis) < 0
@@ -427,8 +432,8 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
             end
         end
     else
-        grad1 = gradient(eq1, point[1], point[2])
-        grad2 = gradient(eq2, point[1], point[2])
+        grad1 = normalizedGradient(eq1, point[1], point[2])
+        grad2 = normalizedGradient(eq2, point[1], point[2])
         if dot(grad1, grad2) < 0
             return true
         else
@@ -445,22 +450,16 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
     end
 end
 
-function doesConicEquationCrossCorner(eq::conicEquation, x::Float64, y::Float64, in1::Tuple{Float64,Float64}, in2::Tuple{Float64,Float64})
-    d = tangentDerivative(eq, x, y)
-    if d == (0.0,0.0)
-        return false
-    end
-    dot1 = dot(d, in1)
-    if dot1 == 0.0
-        grad = gradient(eq, x, y)
+function doesConicEquationCrossCorner(eq::conicEquation, x::Float64, y::Float64, in1::Tuple{Float64,Float64}, in2::Tuple{Float64,Float64}, grad::Tuple{Float64,Float64}, tangentVector::Tuple{Float64,Float64})
+    dot1 = dot(tangentVector, in1)
+    if isClose(dot1, 0.0)
         k = curvature(eq, x, y)
-        return dot(grad, in1) > 0 && k != 0
+        return dot(grad, in1) > 0.0 && !isClose(k, 0.0)
     else
-        dot2 = dot(d, in2)
-        if dot2 == 0.0
-            grad = gradient(eq, x, y)
+        dot2 = dot(tangentVector, in2)
+        if isClose(dot2, 0.0)
             k = curvature(eq, x, y)
-            return dot(grad, in2) > 0 && k != 0
+            return dot(grad, in2) > 0.0 && !isClose(k, 0.0)
         else
             return sign(dot1) == sign(dot2)
         end
@@ -527,7 +526,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         edge_orientation = (1.0,0.0)
         edge_inside = (0.0,1.0)
         low_edge_inside = (1.0, 0.0)
-        high_edge_inside = (-1.0,-1.0)
+        high_edge_inside = (-1.0 / sqrt(2),-1.0 / sqrt(2))
         E = E1
         EZ = E1Z
         CORNER_L = CORNER_13
@@ -539,8 +538,8 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
     elseif edge_number == 2
         x = e2x
         y = e2y
-        edge_orientation = (1.0,-1.0)
-        edge_inside = (-1.0,-1.0)
+        edge_orientation = (1.0 / sqrt(2),-1.0 / sqrt(2))
+        edge_inside = (-1.0 / sqrt(2),-1.0 / sqrt(2))
         low_edge_inside = (1.0,0.0)
         high_edge_inside = (0.0,1.0)
         E = E2
@@ -557,7 +556,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         edge_orientation = (0.0,1.0)
         edge_inside = (1.0,0.0)
         low_edge_inside = (0.0,1.0)
-        high_edge_inside = (-1.0,-1.0)
+        high_edge_inside = (-1.0 / sqrt(2),-1.0 / sqrt(2))
         E = E3
         EZ = E3Z
         CORNER_L = CORNER_13
@@ -568,145 +567,121 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         high_coords = (0.0,1.0)
     end
 
-    return :(
+    return :(begin
     if -1e-10 <= $(esc(intercepts))[1] <= 1.0 + 1e-10
-        $(esc(any_intercepts)) = true        
+        $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[1])
-        if $(esc(intercepts))[1] == $(esc(intercepts))[2] && isClose(dot(gradient($(esc(conic)),$x($(esc(intercepts))[1]),$y($(esc(intercepts))[1])),$edge_inside ),0.0)
-            # transverse intersection. I can't believe that I needed to include the second clause. I swear literally EVERY degenerate case HAS to appear >:(
-            if isClose($(esc(intercepts))[1],0.0)
-                if $check_low && (class == $Z || (
-                doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside) &&
-                ($(esc(ignore_other)) || ( !isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1]) ) || 
-                    doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, $P==DP)
-                )))
+        grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]) )
+        tangentVector = tangentDerivative(grad)
 
-                    @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z)
+        if isClose($(esc(intercepts))[1],0.0)
+            if $check_low && (class == $Z || (
+            doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
+            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, tangentVector, $is_d)
+            )))
 
-                end
-            elseif isClose($(esc(intercepts))[1],1.0)
-                if $check_high && (class == $Z || (
-                doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside) && 
-                ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
-                    doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, $P==DP)
-                )))
-                
-                    @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z)
+                entering = dot(tangentVector, $edge_inside)
+                if isClose(entering, 0.0)
+                    entering = dot(tangentVector, $low_edge_inside)
                 end
 
-            elseif class == $Z         
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering))
+
+            end
+
+        elseif isClose($(esc(intercepts))[1],1.0)
+            if $check_high && (class == $Z || (
+            doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
+            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, tangentVector, $is_d)
+            )))
+            
+                entering = dot(tangentVector, $edge_inside)
+                if isClose(entering, 0.0)
+                    entering = dot(tangentVector, $high_edge_inside)
+                end
+
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering))
+            end
+
+        elseif isClose(dot(tangentVector,$edge_inside ),0.0) || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
+            if class == $Z
                 push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
                 push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
             end
         else
-            if isClose($(esc(intercepts))[1],0.0)
-                if $check_low && (class == $Z || (
-                doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside) &&
-                ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
-                    doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, $P==DP)
-                )))
+            if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, tangentVector, $is_d)
 
-                    @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z)
+                entering = dot(tangentVector, $edge_inside)
 
-                end
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N, sign(entering))
 
-            elseif isClose($(esc(intercepts))[1],1.0)
-                if $check_high && (class == $Z || (
-                doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside) && 
-                ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
-                    doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, $P==DP)
-                )))
-                
-                    @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z)
-
-                end
-
-            else                
-                if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
-                    doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, $P==DP)
-
-                    @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N)
-
-                end
-                if $do_eigenvector && $(esc(do_eigenvector_runtime))
-
-                    @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
-
-                end
             end
+            if $do_eigenvector && $(esc(do_eigenvector_runtime))
 
-            if $(esc(intercepts))[1] != $(esc(intercepts))[2] && -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10
-                class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[2])
-                if isClose($(esc(intercepts))[2],0.0)
-                    if $check_low && (class == $Z || (
-                    doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside) &&
-                    ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
-                        doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, $P==DP)
-                    )))
-                    
-                        @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z)
+                @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
 
-                    end
-
-                elseif isClose($(esc(intercepts))[2],1.0)
-                    if $check_high && (class == $Z || (
-                    doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside) && 
-                    ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
-                        doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, $P==DP)
-                    )))
-
-                        @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z)
-
-                    end
-
-                else               
-                    if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
-                        doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, $P==DP)
-
-                        @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N)
-                    end
-                    if $do_eigenvector && $(esc(do_eigenvector_runtime))
-                        @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
-                    end
-                end
             end
         end
-    elseif -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10
+    end
+
+    if -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10 && $(esc(intercepts))[1] != $(esc(intercepts))[2]
         $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[2])
+        grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]) )
+        tangentVector = tangentDerivative(grad)        
         if isClose($(esc(intercepts))[2],0.0)
             if $check_low && (class == $Z || (
-            doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside) &&
+            doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
             ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
-                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, $P==DP)
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
             )))
             
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z)
+                entering = dot(tangentVector, $edge_inside)
+                if isClose(entering, 0.0)
+                    entering = dot(tangentVector, $low_edge_inside)
+                end
+
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering))
 
             end
 
-        elseif isClose($(esc(intercepts))[2],1.0)
+        elseif isClose($(esc(intercepts))[2],1.0) || isnan(tangentVector[1])
             if $check_high && (class == $Z || (
-            doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside) && 
+            doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
-                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, $P==DP)
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, tangentVector, $is_d)
             )))
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z)
+                entering = dot(tangentVector, $edge_inside)
+                if isClose(entering, 0.0)
+                    entering = dot(tangentVector, $high_edge_inside)
+                end
+
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering))
 
             end
-
+        elseif isClose(dot(tangentVector,$edge_inside ),0.0) # e.g. if we have a non-transverse intersection
+            if class == $Z         
+                push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
+                push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
+            end
         else               
             if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
-                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, $P==DP)
-                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N)
+                doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
+
+                entering = dot(tangentVector, $edge_inside)
+
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N, sign(entering))
             end
             if $do_eigenvector && $(esc(do_eigenvector_runtime))
                 @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
             end
         end
     end
-    )
+    end)
 end
 
 function getAxesAndCheckIfSortAsEllipse(eq::conicEquation, class::Int64)
@@ -798,6 +773,14 @@ function isClose(x1::Float64, x2::Float64)
     return abs(x1-x2) < 1e-10
 end
 
+function isGreater(x1::Float64, x2::Float64)
+    return x1 > x2 + 1e-10
+end
+
+function isLess(x1::Float64, x2::Float64)
+    return x1 < x2 - 1e-10
+end
+
 function isRelativelyClose(x1::Float64, x2::Float64)
     return abs(x1-x2) < 1e-10 * max(x1,x2)
 end
@@ -843,9 +826,9 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     end
 
     if (vertexTypesEigenvalue[1] == Z && vertexTypesEigenvalue[2] == Z && vertexTypesEigenvalue[3] == Z) ||
-       ( !eigenvector && abs(d1) > s1 && abs(d2) > s2 && abs(d3) > s3 && ( ( d1 > 0 && d2 > 0 && d3 > 0) || ( d1 < 0 && d2 < 0 && d3 < 0 ) ) ) ||
-       ( abs(r1) > s1 && abs(r2) > s2 && abs(r3) > s3 && ( ( r1 > 0 && r2 > 0 && r3 > 0) || ( r1 < 0 && r2 < 0 && r3 < 0 ) ) ) ||
-       (s1 == 0.0 && s2 == 0.0 && s3 == 0.0)
+       ( !eigenvector && isGreater(abs(d1),s1) && isGreater(abs(d2),s2) && isGreater(abs(d3),s3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
+       ( isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) ) ||
+       (isClose(s1,0.0) && isClose(s2,0.0) && isClose(s3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
         return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
     end
@@ -1058,19 +1041,19 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         # then check each of the four intersection points
         # using macros here actually saved ~200 lines of code (not an exaggeration)
         if rpd_intersection_1 != NULL
-            @checkIntersectionPoint(rpd_intersections[1],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_1)
+            @checkIntersectionPoint(rpd_intersections[1],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_1)
         end
 
         if rpd_intersection_2 != NULL
-            @checkIntersectionPoint(rpd_intersections[2],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_2)
+            @checkIntersectionPoint(rpd_intersections[2],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rpd_intersection_2)
         end
 
         if rnd_intersection_1 != NULL
-            @checkIntersectionPoint(rnd_intersections[1],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_1)
+            @checkIntersectionPoint(rnd_intersections[1],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_1)
         end
 
         if rnd_intersection_2 != NULL
-            @checkIntersectionPoint(rnd_intersections[2],d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_2)
+            @checkIntersectionPoint(rnd_intersections[2],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_2)
         end
 
     end
@@ -1217,7 +1200,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
 
     vertexTypes = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3,s3)))
 
-    if abs(r1) > s1 && abs(r2) > s2 && abs(r3) > s3 && ( ( r1 >= 0 && r2 >= 0 && r3 >= 0) || ( r1 <= 0 && r2 <= 0 && r3 <= 0 ) )
+    if isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1, 0.0) && isGreater(r2, 0.0) && isGreater(r3, 0.0) ) || ( isLess(r1, 0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) )
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
         return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
     end
@@ -1236,57 +1219,92 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     # hypotenuse intercepts. Gives x coordinate
     RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
 
-    if 0 <= RConicXIntercepts[1] <= 1
-        if RConicXIntercepts[1]*r2 + (1-RConicXIntercepts[1])*r1 > 0
+    if 1e-10 < RConicXIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[1], 0.0), (0.0,1.0)), 0.0)
+        r = RConicXIntercepts[1]*r2 + (1.0-RConicXIntercepts[1])*r1
+        if isGreater(r, 0.0)
             RPArray[1] += 1
+        elseif isClose(r, 0.0)
+            RPArray[1] += 1            
+            RNArray[1] += 1
         else
             RNArray[1] += 1
         end
     end
 
-    if 0 <= RConicXIntercepts[2] <= 1
-        if RConicXIntercepts[2]*r2 + (1-RConicXIntercepts[2])*r1 > 0
+    if 1e-10 < RConicXIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[2], 0.0), (0.0,1.0)), 0.0) &&
+        RConicXIntercepts[1] != RConicXIntercepts[2]
+
+        r = RConicXIntercepts[2]*r2 + (1.0-RConicXIntercepts[2])*r1
+        if isGreater(r, 0.0)
             RPArray[1] += 1
+        elseif isClose(r, 0.0)
+            RPArray[1] += 1            
+            RNArray[1] += 1
         else
             RNArray[1] += 1
         end
     end
 
-    if 0 < RConicYIntercepts[1] <= 1
-        if RConicYIntercepts[1]*r3 + (1-RConicYIntercepts[1])*r1 > 0
+    if 1e-10 < RConicYIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[1]), (1.0,0.0)), 0.0)
+
+        r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
+        if isGreater(r, 0.0)
             RPArray[3] += 1
+        elseif isClose(r, 0.0)
+            RPArray[3] += 1            
+            RNArray[3] += 1
         else
             RNArray[3] += 1
         end
     end
 
-    if 0 < RConicYIntercepts[2] <= 1
-        if RConicYIntercepts[2]*r3 + (1-RConicYIntercepts[2])*r1 > 0
+    if 1e-10 < RConicYIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[2]), (1.0,0.0)), 0.0) &&
+        RConicYIntercepts[1] != RConicYIntercepts[2]
+
+        r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
+        if isGreater(r, 0.0)
             RPArray[3] += 1
+        elseif isClose(r, 0.0)
+            RPArray[3] += 1            
+            RNArray[3] += 1
         else
             RNArray[3] += 1
         end
+
     end
 
-    if 0 < RConicHIntercepts[1] < 1
-        if RConicHIntercepts[1]*r2 + (1-RConicHIntercepts[1])*r3 > 0
+    if 1e-10 < RConicHIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[1], 1.0-RConicHIntercepts[1]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0)
+
+        r = RConicHIntercepts[1]*r2 + (1.0-RConicHIntercepts[1])*r3
+        if isGreater(r, 0.0)
             RPArray[2] += 1
+        elseif isClose(r, 0.0)
+            RPArray[2] += 1            
+            RNArray[2] += 1
         else
             RNArray[2] += 1
         end
     end
 
-    if 0 < RConicHIntercepts[2] < 1
-        if RConicHIntercepts[2]*r2 + (1-RConicHIntercepts[2])*r3 > 0
+    if 1e-10 < RConicHIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[2], 1.0-RConicHIntercepts[2]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) &&
+        RConicHIntercepts[1] != RConicHIntercepts[2]
+
+        r = RConicHIntercepts[2]*r2 + (1.0-RConicHIntercepts[2])*r3
+        if isGreater(r, 0.0)
             RPArray[2] += 1
+        elseif isClose(r, 0.0)
+            RPArray[2] += 1            
+            RNArray[2] += 1
         else
             RNArray[2] += 1
         end
     end
 
-    if RPArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && RNArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && discriminant(RConic) < 0
-        if r_center[1] > 0 && r_center[2] > 0 && r_center[2] < 1.0 - r_center[1]
-            if (r2-r1)*r_center[1] + (r3-r1)*r_center[2] + r1 > 0
+    class, center = classifyAndReturnCenter(RConic)
+
+    if class == ELLIPSE && RPArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && RNArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+        if is_inside_triangle(center[1], center[2])
+            if (r2-r1)*center[1] + (r3-r1)*center[2] + r1 > 0
                 RPArray[1] = INTERNAL_ELLIPSE
             else
                 RNArray[1] = INTERNAL_ELLIPSE

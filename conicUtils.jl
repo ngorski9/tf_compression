@@ -12,6 +12,7 @@ export quadraticFormula
 export to_string
 export intersectWithStandardFormLine
 export gradient
+export normalizedGradient
 export tangentDerivative
 export conicEquation
 export curvature
@@ -86,22 +87,26 @@ function evaluate(eq::conicEquation, x::Float64, y::Float64)
     return eq.A*x^2 + eq.B*x*y + eq.C*y^2 + eq.D*x + eq.E*y + eq.F
 end
 
-# returns a normalized vector that is tangent to the curve of eq=0 at the point (x,y)
-# (note that F does not affect anything here)
-function tangentDerivative(eq::conicEquation,x::Float64,y::Float64)
-    denom = eq.B*x+2*eq.C*y+eq.E
-    if denom == 0.0
-        return (0.0,1.0)
-    else
-        m = (-2*eq.A*x-eq.B*y-eq.D)/denom
-        mag = sqrt(1+m^2)
-        return (1.0/mag,m/mag)
-    end
-end
-
 # returns the gradient of the conic equation as a function of x and y at the point (x,y)
 function gradient(eq::conicEquation,x::Float64,y::Float64)
     return (2*eq.A*x+eq.B*y+eq.D, eq.B*x+2*eq.C*y+eq.E)
+end
+
+function normalizedGradient(eq::conicEquation,x::Float64,y::Float64)
+    grad = gradient(eq,x,y)
+    norm = sqrt(grad[1]^2+grad[2]^2)
+    return (grad[1]/norm, grad[2]/norm)
+end
+
+# returns a normalized vector that is tangent to the curve of eq=0 at the point (x,y)
+# (note that F does not affect anything here)
+function tangentDerivative(eq::conicEquation,x::Float64,y::Float64)
+    grad = normalizedGradient(eq,x,y)
+    return (-grad[2],grad[1])
+end
+
+function tangentDerivative(grad::Tuple{Float64,Float64})
+    return (-grad[2],grad[1])
 end
 
 # returns the curvature of given conic equation at point (x,y)
@@ -153,8 +158,10 @@ end
 function quadraticFormula(a::Float64, b::Float64, c::Float64)
     disc = b^2-4*a*c
 
-    if disc < 1e-10
+    if disc != 0.0 && disc/(abs(a+b+c)^2) < -1e-10
         return (Inf,Inf)
+    elseif disc != 0.0 && disc/(abs(a+b+c)^2) < 1e-10
+        disc = 0.0
     end
 
     sr = sqrt(disc)
@@ -179,16 +186,16 @@ end
 
 function classifyAndReturnCenter(eq::conicEquation)
     disc = discriminant(eq)
-    if disc < 0
+    if disc < -1e-10
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
-        if evaluate(eq, center[1], center[2]) == 0
+        if evaluate(eq, center[1], center[2]) == 0.0
             return (POINT, center)
         else
             return (ELLIPSE, center)
         end
-    elseif disc > 0
+    elseif disc > 1e-10
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
-        if evaluate(eq, center[1], center[2]) == 0
+        if evaluate(eq, center[1], center[2]) == 0.0
             return (INTERSECTING_LINES, center)
         else
             return (HYPERBOLA, center)

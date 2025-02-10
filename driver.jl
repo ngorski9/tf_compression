@@ -1,7 +1,6 @@
 include("utils.jl")
 include("conicUtils.jl")
 include("cellTopology.jl")
-include("cellTopologyOld.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
@@ -19,7 +18,7 @@ function main()
     eb = 0.01
     edgeError = 1.0
     naive = false
-    eigenvalue = true
+    eigenvalue = false
     eigenvector = true
     minCrossing = 0.0001
     baseCompressor = "sz3"
