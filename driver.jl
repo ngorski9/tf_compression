@@ -18,7 +18,7 @@ function main()
     eb = 0.01
     edgeError = 1.0
     naive = false
-    eigenvalue = true
+    eigenvalue = false
     eigenvector = true
     minCrossing = 0.0001
     baseCompressor = "sz3"

@@ -635,13 +635,20 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             # Single vertex: swap values into place.
                             for v in newVertices
+                                # if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
+                                #     precisions[vertexCoords[v]...] = 8
+                                #     setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
+                                #     θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
+                                # else
+                                #     processPoint(vertexCoords[v])
+                                # end
                                 processPoint(vertexCoords[v])
                             end
 
                         end
 
                         individualSplit2 = time()
-                        individualPointsTime = individualSplit2 - individualSplit1
+                        individualPointsTime += individualSplit2 - individualSplit1
 
                         # Process individual cells to check circular points.
                         if eigenvector
@@ -757,6 +764,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         if eigenvalue
                             gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
                             rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                            
                             while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
                                      gt.RPArray == rt.RPArray && gt.RNArray == rt.RNArray && (!eigenvector || (gt.vertexTypesEigenvector == rt.vertexTypesEigenvector &&
                                      gt.RPArrayVec == rt.RPArrayVec && gt.RNArrayVec == rt.RNArrayVec )))
@@ -780,7 +788,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)                                
+                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
                             end
 
                         elseif eigenvector
@@ -811,7 +819,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         end
 
                         cellTopologySplit = time()
-                        cellTopologyTime = cellTopologySplit - circularPointsSplit
+                        cellTopologyTime += cellTopologySplit - circularPointsSplit
 
                         if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
                             push!(stack, (x,y,top,false))
@@ -907,6 +915,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     lossless_D::Array{Float64} = []
 
     println("processing codes...")
+    num_lossless = 0
 
     num_full_lossless = 0
 
@@ -1138,6 +1147,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                     queueTime += queueT2 - queueT1
 
                     while length(stack) > 0
+                        processPointT1 = time()
+
                         numCellsProcessed += 1
                         x,y,top,checkNewVertices = pop!(stack)
 
@@ -1145,8 +1156,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                         vertices_modified = [false,false,false,false]
 
                         if checkNewVertices
-
-                            processPointT1 = time()
 
                             if top
                                 if getTensor(tf, x+1,y+1,t) == SVector{3,Float64}(0.0,0.0,0.0)
@@ -1176,9 +1185,6 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                 end
                             end
 
-                            processPointT2 = time()
-                            individualPointsTime += processPointT2 - processPointT1
-
                         end
 
                         if checking
@@ -1188,6 +1194,9 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                                 println(("neighbor", (x,y,t,top)))
                             end
                         end
+
+                        processPointT2 = time()
+                        individualPointsTime += processPointT2 - processPointT1
 
                         circularPointsT1 = time()
 

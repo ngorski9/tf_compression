@@ -226,12 +226,12 @@ function main()::Cint
         totalCellTypeFrequenciesRecon += metrics[9]
 
         if naive
-            numCells = (dims[1]-1)*(dims[2]-1)
+            numCells = 2*(dims[1]-1)*(dims[2]-1)
             falseVertexEigenvalue += metrics[6][1,2]
             falseVertexEigenvector += metrics[6][2,2]
-            falseCellCriticalPoint += numCells - metrics[8][1]
-            falseCellTopologyEigenvalue += metrics[9]
-            falseCellTopologyEigenvector += metrics[11]
+            falseCellCriticalPoint += numCells - metrics[7][1]
+            falseCellTopologyEigenvalue += metrics[7][9]
+            falseCellTopologyEigenvector += metrics[7][11]
         end
 
         redirect_stdout(stdout_)
@@ -266,7 +266,9 @@ function main()::Cint
     if naive
         println("false vertex eigenvalue: $falseVertexEigenvalue")
         println("false vertex eigenvector: $falseVertexEigenvector")
-        println("false cell: $falseCell")
+        println("false cell eigenvalue: $falseCellTopologyEigenvalue")
+        println("false cell eigenvector: $falseCellTopologyEigenvector")
+        println("false cell topology cp: $falseCellCriticalPoint")
     end
 
     if csv != ""
@@ -276,7 +278,7 @@ function main()::Cint
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
             write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points")
             write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")

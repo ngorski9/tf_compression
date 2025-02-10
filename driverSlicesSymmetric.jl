@@ -1,5 +1,6 @@
 include("utils.jl")
 include("conicUtils.jl")
+include("cellTopology.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
@@ -98,7 +99,7 @@ function main()
     totalDecompressionTime = 0.0
     totalBitrate = 0.0
     maxErrorByRange = 0.0
-    ctv = zeros(Float64, (15,))
+    ctv = zeros(Float64, (12,))
     dtv = zeros(Float64, (8,))
     totalMSEByRangeSquared = 0.0
     totalFrobeniusMSEByRangeSquared = 0.0
@@ -119,7 +120,8 @@ function main()
         redirect_stdout(devnull)
 
         try
-            run(`rm -r $output/slice`)
+            run(`rm -r $output`)
+            run(`mkdir $output`)
         catch
         end
 
@@ -210,10 +212,10 @@ function main()
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,edgeEB,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,points,edges,circular points,cp types (ground),cp types (recon),")
-            write(outf, "false ellipses,numPoints,numCells,setup 1,bc,setup 2,proc. points,ellipse check,proc. edges,")
-            write(outf, "proc. cp,proc. ellipse,queue, total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
-            write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
+                write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+                write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points,")
+                write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
+                write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
         end
 
         # compute composite data
@@ -269,10 +271,10 @@ function main()
         totalCellTypeFrequenciesReconS = s(totalCellTypeFrequenciesRecon)
 
         # write the data :((
-        write(outf, "$name,$target,$eb,,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
-        write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
-        write(outf, ",$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),$(ctv[7]),")
-        write(outf, "$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(ctv[14]),$(ctv[15]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
+        write(outf, "$name,$target,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
+        write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,,,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
+        write(outf, "$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),,$(ctv[6]),$(ctv[7]),")
+        write(outf, "$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
         write(outf, "$(dtv[5]),$(dtv[6]),$(dtv[7]),$(dtv[8])\n")
 
     end

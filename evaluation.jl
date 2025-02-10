@@ -1,4 +1,5 @@
 using Statistics
+using StaticArrays
 
 using ..tensorField
 using ..conicUtils
@@ -130,7 +131,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
-                
+
                     if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && top1.DPArray == top2.DPArray && top1.DNArray == top2.DNArray && top1.RPArray == top2.RPArray && top1.RNArray == top2.RNArray
                         result[VALSAME] += 1
                     else
@@ -141,14 +142,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VECSAME] += 1
                     else
                         result[VECDIF] += 1
-                        tensors = getTensorsAtCell(tf1, i, j, t, Bool(k))
-                        println(decomposeTensor(tensors[1]))
-                        println(decomposeTensor(tensors[2]))
-                        println(decomposeTensor(tensors[3]))
-                        println((i,j,t,Bool(k)))
                         println(top1)
-                        println(top2)
-                        exit()
+                        println(top2)           
                     end
 
                 end
