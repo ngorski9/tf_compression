@@ -41,6 +41,11 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
         run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
         run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $aeb`)
         run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+    elseif baseCompressor == "zfp"
+        run(`../zfp/build/bin/zfp -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
+        run(`../zfp/build/bin/zfp -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
+        run(`../zfp/build/bin/zfp -d -i $containing_folder/row_2_col_1.dat -z $output/row_2_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
+        run(`../zfp/build/bin/zfp -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
     else
         println("ERROR: unrecognized base compressor $baseCompressor")
         exit(1)
@@ -50,7 +55,7 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
     write(vals_file, dims[1])
     write(vals_file, dims[2])
     write(vals_file, dims[3])
-    write(vals_file, relative_error_bound)
+    write(vals_file, aeb)
     close(vals_file)
 
     cwd = pwd()

@@ -142,8 +142,6 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VECSAME] += 1
                     else
                         result[VECDIF] += 1
-                        println(top1)
-                        println(top2)           
                     end
 
                 end

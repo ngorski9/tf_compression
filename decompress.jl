@@ -35,10 +35,10 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
     close(vals_file)
 
     if baseCompressor == "sz3"
-        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_1.cmp -o $output/$decompress_folder/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
-        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $bound`)
+        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[3]) $(dims[2]) $(dims[1]) -M ABS $bound`)
+        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[3]) $(dims[2]) $(dims[1]) -M ABS $bound`)
+        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_1.cmp -o $output/$decompress_folder/row_2_col_1.dat -3 $(dims[3]) $(dims[2]) $(dims[1]) -M ABS $bound`)
+        run(`../SZ3-master/build/bin/sz3 -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[3]) $(dims[2]) $(dims[1]) -M ABS $bound`)
     elseif baseCompressor == "mgard"
         run(`../MGARD/build/bin/mgard-cpu -x -t d -c $output/row_1_col_1.cmp -d $output/$decompress_folder/row_1_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $bound -s $smoothness`)
         run(`../MGARD/build/bin/mgard-cpu -x -t d -c $output/row_1_col_2.cmp -d $output/$decompress_folder/row_1_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $bound -s $smoothness`)
@@ -49,6 +49,11 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
         run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 64 --dims $(dims[1]) $(dims[2]) --decomp_d $output/$decompress_folder/row_1_col_2.dat --pwe $bound`)
         run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1.cmp -d --ftype 64 --dims $(dims[1]) $(dims[2]) --decomp_d $output/$decompress_folder/row_2_col_1.dat --pwe $bound`)
         run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 64 --dims $(dims[1]) $(dims[2]) --decomp_d $output/$decompress_folder/row_2_col_2.dat --pwe $bound`)
+    elseif baseCompressor == "zfp"
+        run(`../zfp/build/bin/zfp -d -z $output/row_1_col_1.cmp -o $output/$decompress_folder/row_1_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $bound`)
+        run(`../zfp/build/bin/zfp -d -z $output/row_1_col_2.cmp -o $output/$decompress_folder/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $bound`)
+        run(`../zfp/build/bin/zfp -d -z $output/row_2_col_1.cmp -o $output/$decompress_folder/row_2_col_1.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $bound`)
+        run(`../zfp/build/bin/zfp -d -z $output/row_2_col_2.cmp -o $output/$decompress_folder/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $bound`)
     end
 
     remove("$output/row_1_col_1.cmp")
