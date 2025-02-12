@@ -640,13 +640,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             # Single vertex: swap values into place.
                             for v in newVertices
-                                # if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
-                                #     precisions[vertexCoords[v]...] = 8
-                                #     setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
-                                #     θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
-                                # else
-                                #     processPoint(vertexCoords[v])
-                                # end
+                                if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
+                                    precisions[vertexCoords[v]...] = 8
+                                    setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
+                                    θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
+                                else
+                                    processPoint(vertexCoords[v])
+                                end
                                 processPoint(vertexCoords[v])
                             end
 
@@ -793,7 +793,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
                             end
 
                         elseif eigenvector

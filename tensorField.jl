@@ -288,6 +288,14 @@ function classifyCellEigenvalue( tf::TensorField2d, x::Int64, y::Int64, t::Int64
     end
 end
 
+function classifyCellEigenvalueOld( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool, eigenvector::Bool, verbose::Bool = false)
+    if top
+        return cellTopologyOld.classifyCellEigenvalue( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t), eigenvector, verbose )
+    else
+        return cellTopologyOld.classifyCellEigenvalue( getTensor(tf, x, y, t), getTensor(tf, x+1, y, t), getTensor(tf, x, y+1, t), eigenvector, verbose )
+    end
+end
+
 function classifyCellEigenvector( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
     if top
         return cellTopology.classifyCellEigenvector( getTensor(tf, x, y+1, t), getTensor(tf, x+1, y, t), getTensor(tf, x+1, y+1, t) )

@@ -21,9 +21,19 @@ function main()
     θ1 = 0.0
     θ2 = 2.76
     θ3 = -9.0
-    # d1, r1, w1, θ1 = (0.006598763167858124, -0.000990617112256587, 0.001618090525356594, -2.4586200365548954)
-    # d2, r2, w2, θ2 = (0.009237682912498713, -0.007662501186132431, 0.004187389819495864, 3.1342223356314194)
-    # d3, r3, w3, θ3 = (0.008160981116816401, -0.0010456225601956247, 0.0009920474138059622, 2.3215953778196994)
+
+    D = (5.0, -5.0, 1.0)
+    W = (0.0,0.0,4.6)
+    R = (3.0, -3.0, -2.8)
+    θ = (1.82, 3.48, 4.0)
+
+    decomp1 = (D[1],R[1],W[1],θ[1])
+    decomp2 = (D[2],R[2],W[2],θ[2])
+    decomp3 = (D[3],R[3],W[3],θ[3])
+
+    d1, r1, w1, θ1 = decomp1
+    d2, r2, w2, θ2 = decomp2
+    d3, r3, w3, θ3 = decomp3
 
     M1 = SMatrix{2,2,Float64}(( d1 + w1*cos(θ1), r1 + w1*sin(θ1), -r1+w1*sin(θ1), d1-w1*cos(θ1) ))
     M2 = SMatrix{2,2,Float64}(( d2 + w2*cos(θ2), r2 + w2*sin(θ2), -r2+w2*sin(θ2), d2-w2*cos(θ2) ))
@@ -41,8 +51,6 @@ function main()
 
     top1 = classifyCellEigenvalue(M1,M2,M3,true)
     println(top1)
-    # top2 = classifyCellEigenvalueOld(M1,M2,M3,true)
-    # println(top2)
     # top2 = classifyCellEigenvector(M1,M2,M3)
     # println(top2)
 

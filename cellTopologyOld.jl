@@ -1,17 +1,19 @@
-module cellTopology
+module cellTopologyOld
 
 using ..conicUtils
+using ..cellTopology
 
 using StaticArrays
 
 export classifyCellEigenvalue
 export classifyCellEigenvector
+export newOldCompare
 
 # we use the same struct for if we are comparing both vec and val as if we are just doing val.
 # just vec is a separate struct.
 # I am not happy that I have to extend this to the eigenvector manifold. >:(
 struct cellTopologyEigenvalue
-    vertexTypesEigenvalue::MArray{Tuple{3}, Int8}
+    vertexTypesEigenvalue::SArray{Tuple{3}, Int8}
     vertexTypesEigenvector::SArray{Tuple{3}, Int8}
     DPArray::MArray{Tuple{10}, Int8}
     DNArray::MArray{Tuple{10}, Int8}
@@ -19,6 +21,19 @@ struct cellTopologyEigenvalue
     RNArray::MArray{Tuple{10}, Int8}
     RPArrayVec::MArray{Tuple{3}, Int8} # stores number of intersections with each edge
     RNArrayVec::MArray{Tuple{3}, Int8}
+end
+
+function newOldCompare(new::cellTopology.cellTopologyEigenvalue, old::cellTopologyOld.cellTopologyEigenvalue)
+    # return new.vertexTypesEigenvalue == old.vertexTypesEigenvalue &&
+    #         new.vertexTypesEigenvector == old.vertexTypesEigenvector &&
+            return new.vertexTypesEigenvalue == old.vertexTypesEigenvalue &&
+            new.vertexTypesEigenvector == old.vertexTypesEigenvector &&
+            new.DPArray == old.DPArray &&
+            new.DNArray == old.DNArray &&
+            new.RPArray == old.RPArray &&
+            new.RNArray == old.RNArray &&
+            new.RPArrayVec == old.RPArrayVec &&
+            new.RNArrayVec == old.RNArrayVec
 end
 
 struct cellTopologyEigenvector
@@ -96,7 +111,7 @@ const E3Z = 18
 # used for specifying that certain intersections are invalid / do not count.
 const NULL = -1
 
-# vertex types (eigenvalue) (not all are actually used for classifying the corners, but all are used in a related context.)
+# vertex types (eigenvalue)
 const DP::Int8 = 19
 const DN::Int8 = 20
 const RP::Int8 = 21
@@ -107,9 +122,6 @@ const RZTrumped = 25
 const RNTrumped = 26
 const DZ::Int8 = 27 # used for detecting degenerate intersections.
 const RZ::Int8 = 28
-const DREQP::Int8 = 29 # D and R are equal, the one that we are looking at is positive (based on context) Note: only used for edge and corner intersections.
-const DREQN::Int8 = 30
-const DREQZ::Int8 = 31
 
 # vertex types (eigenvector)
 const RRP::Int8 = 32
@@ -119,41 +131,7 @@ const SYM::Int8 = 35
 const SRN::Int8 = 36
 const DegenRN::Int8 = 37
 const RRN::Int8 = 38
-const Z::Int8 = 39
-
-export BLANK
-export E1
-export E2
-export E3
-export DPRP
-export DPRN
-export DNRP
-export DNRN
-export INTERNAL_ELLIPSE
-export STRAIGHT_ANGLES
-export CORNER_13
-export CORNER_12
-export CORNER_23
-export CORNER_13_Z
-export CORNER_12_Z
-export CORNER_23_Z
-export E1Z
-export E2Z
-export E3Z
-export NULL
-export DP
-export DN
-export RP
-export RN
-export S
-export RRP
-export DegenRP
-export SRP
-export SYM
-export SRN
-export DegenRN
-export RRN
-export Z
+const Z::Int8 = 39 # all zeros.
 
 # function getCellEdgeFromPoint(root::Root)
 #     if root.y == 0.0
@@ -181,33 +159,25 @@ export Z
 #     end
 # end
 
-# more gradient based correction may occur later on if two are equal.
-# This breaks ties arbitrarily.
 function classifyTensorEigenvalue(d,r,s)
-    if isRelativelyGreater(abs(d), abs(r))
-        if !isLess(s, abs(d))
-            return S
+    if abs(d) >= abs(r) && abs(d) > s && !isRelativelyClose(abs(d), s)
+        if d > 0
+            return DP
+        elseif d < 0
+            return DN
         else
-            if isGreater(d, 0.0)
-                return DP
-            else
-                return DN
-            end
+            return Z
+        end
+    elseif abs(r) >= abs(d) && abs(r) > s && !isRelativelyClose(abs(r),s)
+        if r > 0
+            return RP
+        elseif r < 0
+            return RN
+        else
+            return Z
         end
     else
-        if !isRelativelyLess(s, abs(r))
-            if isClose(s, 0.0)
-                return Z
-            else
-                return S
-            end
-        else
-            if isGreater(r, 0.0)
-                return RP
-            else
-                return RN
-            end
-        end
+        return S
     end
 end
 
@@ -218,10 +188,10 @@ function classifyTensorEigenvector(r,s)
         else
             return SYM
         end
-    elseif isGreater(r,0.0)
+    elseif r > 0.0
         if isRelativelyClose(r,s)
             return DegenRP
-        elseif isRelativelyGreater(r,s)
+        elseif r > s
             return RRP
         else
             return SRP
@@ -229,7 +199,7 @@ function classifyTensorEigenvector(r,s)
     else
         if isRelativelyClose(-r,s)
             return DegenRN
-        elseif isRelativelyGreater(-r,s)
+        elseif -r > s
             return RRN
         else
             return SRN
@@ -298,19 +268,11 @@ end
 function DCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t::Float64)
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
-    if isClose(abs(r),abs(d))
-        if isGreater(d,0.0)
-            return DREQP
-        elseif isClose(d,0.0)
-            return DZ
-        else
-            return DREQN
-        end
-    elseif isRelativelyGreater(abs(r),abs(d))
+    if abs(r) > abs(d)
         return NULL
-    elseif isGreater(d, 0.0)
+    elseif d > 0.0
         return DP
-    elseif isClose(d, 0.0)
+    elseif d == 0.0
         return DZ
     else
         return DN
@@ -325,31 +287,20 @@ end
 function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t::Float64)
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
-
-    if isRelativelyClose(abs(d),abs(r))
-        if isGreater(r,0.0)
-            return DREQP
-        elseif isClose(r,0.0)
-            return DZ
-        else
-            return DREQN
-        end
-    elseif isRelativelyGreater(abs(d),abs(r))
-        if isGreater(r,0.0)
+    if abs(d) > abs(r)
+        if r > 0
             return RPTrumped
-        elseif isClose(r,0.0)
+        elseif r == 0
             return RZTrumped
         else
             return RNTrumped
         end
+    elseif r > 0.0
+        return RP
+    elseif r == 0.0
+        return RZ
     else
-        if isGreater(r,0.0)
-            return RP
-        elseif isClose(r,0.0)
-            return RZ
-        else
-            return RN
-        end
+        return RN
     end
 end
 
@@ -447,27 +398,17 @@ macro checkIntersectionPoint(point,d_conic,r_conic,d_center,r_center,DVector1,DV
 end
 
 # negative means leaving, positive means entering
-macro pushCodeFromSign(PList, NList, point, crossingCode, signCode, positiveTest, negativeTest, entering, tangent_vector, alt_conic, edge_vector)
+macro pushCodeFromSign(PList, NList, point, crossingCode, signCode, positiveTest, negativeTest, entering)
     return :(
         if $(esc(signCode)) == $positiveTest
             push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
         elseif $(esc(signCode)) == $negativeTest
             push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
-        elseif $(esc(signCode)) != NULL
-            alt_grad = normalizedGradient($(esc(alt_conic)), $(esc(point))[1], $(esc(point))[2])
-            dot_ = dot(alt_grad, $(esc(edge_vector)))
-            if !isClose(abs(dot_), 1.0) || (dot_ < 0.0)
-                if $(esc(signCode)) == DREQP
-                    push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
-                elseif $(esc(signCode)) == DREQN
-                    push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
-                end
-            end
         end
     )
 end
 
-macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest, entering, tangent_vector, alt_conic, edge_vector1, edge_vector2)
+macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest, entering)
     return :(
         if $(esc(signCode)) == $positiveTest
             push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
@@ -476,18 +417,6 @@ macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, 
         elseif $(esc(signCode)) == $zeroTest
             push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
             push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
-        elseif $(esc(signCode)) != NULL
-            alt_grad = normalizedGradient($(esc(alt_conic)), $(esc(point))[1], $(esc(point))[2])
-            dot1 = dot(alt_grad, $(esc(edge_vector1)))
-            dot2 = dot(alt_grad, $(esc(edge_vector2)))
-
-            if !(isClose(abs(dot1), 1.0) || isClose(abs(dot2), 1.0)) || (dot1 < 0.0 || dot2 < 0.0)
-                if $(esc(signCode)) == DREQP
-                    push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
-                elseif $(esc(signCode)) == DREQN
-                    push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
-                end
-            end
         end
     )
 end
@@ -528,7 +457,7 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
             if k1 > k2
                 return false
             elseif k1 == k2
-                return !d
+                return d
             else 
                 return true
             end
@@ -579,16 +508,16 @@ end
 
 # updates the eigenvector list
 macro eigenvector_push(eigenvectorP, eigenvectorN, E, code)
-    return :(begin
-        if $(esc(code)) == RP || $(esc(code)) == RPTrumped || $(esc(code)) == DREQP
+    return :(
+        if $(esc(code)) == RP || $(esc(code)) == RPTrumped
             $(esc(eigenvectorP))[$E] += 1
         elseif $(esc(code)) == RZ || $(esc(code)) == RZTrumped
             $(esc(eigenvectorP))[$E] += 1
             $(esc(eigenvectorN))[$E] += 1
-        elseif $(esc(code)) == RN || $(esc(code)) == RNTrumped || $(esc(code)) == DREQN
+        elseif $(esc(code)) == RN || $(esc(code)) == RNTrumped
             $(esc(eigenvectorN))[$E] += 1
         end
-    end)
+    )
 end
 
 # yes this is absolutely horrendus but the alternative is to write this out six times which is even worse.
@@ -672,7 +601,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $low_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering))
 
             end
 
@@ -688,18 +617,13 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $high_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering))
             end
 
         elseif isClose(dot(tangentVector,$edge_inside ),0.0) || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
             if class == $Z
                 push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
                 push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
-
-                if $do_eigenvector && $(esc(do_eigenvector_runtime))
-                    $(esc(eigenvectorP))[$E] += 1
-                    $(esc(eigenvectorN))[$E] += 1
-                end
             end
         else
             if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
@@ -707,7 +631,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
                 entering = dot(tangentVector, $edge_inside)
 
-                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N, sign(entering))
 
             end
             if $do_eigenvector && $(esc(do_eigenvector_runtime))
@@ -735,11 +659,11 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $low_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering))
 
             end
 
-        elseif isClose($(esc(intercepts))[2],1.0)
+        elseif isClose($(esc(intercepts))[2],1.0) || isnan(tangentVector[1])
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
@@ -751,224 +675,27 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $high_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering))
 
             end
-        elseif isClose(dot(tangentVector,$edge_inside ),0.0)  || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
+        elseif isClose(dot(tangentVector,$edge_inside ),0.0) # e.g. if we have a non-transverse intersection
             if class == $Z         
                 push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
                 push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
-
-                if $do_eigenvector && $(esc(do_eigenvector_runtime))
-                    $(esc(eigenvectorP))[$E] += 1
-                    $(esc(eigenvectorN))[$E] += 1
-                end
             end
-        else   
+        else               
             if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
+
                 entering = dot(tangentVector, $edge_inside)
 
-                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N, sign(entering))
             end
             if $do_eigenvector && $(esc(do_eigenvector_runtime))
                 @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
             end
         end
     end
-    end)
-end
-
-# Checks for and accounts for cases where d, r, or s are equal at a corner.
-macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConic, class_list, ignore_d, ignore_r)
-    s = esc(sBase)
-
-    if corner == 1
-        x = 0.0
-        y = 0.0
-        edge_1 = (1.0,0.0)
-        edge_2 = (0.0,1.0)        
-        d = esc(d1)
-        r = esc(r1)
-    elseif corner == 2
-        x = 1.0
-        y = 0.0
-        edge_1 = (-1.0,1.0)
-        edge_2 = (-1.0,0.0)
-        d = esc(d2)
-        r = esc(r2)
-    else
-        x = 0.0
-        y = 1.0
-        edge_1 = (0.0,-1.0)
-        edge_2 = (1.0,-1.0)
-        d = esc(d3)
-        r = esc(r3)
-    end
-
-    return :(begin
-        do_d = false
-        do_r = false
-        do_s = false
-
-        if !$(esc(ignore_d)) && !$(esc(ignore_r)) && isClose(abs($r),abs($d)) && isGreater(abs($r),$s)
-            do_d = true
-            do_r = true
-        else
-            if !$(esc(ignore_d)) && isClose(abs($d), $s) && !isGreater(abs($r), abs($d))
-                d_grad = normalizedGradient($(esc(DConic)), $x, $y)
-
-                if isGreater(dot(d_grad, $edge_1), 0.0) || isGreater(dot(d_grad, $edge_2), 0.0)
-                    do_d = true
-                    do_s = true
-                end
-            end
-
-            if !$(esc(ignore_r)) && isClose(abs($r), $s) && !isGreater(abs($d), abs($r))
-                r_grad = normalizedGradient($(esc(RConic)), $x, $y)
-
-                if isGreater(dot(r_grad, $edge_1), 0.0) || isGreater(dot(r_grad, $edge_2), 0.0)
-                    do_r = true
-                    do_s = true
-                end
-            end
-        end
-
-        # println("check")
-        # println(do_r)
-        # println(do_d)
-        # println(do_s)
-
-        if do_r
-            if do_d
-
-                if isClose($r,0.0)
-                    $(esc(class_list))[$(esc(corner))] = Z
-                else
-
-                    # We use another conic here to represent the region where |d| > |r|, which we know is a double line
-                    # I guess it would be more efficient to calc it by hand (in terms of machine performance), but honestly
-                    # it will make the code a lot cleaner.
-
-                    region_type = 0 # 0 = d dominates, 1 = r_dominates, 2 = mixed
-
-                    DBase = interpolationConic($(esc(d1)), $(esc(d2)), $(esc(d3)))
-                    RBase = interpolationConic($(esc(r1)), $(esc(r2)), $(esc(r3)))
-                    RDConic = sub(DBase, RBase)
-                    RDGrad = normalizedGradient(RDConic, $x, $y) # points in twoards d
-
-                    dot1 = dot(RDGrad, $edge_1)
-                    dot2 = dot(RDGrad, $edge_2)
-
-                    if !isLess(dot1, 0.0) && !isLess(dot2, 0.0)
-                        # in this case, the entire region is in the RD region
-                        region_type = 0
-                    elseif !isGreater(dot1, 0.0) && !isGreater(dot2, 0.0)
-                        # in this case, the entire region is outside the RD region
-                        region_type = 1
-                    else
-                        # in this case, the RD region intersects only part of the cell. However, all region types are still possible.
-
-                        if !do_s
-                            region_type = 2
-                        else
-
-                            DGrad = normalizedGradient($(esc(DConic)), $x, $y)
-                            DTangent = tangentDerivative(DGrad)
-
-                            if isLess(dot(DTangent,$edge_1), 0.0) || isLess(dot(DTangent,$edge_2), 0.0)
-                                DTangent = (-DTangent[1], -DTangent[2])
-                            end
-
-                            RGrad = normalizedGradient($(esc(RConic)), $x, $y)
-                            RTangent = tangentDerivative(RGrad)
-
-                            if isLess(dot(RTangent,$edge_1), 0.0) || isLess(dot(RTangent,$edge_2), 0.0)
-                                RTangent = (-RTangent[1], -RTangent[2])
-                            end
-
-                            # first, check whether the RD region and d region have gradients pointing in opposite directions
-                            if isLess(dot(RDGrad, DGrad), 0.0)
-                                if isGreater(dot(RDGrad, DTangent), 0.0) # point in opposite directions, but overlap
-                                    region_type = 2
-                                else # opposite directions & no overlap
-                                    region_type = 1
-                                end
-                            else
-                                # if the RD region and d region have gradients pointing in the same direction, then
-                                # we are guaranteed to have at least some d. The d may envelop the r, or it may be mixed.
-                                if isLess(dot(RGrad, RDGrad), 0.0)
-                                    # r and d regions point in opposite directions, so it must be mixed
-                                    region_type = 2
-                                else
-                                    if isGreater(dot(RTangent, DGrad), 0.0) && isGreater(dot(RTangent, RDGrad), 0.0)
-                                        # in this case, the r region is contained entirely inside the d region
-                                        region_type = 0
-                                    else
-                                        region_type = 2
-                                    end
-                                end
-                            end
-                        end
-
-                    end
-
-                    if region_type == 0
-                        if $d > 0.0
-                            $(esc(class_list))[$(esc(corner))] = DP
-                        else
-                            $(esc(class_list))[$(esc(corner))] = DN
-                        end
-                    elseif region_type == 1
-                        if $r > 0.0
-                            $(esc(class_list))[$(esc(corner))] = RP
-                        else
-                            $(esc(class_list))[$(esc(corner))] = RN
-                        end
-                    else
-                        if $d > 0.0
-                            if $r > 0.0
-                                $(esc(class_list))[$(esc(corner))] = DPRP
-                            else
-                                $(esc(class_list))[$(esc(corner))] = DPRN
-                            end
-                        else
-                            if $r > 0.0
-                                $(esc(class_list))[$(esc(corner))] = DNRP
-                            else
-                                $(esc(class_list))[$(esc(corner))] = DNRN
-                            end
-                        end
-                    end
-
-                end
-
-
-            else
-                
-                # just do r and not d
-
-                if isGreater($r, 0.0)
-                    $(esc(class_list))[$(esc(corner))] = RP
-                elseif isLess($r, 0.0)
-                    $(esc(class_list))[$(esc(corner))] = RN
-                else
-                    $(esc(class_list))[$(esc(corner))] = Z
-                end
-
-            end
-        elseif do_d
-
-            if isGreater($d, 0.0)
-                $(esc(class_list))[$(esc(corner))] = DP
-            elseif isLess($d, 0.0)
-                $(esc(class_list))[$(esc(corner))] = DN
-            else
-                $(esc(class_list))[$(esc(corner))] = Z
-            end
-
-        end
-
     end)
 end
 
@@ -1073,14 +800,6 @@ function isRelativelyClose(x1::Float64, x2::Float64)
     return abs(x1-x2) < 1e-10 * max(x1,x2)
 end
 
-function isRelativelyGreater(x1::Float64, x2::Float64)
-    return x1 > x2 + 1e-10 * max(x1,x2)
-end
-
-function isRelativelyLess(x1::Float64, x2::Float64)
-    return x1 < x2 - 1e-10 * max(x1,x2)
-end
-
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
@@ -1113,7 +832,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     sin3 = M3[1,2]+M3[2,1]
     s3 = sqrt(cos3^2+sin3^2)
 
-    vertexTypesEigenvalue = MArray{Tuple{3},Int8}((classifyTensorEigenvalue(d1,r1,s1), classifyTensorEigenvalue(d2,r2,s2), classifyTensorEigenvalue(d3,r3,s3)))
+    vertexTypesEigenvalue = SArray{Tuple{3},Int8}((classifyTensorEigenvalue(d1,r1,s1), classifyTensorEigenvalue(d2,r2,s2), classifyTensorEigenvalue(d3,r3,s3)))
 
     if eigenvector
         vertexTypesEigenvector = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3, s3)))
@@ -1122,9 +841,8 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     end
 
     if (vertexTypesEigenvalue[1] == Z && vertexTypesEigenvalue[2] == Z && vertexTypesEigenvalue[3] == Z) ||
-       ( (( !eigenvector && isGreater(abs(d1),s1) && isGreater(abs(d2),s2) && isGreater(abs(d3),s3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
-            ( isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) )) &&
-            (!isRelativelyClose(abs(d1),abs(r1)) && !isRelativelyClose(abs(d2),abs(r2)) && !isRelativelyClose(abs(d3),abs(r3))) )   ||
+       ( !eigenvector && isGreater(abs(d1),s1) && isGreater(abs(d2),s2) && isGreater(abs(d3),s3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
+       ( isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) ) ||
        (isClose(s1,0.0) && isClose(s2,0.0) && isClose(s3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
         return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
@@ -1156,7 +874,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     d_type,d_center = classifyAndReturnCenter(DConic)
     r_type,r_center = classifyAndReturnCenter(RConic)
 
-    ignore_d = (d_type == POINT || d_type == EMPTY || (isClose(r1,d1) && isClose(r2,d2) && isClose(r3,d3)) || (isClose(r1,-d1) && isClose(r2,-d2) && isClose(r3,-d3)))
+    ignore_d = (d_type == POINT || d_type == EMPTY)
     ignore_r = (r_type == POINT || r_type == EMPTY)
 
     # third elt is true for double root, false otherwise
@@ -1470,11 +1188,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
-    # fix the corners as needed
-    @checkEqualityAtCorner(1, d1, d2, d3, r1, r2, r3, s1, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(2, d1, d2, d3, r1, r2, r3, s2, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, s3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-
     # what a racket
     return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec)
 end
@@ -1549,7 +1262,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
 
     if 1e-10 < RConicYIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[1]), (1.0,0.0)), 0.0)
 
-        r = RConicYIntercepts[1]*r3 + (1.0-RConicYIntercepts[1])*r1
+        r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
         if isGreater(r, 0.0)
             RPArray[3] += 1
         elseif isClose(r, 0.0)
@@ -1612,68 +1325,6 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
                 RNArray[1] = INTERNAL_ELLIPSE
             end
         end
-    end
-
-    if vertexTypes[1] == DegenRP || vertexTypes[2] == DegenRP || vertexTypes[3] == DegenRP
-        if s1 != 0.0
-            θ1 = asin(sin1/s1)
-        else
-            θ1 = 0.0
-        end
-
-        if s2 != 0.0
-            θ2 = asin(sin2/s2)
-        else
-            θ2 = 0.0
-        end
-
-        if s3 != 0.0
-            θ3 = asin(sin3/s3)
-        else
-            θ3 = 0.0
-        end
-
-        if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypes[1] == DegenRP && vertexTypes[2] == DegenRP
-            RPArray[1] = STRAIGHT_ANGLES
-        end
-
-        if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypes[2] == DegenRP && vertexTypes[3] == DegenRP
-            RPArray[2] = STRAIGHT_ANGLES
-        end
-
-        if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypes[3] == DegenRP && vertexTypes[1] == DegenRP
-            RPArray[3] = STRAIGHT_ANGLES
-        end
-    elseif vertexTypes[1] == DegenRN || vertexTypes[2] == DegenRN || vertexTypes[3] == DegenRN
-        if s1 != 0.0
-            θ1 = asin(sin1/s1)
-        else
-            θ1 = 0.0
-        end
-
-        if s2 != 0.0
-            θ2 = asin(sin2/s2)
-        else
-            θ2 = 0.0
-        end
-
-        if s3 != 0.0
-            θ3 = asin(sin3/s3)
-        else
-            θ3 = 0.0
-        end
-
-        if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypes[1] == DegenRN && vertexTypes[2] == DegenRN
-            RNArray[1] = STRAIGHT_ANGLES
-        end
-
-        if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypes[2] == DegenRN && vertexTypes[3] == DegenRN
-            RNArray[2] = STRAIGHT_ANGLES
-        end
-
-        if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypes[3] == DegenRN && vertexTypes[1] == DegenRN
-            RNArray[3] = STRAIGHT_ANGLES
-        end            
     end
 
     return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
