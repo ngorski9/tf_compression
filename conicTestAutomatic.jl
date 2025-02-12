@@ -1456,7 +1456,7 @@ function main()
             MArray{Tuple{3},Int8}(1,1,0),
             MArray{Tuple{3},Int8}(0,0,0)
         )
-    ,109)    
+    ,109)
 
     # R and D intersect at bottom edge. Both enter.
     D = (5.0, -9.0, 6.8)

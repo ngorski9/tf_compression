@@ -76,25 +76,25 @@ const DPRP::Int8 = 4 # d positive r positive
 const DPRN::Int8 = 5 # d positive r negative
 const DNRP::Int8 = 6 # d negative r positive
 const DNRN::Int8 = 7 # d negative r negative
-const INTERNAL_ELLIPSE = 8
-const STRAIGHT_ANGLES = 9
+const INTERNAL_ELLIPSE::Int8 = 8
+const STRAIGHT_ANGLES::Int8 = 9
 # unfortunate intersection codes that I added by necessity :((
-const CORNER_13 = 10 # when one conic intersects a corner
-const CORNER_12 = 11
-const CORNER_23 = 12
-const CORNER_13_Z = 13 # when a conic intersects a corner and is zero.
-const CORNER_12_Z = 14
-const CORNER_23_Z = 15
-const E1Z = 16 # when the entire tensor is equal to 0 at some point alone an edge.
-const E2Z = 17
-const E3Z = 18
+const CORNER_13::Int8 = 10 # when one conic intersects a corner
+const CORNER_12::Int8 = 11
+const CORNER_23::Int8 = 12
+const CORNER_13_Z::Int8 = 13 # when a conic intersects a corner and is zero.
+const CORNER_12_Z::Int8 = 14
+const CORNER_23_Z::Int8 = 15
+const E1Z::Int8 = 16 # when the entire tensor is equal to 0 at some point alone an edge.
+const E2Z::Int8 = 17
+const E3Z::Int8 = 18
 
 
 # for eigenvalue, corners do not count as intersections, because
 # the intersection of a region with a corner is given by the vertex classification.
 
 # used for specifying that certain intersections are invalid / do not count.
-const NULL = -1
+const NULL::Int8 = -1
 
 # vertex types (eigenvalue) (not all are actually used for classifying the corners, but all are used in a related context.)
 const DP::Int8 = 19
@@ -102,9 +102,9 @@ const DN::Int8 = 20
 const RP::Int8 = 21
 const RN::Int8 = 22
 const S::Int8 = 23
-const RPTrumped = 24 # used for detecting P vs N for vertex eigenvector
-const RZTrumped = 25
-const RNTrumped = 26
+const RPTrumped::Int8 = 24 # used for detecting P vs N for vertex eigenvector
+const RZTrumped::Int8 = 25
+const RNTrumped::Int8 = 26
 const DZ::Int8 = 27 # used for detecting degenerate intersections.
 const RZ::Int8 = 28
 const DREQP::Int8 = 29 # D and R are equal, the one that we are looking at is positive (based on context) Note: only used for edge and corner intersections.

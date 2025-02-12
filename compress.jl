@@ -767,12 +767,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                         # process cell topology
                         if eigenvalue
-                            gt = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
-                            rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                            # we need to name gt something different in the 2 cases for type stability purposes.
+                            gtval = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
+                            rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
                             
-                            while !( gt.vertexTypesEigenvalue == rt.vertexTypesEigenvalue && gt.DPArray == rt.DPArray && gt.DNArray == rt.DNArray &&
-                                     gt.RPArray == rt.RPArray && gt.RNArray == rt.RNArray && (!eigenvector || (gt.vertexTypesEigenvector == rt.vertexTypesEigenvector &&
-                                     gt.RPArrayVec == rt.RPArrayVec && gt.RNArrayVec == rt.RNArrayVec )))
+                            while !( gtval.vertexTypesEigenvalue == rtval.vertexTypesEigenvalue && gtval.DPArray == rtval.DPArray && gtval.DNArray == rtval.DNArray &&
+                                     gtval.RPArray == rtval.RPArray && gtval.RNArray == rtval.RNArray && (!eigenvector || (gtval.vertexTypesEigenvector == rtval.vertexTypesEigenvector &&
+                                     gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
 
                                 raise_precision(vertexCoords[1]...)
                                 processPoint(vertexCoords[1])
@@ -793,13 +794,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
+                                rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
                             end
 
                         elseif eigenvector
-                            gt = tensorField.classifyCellEigenvector(tf, x, y, t, top)
-                            rt = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
-                            while gt.vertexTypes != rt.vertexTypes || gt.RPArray != rt.RPArray || gt.RNArray != rt.RNArray
+                            gtvec = tensorField.classifyCellEigenvector(tf, x, y, t, top)
+                            rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                            while gtvec.vertexTypes != rtvec.vertexTypes || gtvec.RPArray != rtvec.RPArray || gtvec.RNArray != rtvec.RNArray
                                 raise_precision(vertexCoords[1]...)
                                 processPoint(vertexCoords[1])
     
@@ -819,7 +820,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     vertices_modified[3] = true
                                 end
 
-                                rt = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                                rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
                             end
                         end
 
