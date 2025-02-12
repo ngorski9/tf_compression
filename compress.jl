@@ -777,23 +777,61 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                         gtval.RPArray == rtval.RPArray && gtval.RNArray == rtval.RNArray && (!eigenvector || (gtval.vertexTypesEigenvector == rtval.vertexTypesEigenvector &&
                                         gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
 
-                                    raise_precision(vertexCoords[1]...)
-                                    processPoint(vertexCoords[1])
-        
-                                    raise_precision(vertexCoords[2]...)
-                                    processPoint(vertexCoords[2])
-        
-                                    raise_precision(vertexCoords[3]...)
-                                    processPoint(vertexCoords[3])
-        
-                                    if top
+                                    if precisions[vertexCoords[1]...] != 8 && ((gtval.vertexTypesEigenvalue[1] != rtval.vertexTypesEigenvalue[1] && gtval.vertexTypesEigenvalue[1] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
+                                        (eigenvector && gtval.vertexTypesEigenvector[1] != rtval.vertexTypesEigenvector[1] && gtval.vertexTypesEigenvector[1] in [DegenRP, SYM, DegenRN]) ||
+                                        gtval.hits_corners[1])
+
+                                        precisions[vertexCoords[1]...] = 8
+                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
+                                        θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
+                                        if top
+                                            vertices_modified[3] = true
+                                        else
+                                            vertices_modified[1] = true
+                                        end
+
+                                    elseif precisions[vertexCoords[2]...] != 8 && ((gtval.vertexTypesEigenvalue[2] != rtval.vertexTypesEigenvalue[2] && gtval.vertexTypesEigenvalue[2] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
+                                        (eigenvector && gtval.vertexTypesEigenvector[2] != rtval.vertexTypesEigenvector[2] && gtval.vertexTypesEigenvector[2] in [DegenRP, SYM, DegenRN]) ||
+                                        gtval.hits_corners[2])
+
+                                        precisions[vertexCoords[2]...] = 8
+                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
+                                        θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
                                         vertices_modified[2] = true
-                                        vertices_modified[3] = true
-                                        vertices_modified[4] = true
+
+                                    elseif precisions[vertexCoords[3]...] != 8 && ((gtval.vertexTypesEigenvalue[3] != rtval.vertexTypesEigenvalue[3] && gtval.vertexTypesEigenvalue[3] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
+                                    (eigenvector && gtval.vertexTypesEigenvector[3] != rtval.vertexTypesEigenvector[3] && gtval.vertexTypesEigenvector[3] in [DegenRP, SYM, DegenRN]) ||
+                                    gtval.hits_corners[3])
+
+                                        precisions[vertexCoords[3]...] = 8
+                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
+                                        θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
+
+                                        if top
+                                            vertices_modified[4] = true
+                                        else
+                                            vertices_modified[3] = true
+                                        end
+
                                     else
-                                        vertices_modified[1] = true
-                                        vertices_modified[2] = true
-                                        vertices_modified[3] = true
+                                        raise_precision(vertexCoords[1]...)
+                                        processPoint(vertexCoords[1])
+            
+                                        raise_precision(vertexCoords[2]...)
+                                        processPoint(vertexCoords[2])
+            
+                                        raise_precision(vertexCoords[3]...)
+                                        processPoint(vertexCoords[3])
+            
+                                        if top
+                                            vertices_modified[2] = true
+                                            vertices_modified[3] = true
+                                            vertices_modified[4] = true
+                                        else
+                                            vertices_modified[1] = true
+                                            vertices_modified[2] = true
+                                            vertices_modified[3] = true
+                                        end
                                     end
 
                                     rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
