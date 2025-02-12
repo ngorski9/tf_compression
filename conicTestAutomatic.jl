@@ -1324,6 +1324,44 @@ function main()
         )
     ,104)
 
+    # RP and DP both parallel edge 1 but aren't identical
+    D = (1.64,2.4,0.9)
+    W = (1.64,2.4,3.0)
+    R = (1.64, 2.4, -3.0)
+    θ = (0.0, 0.0, 0.0)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(S,S,S),
+            SArray{Tuple{3},Int8}(DegenRP,DegenRP,DegenRN),
+            MArray{Tuple{10},Int8}(0 ,0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
+            MArray{Tuple{3},Int8}(0,0,0)
+        )
+    ,-104)
+
+    # RP and DP both parallel edge 1 but now D dominates the entire triangle
+    D = (1.64,2.4,4.5)
+    W = (1.64,2.4,3.0)
+    R = (1.64, 2.4, -3.0)
+    θ = (0.0, 0.0, 0.0)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DP,DP,DP),
+            SArray{Tuple{3},Int8}(DegenRP,DegenRP,DegenRN),
+            MArray{Tuple{10},Int8}(0 ,0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
+            MArray{Tuple{3},Int8}(0,0,0)
+        )
+    ,-105)
+
     # R and D are exactly equal.
     D = (2.7, 3.8, -3.4)
     W = (1.64,2.4,3.0)
