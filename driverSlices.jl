@@ -149,6 +149,8 @@ function main()::Cint
 
     stdout_ = stdout
 
+    numNoRange = 0 # we use this to keep track of the number of slices with 0 range so we can omit them from psnr
+
     trialStart = time()
 
     for t in range
@@ -214,8 +216,14 @@ function main()::Cint
 
         totalBitrate += metrics[2]
         maxErrorByRange = max(maxErrorByRange, metrics[3])
-        totalMSEByRangeSquared += metrics[4]
-        totalFrobeniusMSEByRangeSquared += metrics[5]
+
+        if metrics[4] != -1
+            totalMSEByRangeSquared += metrics[4]
+            totalFrobeniusMSEByRangeSquared += metrics[5]
+        else
+            numNoRange += 1
+        end
+
         totalVertexMatching += metrics[6]
         totalCellMatching += metrics[7]
         totalCellTypeFrequenciesGround += metrics[8]
@@ -247,8 +255,8 @@ function main()::Cint
     averageFrobeniusMSEByRangeSquared = totalFrobeniusMSEByRangeSquared
 
     if slice == -1
-        averageMSEByRangeSquared /= dims[3]
-        averageFrobeniusMSEByRangeSquared /= dims[3]
+        averageMSEByRangeSquared /= (dims[3] - numNoRange)
+        averageFrobeniusMSEByRangeSquared /= (dims[3] - numNoRange)
     end
 
     psnr = -10 * log(10, averageMSEByRangeSquared)
@@ -343,4 +351,4 @@ function main()::Cint
 
 end
 
-# main()
+main()

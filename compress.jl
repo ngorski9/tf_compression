@@ -595,310 +595,313 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     cellTopologyTime = 0.0
     queueTime = 0.0
 
-    for t in 1:dims[3]
-        for j in 1:dims[2]-1
-            for i in 1:dims[1]-1
-                for k in 0:1
+    if aeb != 0.0
 
-                    pushSplit1 = time()
-                    push!(stack, (i,j,Bool(k),true) )
-                    pushSplit2 = time()
+        for t in 1:dims[3]
+            for j in 1:dims[2]-1
+                for i in 1:dims[1]-1
+                    for k in 0:1
 
-                    queueTime += pushSplit2 - pushSplit1
+                        pushSplit1 = time()
+                        push!(stack, (i,j,Bool(k),true) )
+                        pushSplit2 = time()
 
-                    while length(stack) > 0
+                        queueTime += pushSplit2 - pushSplit1
 
-                        individualSplit1 = time()
+                        while length(stack) > 0
 
-                        numCellsProcessed += 1
-                        x,y,top,processNewVertices = pop!(stack)
+                            individualSplit1 = time()
 
-                        # bottom left, bottom right, top left (corresponds to coords of bottom in order) then top right
-                        vertices_modified = [false,false,false,false]
+                            numCellsProcessed += 1
+                            x,y,top,processNewVertices = pop!(stack)
 
-                        vertexCoords = getCellVertexCoords(x,y,t,top)
+                            # bottom left, bottom right, top left (corresponds to coords of bottom in order) then top right
+                            vertices_modified = [false,false,false,false]
 
-                        if processNewVertices
+                            vertexCoords = getCellVertexCoords(x,y,t,top)
 
-                            # identify then process new vertices
-                            if top
-                                newVertices = [3]
-                            else
-                                if x == 1
-                                    if y == 1
-                                        newVertices = [1,2,3]
+                            if processNewVertices
+
+                                # identify then process new vertices
+                                if top
+                                    newVertices = [3]
+                                else
+                                    if x == 1
+                                        if y == 1
+                                            newVertices = [1,2,3]
+                                        else
+                                            newVertices = [3]
+                                        end
+                                    elseif y == 1
+                                        newVertices = [2]
                                     else
-                                        newVertices = [3]
+                                        newVertices::Array{Int64} = Array{Int64}(undef,0)
                                     end
-                                elseif y == 1
-                                    newVertices = [2]
-                                else
-                                    newVertices::Array{Int64} = Array{Int64}(undef,0)
                                 end
-                            end
 
 
-                            # Single vertex: swap values into place.
-                            for v in newVertices
-                                if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
-                                    precisions[vertexCoords[v]...] = 8
-                                    setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
-                                    θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
-                                else
+                                # Single vertex: swap values into place.
+                                for v in newVertices
+                                    if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
+                                        precisions[vertexCoords[v]...] = 8
+                                        setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
+                                        θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
+                                    else
+                                        processPoint(vertexCoords[v])
+                                    end
                                     processPoint(vertexCoords[v])
                                 end
-                                processPoint(vertexCoords[v])
+
                             end
 
-                        end
+                            individualSplit2 = time()
+                            individualPointsTime += individualSplit2 - individualSplit1
 
-                        individualSplit2 = time()
-                        individualPointsTime += individualSplit2 - individualSplit1
+                            # Process individual cells to check circular points.
+                            if eigenvector
+                                groundCircularPointType = getCircularPointType(tf, x, y, t, top)
+                                if groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
 
-                        # Process individual cells to check circular points.
-                        if eigenvector
-                            groundCircularPointType = getCircularPointType(tf, x, y, t, top)
-                            if groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
+                                    θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
+                                    θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
+                                    θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
 
-                                θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
-                                θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
-                                θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
+                                    if θe1 > pi
+                                        θe1 = abs(θe1-2pi)
+                                    end
 
-                                if θe1 > pi
-                                    θe1 = abs(θe1-2pi)
-                                end
+                                    if θe2 > pi
+                                        θe2 = abs(θe2-2pi)
+                                    end
 
-                                if θe2 > pi
-                                    θe2 = abs(θe2-2pi)
-                                end
+                                    if θe3 > pi
+                                        θe3 = abs(θe3-2pi)
+                                    end
 
-                                if θe3 > pi
-                                    θe3 = abs(θe3-2pi)
-                                end
+                                    θe = [θe1, θe2, θe3]
+                                    ll = [θe1==0.0, θe2==0.0, θe3==0.0]
 
-                                θe = [θe1, θe2, θe3]
-                                ll = [θe1==0.0, θe2==0.0, θe3==0.0]
+                                    while groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
+                                        if ll[1] && ll[2] && ll[3]
 
-                                while groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
-                                    if ll[1] && ll[2] && ll[3]
+                                            precisions[vertexCoords[1]...] = 8
+                                            precisions[vertexCoords[2]...] = 8
+                                            precisions[vertexCoords[3]...] = 8
 
-                                        precisions[vertexCoords[1]...] = 8
-                                        precisions[vertexCoords[2]...] = 8
-                                        precisions[vertexCoords[3]...] = 8
+                                            setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
+                                            setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
+                                            setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
 
-                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
-
-                                        θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
-                                        θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
-                                        θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
-
-                                        if top
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                            vertices_modified[4] = true
-                                        else
-                                            vertices_modified[1] = true
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                        end
-
-                                    else
-
-                                        changeTensor = findmax(θe)[2]
-
-                                        if angles_mandatory[vertexCoords[changeTensor]...]
-                                            θ_quantized[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
-                                            θ_final[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
-                                            θ_codes[vertexCoords[changeTensor]...] = 2^6-1
-                                            ll[changeTensor] = true
-                                            θe[changeTensor] = 0.0
-                                        else
-                                            angles_mandatory[vertexCoords[changeTensor]...] = true
-                                            if θ_quantized[vertexCoords[changeTensor]...] == Inf
-                                                quantize_angle(vertexCoords[changeTensor]...)
-                                            end
-                                        end
-                                        
-                                        if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] < 8
-
-                                            θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
-
-                                            setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
-                                                                                                        r_final[vertexCoords[changeTensor]...],
-                                                                                                        s_final[vertexCoords[changeTensor]...],
-                                                                                                        θ_final[vertexCoords[changeTensor]...]))
-                                                                                                        
-                                            processPoint(vertexCoords[changeTensor])
-
-                                            θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
-
-                                            if θe[changeTensor] > pi
-                                                θe[changeTensor] = abs(θe[changeTensor]-2pi)
-                                            end
-
-                                            if θe[changeTensor] == 0.0
-                                                ll[changeTensor] = true
-                                            end
+                                            θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
+                                            θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
+                                            θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
 
                                             if top
-                                                if changeTensor == 1
-                                                    vertices_modified[3] = true
-                                                elseif changeTensor == 2
-                                                    vertices_modified[2] = true
-                                                else
-                                                    vertices_modified[4] = true
-                                                end
+                                                vertices_modified[2] = true
+                                                vertices_modified[3] = true
+                                                vertices_modified[4] = true
                                             else
-                                                vertices_modified[changeTensor] = true
+                                                vertices_modified[1] = true
+                                                vertices_modified[2] = true
+                                                vertices_modified[3] = true
                                             end
+
+                                        else
+
+                                            changeTensor = findmax(θe)[2]
+
+                                            if angles_mandatory[vertexCoords[changeTensor]...]
+                                                θ_quantized[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
+                                                θ_final[vertexCoords[changeTensor]...] = θ_ground[vertexCoords[changeTensor]...]
+                                                θ_codes[vertexCoords[changeTensor]...] = 2^6-1
+                                                ll[changeTensor] = true
+                                                θe[changeTensor] = 0.0
+                                            else
+                                                angles_mandatory[vertexCoords[changeTensor]...] = true
+                                                if θ_quantized[vertexCoords[changeTensor]...] == Inf
+                                                    quantize_angle(vertexCoords[changeTensor]...)
+                                                end
+                                            end
+                                            
+                                            if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] < 8
+
+                                                θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
+
+                                                setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
+                                                                                                            r_final[vertexCoords[changeTensor]...],
+                                                                                                            s_final[vertexCoords[changeTensor]...],
+                                                                                                            θ_final[vertexCoords[changeTensor]...]))
+                                                                                                            
+                                                processPoint(vertexCoords[changeTensor])
+
+                                                θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
+
+                                                if θe[changeTensor] > pi
+                                                    θe[changeTensor] = abs(θe[changeTensor]-2pi)
+                                                end
+
+                                                if θe[changeTensor] == 0.0
+                                                    ll[changeTensor] = true
+                                                end
+
+                                                if top
+                                                    if changeTensor == 1
+                                                        vertices_modified[3] = true
+                                                    elseif changeTensor == 2
+                                                        vertices_modified[2] = true
+                                                    else
+                                                        vertices_modified[4] = true
+                                                    end
+                                                else
+                                                    vertices_modified[changeTensor] = true
+                                                end
+                                            end
+
                                         end
 
                                     end
 
                                 end
-
-                            end
-                        end
-
-                        circularPointsSplit = time()
-                        circularPointsTime += circularPointsSplit - individualSplit2
-
-                        # process cell topology
-                        if eigenvalue
-                            # we need to name gt something different in the 2 cases for type stability purposes.
-                            gtval = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
-                            rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
-                            
-                            while !( gtval.vertexTypesEigenvalue == rtval.vertexTypesEigenvalue && gtval.DPArray == rtval.DPArray && gtval.DNArray == rtval.DNArray &&
-                                     gtval.RPArray == rtval.RPArray && gtval.RNArray == rtval.RNArray && (!eigenvector || (gtval.vertexTypesEigenvector == rtval.vertexTypesEigenvector &&
-                                     gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
-
-                                raise_precision(vertexCoords[1]...)
-                                processPoint(vertexCoords[1])
-    
-                                raise_precision(vertexCoords[2]...)
-                                processPoint(vertexCoords[2])
-    
-                                raise_precision(vertexCoords[3]...)
-                                processPoint(vertexCoords[3])
-    
-                                if top
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
-                                    vertices_modified[4] = true
-                                else
-                                    vertices_modified[1] = true
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
-                                end
-
-                                rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
                             end
 
-                        elseif eigenvector
-                            gtvec = tensorField.classifyCellEigenvector(tf, x, y, t, top)
-                            rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
-                            while gtvec.vertexTypes != rtvec.vertexTypes || gtvec.RPArray != rtvec.RPArray || gtvec.RNArray != rtvec.RNArray
-                                raise_precision(vertexCoords[1]...)
-                                processPoint(vertexCoords[1])
-    
-                                raise_precision(vertexCoords[2]...)
-                                processPoint(vertexCoords[2])
-    
-                                raise_precision(vertexCoords[3]...)
-                                processPoint(vertexCoords[3])
-    
-                                if top
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
-                                    vertices_modified[4] = true
-                                else
-                                    vertices_modified[1] = true
-                                    vertices_modified[2] = true
-                                    vertices_modified[3] = true
+                            circularPointsSplit = time()
+                            circularPointsTime += circularPointsSplit - individualSplit2
+
+                            # process cell topology
+                            if eigenvalue
+                                # we need to name gt something different in the 2 cases for type stability purposes.
+                                gtval = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
+                                rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
+                                
+                                while !( gtval.vertexTypesEigenvalue == rtval.vertexTypesEigenvalue && gtval.DPArray == rtval.DPArray && gtval.DNArray == rtval.DNArray &&
+                                        gtval.RPArray == rtval.RPArray && gtval.RNArray == rtval.RNArray && (!eigenvector || (gtval.vertexTypesEigenvector == rtval.vertexTypesEigenvector &&
+                                        gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
+
+                                    raise_precision(vertexCoords[1]...)
+                                    processPoint(vertexCoords[1])
+        
+                                    raise_precision(vertexCoords[2]...)
+                                    processPoint(vertexCoords[2])
+        
+                                    raise_precision(vertexCoords[3]...)
+                                    processPoint(vertexCoords[3])
+        
+                                    if top
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                        vertices_modified[4] = true
+                                    else
+                                        vertices_modified[1] = true
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                    end
+
+                                    rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
                                 end
 
+                            elseif eigenvector
+                                gtvec = tensorField.classifyCellEigenvector(tf, x, y, t, top)
                                 rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                                while gtvec.vertexTypes != rtvec.vertexTypes || gtvec.RPArray != rtvec.RPArray || gtvec.RNArray != rtvec.RNArray
+                                    raise_precision(vertexCoords[1]...)
+                                    processPoint(vertexCoords[1])
+        
+                                    raise_precision(vertexCoords[2]...)
+                                    processPoint(vertexCoords[2])
+        
+                                    raise_precision(vertexCoords[3]...)
+                                    processPoint(vertexCoords[3])
+        
+                                    if top
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                        vertices_modified[4] = true
+                                    else
+                                        vertices_modified[1] = true
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                    end
+
+                                    rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
+                                end
                             end
-                        end
 
-                        cellTopologySplit = time()
-                        cellTopologyTime += cellTopologySplit - circularPointsSplit
+                            cellTopologySplit = time()
+                            cellTopologyTime += cellTopologySplit - circularPointsSplit
 
-                        if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
-                            push!(stack, (x,y,top,false))
-                            numCellsModified += 1
-                        end
+                            if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
+                                push!(stack, (x,y,top,false))
+                                numCellsModified += 1
+                            end
 
-                        # queue up all cells that will be affected by any current changes.
-                        if vertices_modified[4] && x != dims[1] - 1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
-                            push!(stack, (x+1,y+1,false,false))
-                        end
+                            # queue up all cells that will be affected by any current changes.
+                            if vertices_modified[4] && x != dims[1] - 1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
+                                push!(stack, (x+1,y+1,false,false))
+                            end
 
-                        if vertices_modified[4] && ((y+1 < j) || (y+1 == j && x < i) || (y+1 == j && x == i && k == 1))
-                            push!(stack, (x,y+1,true,false))
-                        end
+                            if vertices_modified[4] && ((y+1 < j) || (y+1 == j && x < i) || (y+1 == j && x == i && k == 1))
+                                push!(stack, (x,y+1,true,false))
+                            end
 
-                        if (vertices_modified[3] || vertices_modified[4]) && ((y+1 < j) || (y+1 == j && x <= i))
-                            push!(stack, (x,y+1,false,false))
-                        end
+                            if (vertices_modified[3] || vertices_modified[4]) && ((y+1 < j) || (y+1 == j && x <= i))
+                                push!(stack, (x,y+1,false,false))
+                            end
 
-                        if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 < i) || (y+1 == j && x-1 == i && k == 1))
-                            push!(stack, (x-1,y+1,true,false))
-                        end
+                            if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 < i) || (y+1 == j && x-1 == i && k == 1))
+                                push!(stack, (x-1,y+1,true,false))
+                            end
 
-                        if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
-                            push!(stack, (x-1,y+1,false,false))
-                        end
+                            if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
+                                push!(stack, (x-1,y+1,false,false))
+                            end
 
-                        if (vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 < i) || (y == j && x+i == i && k == 1))
-                            push!(stack, (x+1,y,true,false))
-                        end
+                            if (vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 < i) || (y == j && x+i == i && k == 1))
+                                push!(stack, (x+1,y,true,false))
+                            end
 
-                        if (vertices_modified[2] || vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
-                            push!(stack, (x+1,y,false,false))
-                        end
+                            if (vertices_modified[2] || vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
+                                push!(stack, (x+1,y,false,false))
+                            end
 
-                        if (vertices_modified[2] || vertices_modified[3]) && ( (y < j) || (y == j && x < i) || (y == j && x == i && k==1) )
-                            push!(stack,(x,y,true,false))
-                        end
+                            if (vertices_modified[2] || vertices_modified[3]) && ( (y < j) || (y == j && x < i) || (y == j && x == i && k==1) )
+                                push!(stack,(x,y,true,false))
+                            end
 
-                        if (vertices_modified[2] || vertices_modified[3])
-                            push!(stack, (x,y,false,false))
-                        end
+                            if (vertices_modified[2] || vertices_modified[3])
+                                push!(stack, (x,y,false,false))
+                            end
 
-                        if (vertices_modified[1] || vertices_modified[3]) && x != 1
-                            push!(stack, (x-1,y,true,false))
-                        end
+                            if (vertices_modified[1] || vertices_modified[3]) && x != 1
+                                push!(stack, (x-1,y,true,false))
+                            end
 
-                        if vertices_modified[1] && x != 1
-                            push!(stack, (x-1,y,false,false))
-                        end
+                            if vertices_modified[1] && x != 1
+                                push!(stack, (x-1,y,false,false))
+                            end
 
-                        if vertices_modified[2] && x != dims[1]-1 && y != 1
-                            push!(stack, (x+1,y-1,true,false))
-                            push!(stack, (x+1,y-1,false,false))
-                        end
+                            if vertices_modified[2] && x != dims[1]-1 && y != 1
+                                push!(stack, (x+1,y-1,true,false))
+                                push!(stack, (x+1,y-1,false,false))
+                            end
 
-                        if (vertices_modified[1] || vertices_modified[2]) && y != 1
-                            push!(stack, (x,y-1,true,false))
-                        end
+                            if (vertices_modified[1] || vertices_modified[2]) && y != 1
+                                push!(stack, (x,y-1,true,false))
+                            end
 
-                        if vertices_modified[1] && y != 1
-                            push!(stack, (x,y-1,false,false))
-                        end
+                            if vertices_modified[1] && y != 1
+                                push!(stack, (x,y-1,false,false))
+                            end
 
-                        if vertices_modified[1] && x != 1 && y != 1
-                            push!(stack, (x-1,y-1,true,false))
-                        end
+                            if vertices_modified[1] && x != 1 && y != 1
+                                push!(stack, (x-1,y-1,true,false))
+                            end
 
-                        finalQueueSplit = time()
-                        queueTime += finalQueueSplit - cellTopologySplit
+                            finalQueueSplit = time()
+                            queueTime += finalQueueSplit - cellTopologySplit
 
-                    end # end while length(stack) > 0
+                        end # end while length(stack) > 0
 
+                    end
                 end
             end
         end
