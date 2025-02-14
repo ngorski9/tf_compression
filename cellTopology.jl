@@ -865,11 +865,6 @@ macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConi
             end
         end
 
-        # println("check")
-        # println(do_r)
-        # println(do_d)
-        # println(do_s)
-
         if do_r
             if do_d
 
@@ -1394,7 +1389,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
-    if !any_r_intercepts && r_type == ELLIPSE && is_inside_triangle(r_center[1], r_center[2])
+    if !any_r_intercepts && r_type == ELLIPSE && is_inside_triangle(r_center[1], r_center[2]) && abs(r1) < s1
         if eigenvector
             if (r2-r1)*r_center[1]+(r3-r1)*r_center[2]+r1 >= 0
                 RPArrayVec[1] = INTERNAL_ELLIPSE
