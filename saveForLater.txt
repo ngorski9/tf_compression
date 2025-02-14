@@ -1,4 +1,4 @@
-               # adjust the sign and magnitude of r
+                # adjust the sign and magnitude of r
 
                 if eigenvector
                     if isClose(r,0.0) && !isClose(r_swap, 0.0)
@@ -41,8 +41,6 @@
                         r_mag = abs(r_swap)
                         r_swap = sign(r_swap) * s_swap
                     end
-                elseif !isLess(s,abs(r)) && !isLess(s,abs(d))
-                    
                 end
 
                 # adjust sign and magnitude of d
@@ -131,27 +129,5 @@
                                 end
                             end
                         end
-                    else
-                        if !isLess(abs(d_swap),abs(r_swap)) && !isLess(abs(r_swap),s_swap)
-                            d_largest_swap = 1
-                            high = abs(d_swap)
-
-                            if isGreater(abs(r_swap), s_swap)
-                                med = abs(r_swap)
-
-                                r_swap = sign(r_swap) * high
-                                d_swap = sign(d_swap) * med
-                            elseif isClose(abs(r_swap), s_swap)
-                                med = abs(r_swap)
-                                r_swap = sign(r_swap) * high
-                                s_swap = high
-                                d_swap = sign(d_swap) * med
-                            else
-                                med = s_swap
-
-                                d_swap = sign(d_swap) * med
-                                s_swap = high
-                            end
-                        end
-                    end
+                    else 
                 end

@@ -583,7 +583,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
     end
 
     return :(begin
-    if -1e-10 <= $(esc(intercepts))[1] <= 1.0 + 1e-10
+    if -ϵ <= $(esc(intercepts))[1] <= 1.0 + ϵ
         $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[1])
         grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]) )
@@ -642,7 +642,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         end
     end
 
-    if -1e-10 <= $(esc(intercepts))[2] <= 1.0 + 1e-10 && $(esc(intercepts))[1] != $(esc(intercepts))[2]
+    if -ϵ <= $(esc(intercepts))[2] <= 1.0 + ϵ && $(esc(intercepts))[1] != $(esc(intercepts))[2]
         $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[2])
         grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]) )
@@ -782,22 +782,6 @@ function getAxesAndCheckIfSortAsEllipse(eq::conicEquation, class::Int64)
     else
         return ((0.0,0.0),(0.0,0.0),false) # I don't think this case will ever be reached, but it is here for type stability.
     end
-end
-
-function isClose(x1::Float64, x2::Float64)
-    return abs(x1-x2) < 1e-10
-end
-
-function isGreater(x1::Float64, x2::Float64)
-    return x1 > x2 + 1e-10
-end
-
-function isLess(x1::Float64, x2::Float64)
-    return x1 < x2 - 1e-10
-end
-
-function isRelativelyClose(x1::Float64, x2::Float64)
-    return abs(x1-x2) < 1e-10 * max(x1,x2)
 end
 
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
@@ -1234,7 +1218,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     # hypotenuse intercepts. Gives x coordinate
     RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
 
-    if 1e-10 < RConicXIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[1], 0.0), (0.0,1.0)), 0.0)
+    if ϵ < RConicXIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[1], 0.0), (0.0,1.0)), 0.0)
         r = RConicXIntercepts[1]*r2 + (1.0-RConicXIntercepts[1])*r1
         if isGreater(r, 0.0)
             RPArray[1] += 1
@@ -1246,7 +1230,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
         end
     end
 
-    if 1e-10 < RConicXIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[2], 0.0), (0.0,1.0)), 0.0) &&
+    if ϵ < RConicXIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[2], 0.0), (0.0,1.0)), 0.0) &&
         RConicXIntercepts[1] != RConicXIntercepts[2]
 
         r = RConicXIntercepts[2]*r2 + (1.0-RConicXIntercepts[2])*r1
@@ -1260,7 +1244,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
         end
     end
 
-    if 1e-10 < RConicYIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[1]), (1.0,0.0)), 0.0)
+    if ϵ < RConicYIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[1]), (1.0,0.0)), 0.0)
 
         r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
         if isGreater(r, 0.0)
@@ -1273,7 +1257,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
         end
     end
 
-    if 1e-10 < RConicYIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[2]), (1.0,0.0)), 0.0) &&
+    if ϵ < RConicYIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[2]), (1.0,0.0)), 0.0) &&
         RConicYIntercepts[1] != RConicYIntercepts[2]
 
         r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
@@ -1288,7 +1272,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
 
     end
 
-    if 1e-10 < RConicHIntercepts[1] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[1], 1.0-RConicHIntercepts[1]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0)
+    if ϵ < RConicHIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[1], 1.0-RConicHIntercepts[1]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0)
 
         r = RConicHIntercepts[1]*r2 + (1.0-RConicHIntercepts[1])*r3
         if isGreater(r, 0.0)
@@ -1301,7 +1285,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
         end
     end
 
-    if 1e-10 < RConicHIntercepts[2] < 1.0-1e-10 && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[2], 1.0-RConicHIntercepts[2]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) &&
+    if ϵ < RConicHIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[2], 1.0-RConicHIntercepts[2]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) &&
         RConicHIntercepts[1] != RConicHIntercepts[2]
 
         r = RConicHIntercepts[2]*r2 + (1.0-RConicHIntercepts[2])*r3

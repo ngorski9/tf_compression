@@ -255,7 +255,8 @@ function main()
             MArray{Tuple{10},Int8}(3  ,-1 ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,0)
 
@@ -990,7 +991,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,2,0)
+            MArray{Tuple{3},Int8}(0,2,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,87)
 
@@ -1009,7 +1011,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,88)
 
@@ -1028,7 +1031,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,2,0)
+            MArray{Tuple{3},Int8}(0,2,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,89)
 
@@ -1047,7 +1051,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,-DPRN,-2  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,2,0)
+            MArray{Tuple{3},Int8}(0,2,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,90)
 
@@ -1066,7 +1071,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,2,0)
+            MArray{Tuple{3},Int8}(0,2,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,91)
 
@@ -1085,7 +1091,8 @@ function main()
             MArray{Tuple{10},Int8}(-DPRP  ,-1  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(2,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,92)
 
@@ -1106,7 +1113,8 @@ function main()
             MArray{Tuple{10},Int8}(-DPRP  ,-2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,1,0),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,93)
 
@@ -1125,7 +1133,8 @@ function main()
             MArray{Tuple{10},Int8}(1  ,DPRP  ,-DPRP  ,-2  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,-DPRN,-3  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,1,0),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,94)
 
@@ -1144,7 +1153,8 @@ function main()
             MArray{Tuple{10},Int8}(-DPRP  ,DPRP  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(INTERNAL_ELLIPSE,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,95)
 
@@ -1163,7 +1173,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(INTERNAL_ELLIPSE,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,96)
 
@@ -1186,7 +1197,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(INTERNAL_ELLIPSE,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,97)
 
@@ -1206,7 +1218,8 @@ function main()
             MArray{Tuple{10},Int8}(-DNRP  ,DNRP  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(INTERNAL_ELLIPSE,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,98)
 
@@ -1225,7 +1238,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(INTERNAL_ELLIPSE,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,99)
 
@@ -1244,7 +1258,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,100)
 
@@ -1263,7 +1278,8 @@ function main()
             MArray{Tuple{10},Int8}(3  ,-1  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(1  ,-2,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(1,1,0)
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,101)
 
@@ -1282,7 +1298,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,102)
 
@@ -1301,7 +1318,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,103)
 
@@ -1320,7 +1338,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,104)
 
@@ -1339,7 +1358,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,-104)
 
@@ -1358,7 +1378,8 @@ function main()
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(STRAIGHT_ANGLES,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,-105)
 
@@ -1377,7 +1398,8 @@ function main()
             MArray{Tuple{10},Int8}(3  ,-2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,-3,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,1,1),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,105)
 
@@ -1396,7 +1418,8 @@ function main()
             MArray{Tuple{10},Int8}(CORNER_13  , -CORNER_12  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,106)
 
@@ -1415,7 +1438,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DNRN,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,107)
 
@@ -1434,7 +1458,8 @@ function main()
             MArray{Tuple{10},Int8}(3  , -1  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,108)
 
@@ -1454,7 +1479,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,1,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,109)
 
@@ -1473,7 +1499,8 @@ function main()
             MArray{Tuple{10},Int8}(-DPRP  , -1  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,110)
 
@@ -1492,7 +1519,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(1,0,0),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,111)
 
@@ -1511,7 +1539,8 @@ function main()
             MArray{Tuple{10},Int8}(CORNER_13  , -2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,1,0),
-            MArray{Tuple{3},Int8}(0,1,1)
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,112)
 
@@ -1530,7 +1559,8 @@ function main()
             MArray{Tuple{10},Int8}(-DNRP  , DPRP  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,1,0),
-            MArray{Tuple{3},Int8}(1,1,0)
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,113)
     
@@ -1549,7 +1579,8 @@ function main()
             MArray{Tuple{10},Int8}(3  , -CORNER_13  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(-DPRN  , -2,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,0,1),
-            MArray{Tuple{3},Int8}(1,1,0)
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,114)
 
@@ -1568,7 +1599,8 @@ function main()
             MArray{Tuple{10},Int8}(CORNER_13_Z  , -2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(CORNER_13_Z  , 0 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,1,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,115)
 
@@ -1587,7 +1619,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  , 0 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,116)
 
@@ -1606,7 +1639,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  , 0 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,117)
 
@@ -1625,7 +1659,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  , 0 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,118)
 
@@ -1644,7 +1679,8 @@ function main()
             MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  , 0 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(0,0,0),
-            MArray{Tuple{3},Int8}(0,0,0)
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,119)
 
@@ -1663,7 +1699,8 @@ function main()
             MArray{Tuple{10},Int8}(E1Z  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E1Z  , -2 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
             MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(1,1,0)
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Bool}(false,false,false)
         )
     ,120)
 

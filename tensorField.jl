@@ -32,6 +32,7 @@ export saveTensorFieldSymmetric64
 export getMinAndMax
 export getCriticalType
 export edgesMatchSplit
+export duplicateTensorField2d
 
 struct TensorField2d
     entries::Array{Float64}
@@ -41,6 +42,10 @@ end
 struct TensorField2dSymmetric
     entries::Array{Float64}
     dims::Tuple{Int64, Int64, Int64}
+end
+
+function duplicateTensorField2d(tf::TensorField2d)
+    return TensorField2d(deepcopy(tf.entries),tf.dims)
 end
 
 function loadTensorField2dFromFolder(folder::String, dims::Tuple{Int64, Int64, Int64})
@@ -387,23 +392,27 @@ function recomposeTensorSymmetric(trace,r,θ)
 end
 
 function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
-    if abs(yr) < ϵ
-        return SYMMETRIC
-    elseif yr > 0
-        if abs(yr-ys) < ϵ
-            return PI_BY_4
-        elseif ys > yr
-            return W_RN
+    if isClose(yr,0.0)
+        if isClose(ys,0.0)
+            return Z
         else
-            return W_CN
+            return SYM
+        end
+    elseif yr > 0
+        if isRelativelyClose(yr,ys)
+            return DegenRP
+        elseif ys > yr
+            return SRP
+        else
+            return RRP
         end
     else
-        if abs(yr+ys) < ϵ
-            return MINUS_PI_BY_4
-        elseif ys > -yr
-            return W_RS
+        if isRelativelyClose(-yr,ys)
+            return DegenRN
+        elseif isGreater(ys,-yr)
+            return SRN
         else
-            return W_CS
+            return RRN
         end
     end
 end
@@ -422,19 +431,71 @@ end
 
 function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::AbstractFloat)
 
-    if ys > abs(yd) && ys > abs(yr)
-        return ANISOTROPIC_STRETCHING
-    elseif abs(yr) > abs(yd)
-        if yr > 0
-            return COUNTERCLOCKWISE_ROTATION
+    if isClose(abs(yd),abs(yr))
+        if isClose(abs(yd),ys)
+            if isClose(yd,0.0)
+                return Z
+            elseif yd > 0
+                if yr > 0
+                    return DPRPS
+                else
+                    return DPRNS
+                end
+            else
+                if yr > 0
+                    return DNRPS
+                else
+                    return DNRNS
+                end
+            end
+        elseif ys > abs(yr)
+            return S
         else
-            return CLOCKWISE_ROTATION
+            if yd > 0
+                if yr > 0
+                    return DPRP
+                else
+                    return DPRN
+                end
+            else
+                if yr > 0
+                    return DNRP
+                else
+                    return DNRN
+                end
+            end
+        end
+    elseif abs(yr) > abs(yd)
+        if isClose(abs(yr),ys)
+            if yr > 0
+                return RPS
+            else
+                return RNS
+            end
+        elseif abs(yr) > ys
+            if yr > 0
+                return RP
+            else
+                return RN
+            end
+        else
+            return S
         end
     else
-        if yd > 0
-            return POSITIVE_SCALING
+        if isClose(abs(yd),ys)
+            if yd > 0
+                return DPS
+            else
+                return DNS
+            end
+        elseif abs(yd) > ys
+            if yd > 0
+                return DP
+            else
+                return DN
+            end
         else
-            return NEGATIVE_SCALING
+            return S
         end
     end
 

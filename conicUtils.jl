@@ -158,9 +158,9 @@ end
 function quadraticFormula(a::Float64, b::Float64, c::Float64)
     disc = b^2-4*a*c
 
-    if disc != 0.0 && disc/((a+b+c)^2) < -1e-10
+    if disc != 0.0 && disc/((a+b+c)^2) < -ϵ
         return (Inf,Inf)
-    elseif disc != 0.0 && disc/((a+b+c)^2) < 1e-10
+    elseif disc != 0.0 && disc/((a+b+c)^2) < ϵ
         disc = 0.0
     end
 
@@ -186,14 +186,14 @@ end
 
 function classifyAndReturnCenter(eq::conicEquation)
     disc = discriminant(eq)
-    if disc < -1e-10
+    if disc < -ϵ
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
         if evaluate(eq, center[1], center[2]) == 0.0
             return (POINT, center)
         else
             return (ELLIPSE, center)
         end
-    elseif disc > 1e-10
+    elseif disc > ϵ
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
         if evaluate(eq, center[1], center[2]) == 0.0
             return (INTERSECTING_LINES, center)

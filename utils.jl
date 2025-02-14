@@ -11,14 +11,21 @@ export removeIfExists
 export remove
 export getCodeValue
 export pushIfAbsent!
+export isClose
+export isRelativelyClose
+export isGreater
+export isRelativelyGreater
+export isLess
+export isRelativelyLess
+export rankOrder
 
 # Numerical constants
 
 export ϵ
 export MAX_PRECISION
 export compressor
-const ϵ = 1e-11
-const MAX_PRECISION = 20
+const ϵ = 1e-10
+const MAX_PRECISION = 10
 
 export smoothness
 const smoothness = 0
@@ -119,6 +126,39 @@ const eigenvalueRegionBorders = Dict(
 # |  \|        the "top" cell has the top border.
 # o---o        the "bottom cell has the bottom border.
 
+# Gives out ranks with ties broken in parameter order.
+function rankOrder(a,b,c)
+    if isGreater(a,b)
+        if isGreater(c,a)
+            return (2,3,1)
+        elseif isClose(c,a)
+            return (1,3,2)
+        else
+            if isGreater(b,c)
+                return (1,2,3)
+            else
+                return (1,3,2)
+            end
+        end
+    elseif isClose(a,b)
+        if isGreater(c,a)
+            return (2,3,1)
+        else
+            return (1,2,3)
+        end
+    else
+        if isGreater(c,a)
+            if !isLess(b,c)
+                return (3,1,2)
+            else
+                return (3,2,1)
+            end
+        else
+            return (2,1,3)
+        end
+    end
+end
+
 function getCodeValue(code::Int64, key::Int64)
     value = 0
     while code % key == 0
@@ -187,6 +227,30 @@ end
 
 function remove(filename)
     run(`rm $filename`)
+end
+
+function isClose(x1::Float64, x2::Float64)
+    return abs(x1-x2) < ϵ
+end
+
+function isGreater(x1::Float64, x2::Float64)
+    return x1 > x2 + ϵ
+end
+
+function isLess(x1::Float64, x2::Float64)
+    return x1 < x2 - ϵ
+end
+
+function isRelativelyClose(x1::Float64, x2::Float64)
+    return abs(x1-x2) < ϵ * max(x1,x2)
+end
+
+function isRelativelyGreater(x1::Float64, x2::Float64)
+    return x1 > x2 + ϵ * max(x1,x2)
+end
+
+function isRelativelyLess(x1::Float64, x2::Float64)
+    return x1 < x2 - ϵ * max(x1,x2)
 end
 
 end

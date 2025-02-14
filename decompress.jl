@@ -198,8 +198,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     aeb = reinterpret(Float64, read(vals_file, 8))[1]
 
     # Read in quantization bytes
-    baseCodeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
-    baseCodeBytes = read(vals_file, baseCodeBytesLength)
+    typeCodeBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
+    typeCodeBytes = read(vals_file, typeCodeBytesLength)
     θAndSFixBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
     θAndSFixBytes = read(vals_file, θAndSFixBytesLength)
     dBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
@@ -208,16 +208,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     rBytes = read(vals_file, rBytesLength)
     sBytesLength = reinterpret(Int64, read(vals_file, 8))[1]
     sBytes = read(vals_file, sBytesLength)
-    eigenvectorSpecialCaseLength = reinterpret(Int64, read(vals_file, 8))[1]
-    eigenvectorSpecialCaseBytes = read(vals_file, eigenvectorSpecialCaseLength)
 
     # Read in various lossless lists
-    losslessdLength = reinterpret(Int64, read(vals_file, 8))[1]*8
-    lossless_d = reinterpret(Float64, read(vals_file, losslessdLength))
-    losslessrLength = reinterpret(Int64, read(vals_file, 8))[1]*8
-    lossless_r = reinterpret(Float64, read(vals_file, losslessrLength))
-    losslesssLength = reinterpret(Int64, read(vals_file, 8))[1]*8
-    lossless_s = reinterpret(Float64, read(vals_file, losslesssLength))
     losslessθLength = reinterpret(Int64, read(vals_file, 8))[1]*8
     lossless_θ = reinterpret(Float64, read(vals_file, losslessθLength))
     losslessALength = reinterpret(Int64, read(vals_file, 8))[1]*8
@@ -234,11 +226,11 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     dims_tuple = Tuple(dims)
 
     # De-Huffman the codes
-    baseCodesBase = huffmanDecode(baseCodeBytes)
-    if length(baseCodesBase) == 0
-        baseCodes = zeros(Int64, dims_tuple)
+    typeCodesBase = huffmanDecode(typeCodeBytes)
+    if length(typeCodesBase) == 0
+        typeCodes = zeros(Int64, dims_tuple)
     else
-        baseCodes = reshape(baseCodesBase,dims_tuple)
+        typeCodes = reshape(typeCodesBase,dims_tuple)
     end
 
     θAndSFixCodesBase = huffmanDecode(θAndSFixBytes)
@@ -250,30 +242,23 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     dCodesBase = huffmanDecode(dBytes)
     if length(dCodesBase) == 0
-        dCodes = 127*ones(Int64, dims_tuple)
+        dCodes = zeros(Int64, dims_tuple)
     else
         dCodes = reshape(dCodesBase, dims_tuple)
     end
 
     rCodesBase = huffmanDecode(rBytes)
     if length(rCodesBase) == 0
-        rCodes = 127*ones(Int64, dims_tuple)
+        rCodes = zeros(Int64, dims_tuple)
     else
         rCodes = reshape(rCodesBase, dims_tuple)
     end
 
     sCodesBase = huffmanDecode(sBytes)
     if length(sCodesBase) == 0
-        sCodes = 127*ones(Int64, dims_tuple)
+        sCodes = zeros(Int64, dims_tuple)
     else
         sCodes = reshape(sCodesBase, dims_tuple)
-    end
-
-    eigenvectorSpecialCaseArray = huffmanDecode(eigenvectorSpecialCaseBytes)
-    if length(eigenvectorSpecialCaseArray) == 0
-        eigenvectorSpecialCaseCodes = zeros(Int64, dims_tuple)
-    else
-        eigenvectorSpecialCaseCodes = reshape(eigenvectorSpecialCaseArray, dims_tuple)
     end
 
     readSplit = time()
@@ -318,42 +303,22 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
             for i in 1:dims[1]
 
                 # Make sure that a change must actually be applied in the first place.
-                if !(baseCodes[i,j,t] == 0 && θAndSFixCodes[i,j,t] == 0 && dCodes[i,j,t] == 127 && rCodes[i,j,t] == 127 && sCodes[i,j,t] == 127)
-                    precision::UInt8 = baseCodes[i,j,t] >> 4
+                if !(typeCodes[i,j,t] == 0 && θAndSFixCodes[i,j,t] == 0 && dCodes[i,j,t] == 0 && rCodes[i,j,t] == 0 && sCodes[i,j,t] == 0)
 
-                    if precision >= 8
+                    if typeCodes[i,j,t] == 255
                         setTensor( tf, i, j, t,  SMatrix{2,2,Float64}(lossless_A[next_lossless_full], lossless_C[next_lossless_full], lossless_B[next_lossless_full], lossless_D[next_lossless_full]) )
                         next_lossless_full += 1
-
                     else
-                        swapCode::UInt8 = baseCodes[i,j,t] & (2^4-1)
+                        typeCode = typeCodes[i,j,t]
                         θCode::UInt8 = θAndSFixCodes[i,j,t] & (2^6-1)
                         sFix::UInt8 = ( θAndSFixCodes[i,j,t] & (2^6+2^7) ) >> 6
-                        eigenvectorSpecialCaseCode::UInt8 = eigenvectorSpecialCaseCodes[i,j,t]
 
                         tensor = getTensor(tf, i, j, t)
                         d,r,s,θ = decomposeTensor(tensor)
 
-                        if dCodes[i,j,t] == 255
-                            d = lossless_d[next_lossless_d]
-                            next_lossless_d += 1
-                        else
-                            d = d + aeb * (dCodes[i,j,t] - 127) / (2^precision)
-                        end
-
-                        if rCodes[i,j,t] == 255
-                            r = lossless_r[next_lossless_r]
-                            next_lossless_r += 1
-                        else
-                            r = r + aeb * (rCodes[i,j,t] - 127) / (2^precision)
-                        end
-
-                        if sCodes[i,j,t] == 255
-                            s = lossless_s[next_lossless_s]
-                            next_lossless_s += 1
-                        else
-                            s = s + sqrt(2) * aeb * (sCodes[i,j,t] - 127) / (2^precision)
-                        end
+                        d = d + aeb * dCodes[i,j,t] / (2^MAX_PRECISION)
+                        r = r + aeb * rCodes[i,j,t] / (2^MAX_PRECISION)
+                        s = s + sqrt(2) * aeb * sCodes[i,j,t] / (2^MAX_PRECISION)
 
                         if θCode == 2^6-1
                             θ = lossless_θ[next_lossless_θ]
@@ -376,55 +341,98 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                         end
 
                         # apply the swapping
-                        d_sign_swap = Bool((swapCode & (1 << 3)) >> 3)
-                        r_sign_swap = Bool((swapCode & (1 << 2)) >> 2)
-                        d_largest_swap = Bool((swapCode & (1 << 1)) >> 1)
-                        r_over_s_swap = Bool(swapCode & 1)
+                        d_sign_swap = (typeCode & (3 << 6)) >> 6
+                        r_sign_swap = (typeCode & (3 << 4)) >> 4
+                        d_largest_swap = (typeCode & (3 << 2)) >> 2
+                        r_over_s_swap = typeCode & 3
 
-                        if d_sign_swap
-                            if d < 0
-                                d += aeb
-                            else
-                                d -= aeb
-                            end
-                        end
+                        # handle signs
 
-                        if r_sign_swap
-                            if r < 0
-                                r += aeb
-                            else
-                                r -= aeb
-                            end
-                        end
-
-                        if d_largest_swap
-                            # swap d with the larger of r or s
-                            if abs(r) > s
-                                sign_d = (d >= 0) ? 1 : -1
-                                sign_r = (r >= 0) ? 1 : -1
-                                temp = d
-                                d = sign_d * abs(r)
-                                r = sign_r * abs(temp)
-                            else
-                                sign_d = (d >= 0) ? 1 : -1
-                                temp = d
-                                d = sign_d * s
-                                s = abs(temp)
-                            end
-                        end
-
-                        if eigenvectorSpecialCaseCode == 0
-                            if r_over_s_swap
-                                sign_r = (r >= 0) ? 1 : -1
-                                temp = r
-                                r = sign_r * s
-                                s = abs(temp)
-                            end
-                        elseif eigenvectorSpecialCaseCode == 1
-                            sign_r = (r >= 0) ? 1 : -1
-                            r = sign_r * s
-                        else
+                        if d_sign_swap == 2
+                            d = 0.0
                             r = 0.0
+                            s = 0.0
+                        else
+
+                            # handle signs (pt 2)
+
+                            if r_sign_swap == 1
+                                if isGreater(r,0.0)
+                                    r -= aeb
+                                else
+                                    r += aeb
+                                end
+                            elseif r_sign_swap == 2
+                                r = 0.0
+                            elseif r_sign_swap == 3
+                                r = 0.0
+                                s = 0.0
+                            end
+
+                            if d_sign_swap == 1
+                                if d > 0
+                                    d -= aeb
+                                else
+                                    d += aeb
+                                end
+                            end
+
+                            d_swap_rank, r_swap_rank, s_swap_rank = rankOrder(abs(d),abs(r),s)
+
+                            mags = MArray{Tuple{3},Float64}(0.0,0.0,0.0)
+                            mags[d_swap_rank] = abs(d)
+                            mags[r_swap_rank] = abs(r)
+                            mags[s_swap_rank] = s
+
+                            # handle normal swaps
+
+                            if d_largest_swap != 0
+                                if d_swap_rank == 1
+                                    if d_largest_swap != 2 && d_largest_swap != 3 # those codes require d to be on top!
+                                        d_swap_rank = 2
+                                        if s_swap_rank == 2
+                                            s_swap_rank = 1
+                                        else
+                                            r_swap_rank = 1
+                                        end
+                                    end
+                                else
+                                    d_swap_rank = 1
+                                    if s_swap_rank == 1
+                                        s_swap_rank = 2
+                                    else
+                                        r_swap_rank = 2
+                                    end
+                                end
+                            end
+
+                            if r_over_s_swap == 1
+                                temp = r_swap_rank
+                                r_swap_rank = s_swap_rank
+                                s_swap_rank = temp
+                            end
+
+                            # handle degenerate setting
+
+                            if d_largest_swap == 2
+                                s_swap_rank = 1
+                            end
+
+                            if r_over_s_swap == 2
+                                maxRank = min(r_swap_rank,s_swap_rank)
+                                r_swap_rank = maxRank
+                                s_swap_rank = maxRank
+                            end
+
+                            if d_largest_swap == 3
+                                r_swap_rank = 1
+                            end
+
+                            # set stuff back to their ranks
+                            d = sign(d) * mags[d_swap_rank]
+                            r = sign(r) * mags[r_swap_rank]
+                            s = mags[s_swap_rank]
+
                         end
 
                         setTensor(tf, i, j, t, recomposeTensor(d, r, s, θ))
@@ -441,20 +449,35 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
 
     # tf2 = loadTensorField2dFromFolder("../output/test", dims_tuple)
 
+    # numMismatches = 0
     # for t in 1:dims[3]
     #     for j in 1:dims[2]
     #         for i in 1:dims[1]
     #             if getTensor(tf,i,j,t) != getTensor(tf2,i,j,t)
+    #                 numMismatches += 1                    
     #                 println("mismatch at $((i,j,t))")
     #                 println(getTensor(tf,i,j,t))
     #                 println(decomposeTensor(getTensor(tf,i,j,t)))
     #                 println("---")
     #                 println(getTensor(tf2,i,j,t))
     #                 println(decomposeTensor(getTensor(tf2,i,j,t)))
+    #                 typeCode = typeCodes[i,j,t]
+    #                 d_sign_swap = (typeCode & (3 << 6)) >> 6
+    #                 r_sign_swap = (typeCode & (3 << 4)) >> 4
+    #                 d_largest_swap = (typeCode & (3 << 2)) >> 2
+    #                 r_over_s_swap = typeCode & 3
+    #                 θCode::UInt8 = θAndSFixCodes[i,j,t] & (2^6-1)
+    #                 sFix::UInt8 = ( θAndSFixCodes[i,j,t] & (2^6+2^7) ) >> 6                    
+    #                 println(θCode)
+    #                 println(sFix)
+    #                 println((d_sign_swap,r_sign_swap,d_largest_swap,r_over_s_swap))    
+    #                 println((dCodes[i,j,t],rCodes[i,j,t],sCodes[i,j,t]))           
+    #                 println("=======================")  
     #             end
     #         end
     #     end
     # end
+    # println("$numMismatches mismatches")
 
     # Save to file
     saveTensorField64("$output/$decompress_folder", tf)

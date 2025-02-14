@@ -274,6 +274,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     baseCompressorSplit = time()
 
     tf2 = loadTensorField2dFromFolder(output, dims)
+    tfIntermediate = duplicateTensorField2d(tf2)    
 
     d_intermediate = zeros(Float64, dims)
     r_intermediate = zeros(Float64, dims)
@@ -287,9 +288,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     s_final = zeros(Float64, dims)
     θ_final = zeros(Float64, dims)
 
-    d_codes = 127*ones(Int64, dims)
-    r_codes = 127*ones(Int64, dims)
-    s_codes = 127*ones(Int64, dims)
+    d_codes = zeros(Int64, dims)
+    r_codes = zeros(Int64, dims)
+    s_codes = zeros(Int64, dims)
     θ_codes = zeros(UInt8, dims)
 
     type_codes = zeros(UInt8, dims)
@@ -297,8 +298,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     angles_mandatory = zeros(Bool, dims)
     θ_quantized = Inf*ones(Float64, dims)
     sfix_codes = zeros(UInt8, dims)
-    eigenvector_special_cases = zeros(UInt8, dims)
-    has_ellipses = zeros(Bool, (dims[1]-1, dims[2]-1, dims[3], 2))
 
     function quantize_angle(i,j,t)
         θ_dif = θ_ground[i,j,t] - θ_intermediate[i,j,t]
@@ -318,49 +317,30 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     function raise_precision(i,j,t)
         if θ_final[i,j,t] == θ_quantized[i,j,t]
 
-            if precisions[i,j,t] >= 7
-                precisions[i,j,t] = 8
+            if precisions[i,j,t] >= MAX_PRECISION
+                precisions[i,j,t] = MAX_PRECISION+1
                 d_final[i,j,t] = d_ground[i,j,t]
                 r_final[i,j,t] = r_ground[i,j,t]
                 s_final[i,j,t] = s_ground[i,j,t]
                 θ_final[i,j,t] = θ_ground[i,j,t]
                 setTensor(tf2, i,j,t, getTensor(tf,i,j,t))
-                # if (i,j,t) == (47,30,1)
-                #     println("set 1")
-                # end
 
             else
                 precisions[i,j,t] += 1
                 if eigenvalue
-                    d_code = Int64(round((d_ground[i,j,t]-d_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb))
-
-                    if d_code < -127 || d_code > 127
-                        d_final[i,j,t] = d_ground[i,j,t]
-                        d_codes[i,j,t] = 255                        
-                    else
-                        d_final[i,j,t] = d_intermediate[i,j,t] + aeb * d_code / (2^precisions[i,j,t])
-                        d_codes[i,j,t] = d_code + 127                        
-                    end
+                    d_code = Int64(round((d_ground[i,j,t]-d_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb)) * (2^(MAX_PRECISION - precisions[i,j,t]))
+                    d_codes[i,j,t] = d_code
+                    d_final[i,j,t] = d_intermediate[i,j,t] + aeb * d_code / (2^MAX_PRECISION)
                 end
 
-                r_code = Int64(round((r_ground[i,j,t]-r_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb))
-                s_code = Int64(round((s_ground[i,j,t]-s_intermediate[i,j,t])*(2^precisions[i,j,t])/(sqrt(2)*aeb)))
+                r_code = Int64(round((r_ground[i,j,t]-r_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb)) * 2^(MAX_PRECISION - precisions[i,j,t])
+                s_code = Int64(round((s_ground[i,j,t]-s_intermediate[i,j,t])*(2^precisions[i,j,t])/(sqrt(2)*aeb))) * 2^(MAX_PRECISION - precisions[i,j,t])
 
-                if r_code < -127 || r_code > 127
-                    r_final[i,j,t] = r_ground[i,j,t]
-                    r_codes[i,j,t] = 255                    
-                else
-                    r_final[i,j,t] = r_intermediate[i,j,t] + aeb * r_code / (2^precisions[i,j,t])
-                    r_codes[i,j,t] = r_code + 127                    
-                end
+                r_final[i,j,t] = r_intermediate[i,j,t] + aeb * r_code / (2^MAX_PRECISION)
+                s_final[i,j,t] = s_intermediate[i,j,t] + sqrt(2) * aeb * s_code / (2^MAX_PRECISION)
 
-                if s_code < -127 || s_code > 127
-                    s_final[i,j,t] = s_ground[i,j,t]
-                    s_codes[i,j,t] = 255
-                else
-                    s_final[i,j,t] = s_intermediate[i,j,t] + sqrt(2) * aeb * s_code / (2^precisions[i,j,t])
-                    s_codes[i,j,t] = s_code + 127                    
-                end
+                r_codes[i,j,t] = r_code
+                s_codes[i,j,t] = s_code
 
                 if !angles_mandatory[i,j,t]
                     θ_final[i,j,t] = θ_intermediate[i,j,t]
@@ -386,23 +366,25 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             r_swap = r_final[coords...]
             s_swap = s_final[coords...]
             θ_swap = θ_final[coords...]
+            d = d_ground[coords...]
+            r = r_ground[coords...]
+            s = s_ground[coords...]
+            θ = θ_ground[coords...]
 
             s_fix = 0
             
-            if precisions[coords...] != 0
-                # account for s possibly being negative
-                if s_swap < -(sqrt(2)-1)*aeb
-                    s_swap += sqrt(2)*aeb
-                elseif s_swap < 0
-                    s_swap += (sqrt(2)-1)*aeb
-                end
+            # account for s possibly being negative
+            if s_swap < -(sqrt(2)-1)*aeb
+                s_swap += sqrt(2)*aeb
+            elseif s_swap < 0
+                s_swap += (sqrt(2)-1)*aeb
             end
 
-            d_sign_swap = false
-            r_sign_swap = false
-            d_largest_swap = false
-            r_over_s_swap = false
-            degenerateCase = false
+            d_sign_swap::Int8 = 0 # if 2: set all three to zero
+            r_sign_swap::Int8 = 0 # if 2: set r = 0. If 3, set r=s=0
+            d_largest_swap::Int8 = 0 # if 2: set |d|=s as co-largest. if 3: set |d|=|r| as co-largest
+            r_over_s_swap::Int8 = 0 # if 2: set |r|=s
+            degenerateCase = false            
 
             # Check whether any modifications need to take place at all.
             modifications = false
@@ -423,120 +405,140 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 eigenvalueGround = 0
             end
 
+
+
             if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(getTensor(tf,coords...)-getTensor(tf2,coords...))) <= aeb)
+                modifications = true
 
-                # check whether any of d, r, or s are equal such that swapping wouldn't work. If so, raise precision.
-                degenerateCase = ((eigenvalueGround == POSITIVE_SCALING || eigenvalueGround == NEGATIVE_SCALING) && (abs(d_swap) == abs(r_swap) || abs(d_swap) == s_swap)) || abs(r_swap) == s_swap
-
-                if !degenerateCase
-                    modifications = true
-
-                    if precisions[coords...] != 0
-                        # account for s possibly being negative
-                        if s_swap < -(sqrt(2)-1)*aeb
-                            s_swap += sqrt(2)*aeb
-                        elseif s_swap < 0
-                            s_swap += (sqrt(2)-1)*aeb
-                        end
-                    end
+                if isClose(d,0.0) && isClose(s,0.0) && isClose(r,0.0)
+                    d_sign_swap = 2
+                    d_swap = 0.0
+                    r_swap = 0.0
+                    s_swap = 0.0
+                else
 
                     # account for s possibly being out of range (max error is sqrt(2)aeb )
-                    if s_swap - s_ground[coords...] > aeb
-                        s_swap -= (sqrt(2)-1)*aeb
+                    if s_swap - s > aeb
+                        s_swap -= (sqrt(2)-1.0)*aeb
                         s_fix = 1
-                    elseif s_swap - s_ground[coords...] < -aeb
-                        s_swap += (sqrt(2)-1)*aeb
+                    elseif s_swap - s < -aeb
+                        s_swap += (sqrt(2)-1.0)*aeb
                         s_fix = 2
                     end
 
-                    # eigenvector special cases and r_sign_swap
-
-                    if eigenvector || ( abs(r_ground[coords...]) >= abs(d_ground[coords...]) && s_ground[coords...] >= abs(d_ground[coords...]) && abs(r_ground[coords...]) == s_ground[coords...] )
-                        if eigenvectorGround == SYMMETRIC && eigenvectorRecon != eigenvectorGround
-                            eigenvector_special_cases[coords...] = 1
-                        else
-                            r_sign_swap = ( r_ground[coords...] > 0 ) ⊻ ( r_swap > 0 )
-                            if (eigenvectorGround == PI_BY_4 || eigenvectorGround == MINUS_PI_BY_4) && eigenvectorRecon != eigenvectorGround
-                                eigenvector_special_cases[coords...] = 2
+                    # correct signs
+                    if eigenvector || ( !isLess(abs(r),abs(d)) && !isLess(abs(r),s) )
+                        if isGreater(r,0.0) && isLess(r_swap,0.0) # the case where r_swap is zero is ambiguous so we cannot break the tie either way
+                            r_sign_swap = 1
+                            r_swap += aeb 
+                        elseif isClose(r,0.0) && !isClose(r_swap,0.0)
+                            if isClose(s,0.0) && !isClose(s_swap,0.0)
+                                r_sign_swap = 3
+                                r_swap = 0.0
+                                s_swap = 0.0
+                            else
+                                r_sign_swap = 2
+                                r_swap = 0.0
                             end
-                        end
-                    elseif abs(r_ground[coords...]) == abs(s_ground[coords...]) && (abs(r_ground[coords...]) > abs(d_ground[coords...]) || abs(s_ground[coords...]) > abs(d_ground[coords...]))
-                        eigenvector_special_cases[coords...] = 1
-                    end
-
-                    if r_sign_swap
-                        if r_swap < 0
-                            r_swap += aeb
-                        else
+                        elseif isLess(r,0.0) && isGreater(r_swap,0.0)
+                            r_sign_swap = 1
                             r_swap -= aeb
                         end
                     end
 
-                    # d sign swap
+                    if eigenvalue && !isLess(abs(d),s) && !isLess(abs(d),abs(r))
+                        if isGreater(d,0.0) && !isGreater(d_swap,0.0)
+                            d_sign_swap = 1
+                            d_swap += aeb
+                        elseif isLess(d,0.0) && !isLess(d,0.0)
+                            d_sign_swap = 1
+                            d_swap -= aeb
+                        end
+                    end
 
-                    if eigenvalue
-                        d_sign_swap = ( abs(d_ground[coords...]) > abs(r_ground[coords...]) && abs(d_ground[coords...]) > s_ground[coords...] ) && ( (d_ground[coords...] > 0) ⊻ (d_swap > 0) )
+                    # order the typical values in terms of size
+                    d_rank, r_rank, s_rank = rankOrder(abs(d), abs(r), s)
+                    d_swap_rank, r_swap_rank, s_swap_rank = rankOrder(abs(d_swap), abs(r_swap), s_swap)
 
-                        if d_sign_swap
-                            if d_swap < 0
-                                d_swap += aeb
+                    mags = MArray{Tuple{3},Float64}(0.0,0.0,0.0)
+                    mags[d_swap_rank] = abs(d_swap)
+                    mags[r_swap_rank] = abs(r_swap)
+                    mags[s_swap_rank] = s_swap
+
+                    # do simple swaps to get the (tie-broken) permuatation order to be equal
+                    if eigenvalue 
+                        if d_rank == 1 && d_swap_rank != 1
+                            d_largest_swap = 1
+                            d_swap_rank = 1                        
+                            if s_swap_rank == 1
+                                s_swap_rank = 2
                             else
-                                d_swap -= aeb
+                                r_swap_rank = 2
                             end
-                        end
-                    end
-
-                    # magnitude swap codes
-
-                    if eigenvalue
-                        d_largest_swap = ( abs(d_ground[coords...]) >= abs(r_ground[coords...]) && abs(d_ground[coords...]) >= s_ground[coords...] ) ⊻ (abs(d_swap) > abs(r_swap) && abs(d_swap) > s_swap)
-
-                        if d_largest_swap
-                            # swap d with the larger of r or s
-                            if abs(r_swap) > s_swap
-                                sign_d = (d_swap >= 0) ? 1 : -1
-                                sign_r = (r_swap >= 0) ? 1 : -1
-                                temp = d_swap
-                                d_swap = sign_d * abs(r_swap)
-                                r_swap = sign_r * abs(temp)
+                        elseif d_rank != 1 && d_swap_rank == 1
+                            d_largest_swap = 1
+                            d_swap_rank = 2
+                            if s_swap_rank == 2
+                                s_swap_rank = 1
                             else
-                                sign_d = (d_swap >= 0) ? 1 : -1
-                                temp = d_swap
-                                d_swap = sign_d * s_swap
-                                s_swap = abs(temp)
+                                r_swap_rank = 1
                             end
                         end
-
                     end
 
-                    if eigenvector || (abs(r_ground[coords...]) >= abs(d_ground[coords...]) || s_ground[coords...] >= abs(d_ground[coords...]))
-                        if eigenvector_special_cases[coords...] == 0
-                            r_over_s_swap = (abs(r_ground[coords...]) >= s_ground[coords...]) ⊻ (abs(r_swap) >= s_swap)
-
-                            if r_over_s_swap
-                                sign_r = (r_swap >= 0) ? 1 : -1
-                                temp = r_swap
-                                r_swap = sign_r * s_swap
-                                s_swap = abs(temp)
-                            end
-                        elseif eigenvector_special_cases[coords...] == 1
-                            sign_r = (r_swap >= 0) ? 1 : -1
-                            r_swap = sign_r * s_swap
-                        else
-                            r_swap = 0.0
-                        end
+                    if (eigenvector && ((r_rank > s_rank) ⊻ (r_swap_rank > s_swap_rank))) || (r_rank == 1 && r_swap_rank != 1) || (s_rank == 1 && s_swap_rank != 1)
+                        r_over_s_swap = 1
+                        temp = r_swap_rank
+                        r_swap_rank = s_swap_rank
+                        s_swap_rank = temp
                     end
-                end # end if not degenerate case
+
+                    # Now do the swaps for if two things are equal. No shuffling at this point; only setting.
+                    if eigenvalue && d_swap_rank == 1 && isClose(s,abs(d)) && !isClose(mags[s_swap_rank],mags[d_swap_rank])
+                        d_largest_swap = 2
+                        s_swap_rank = 1
+                    end
+
+                    if (eigenvector || r_rank == 1) && isClose(abs(r),s) && !isClose(mags[r_swap_rank],mags[s_swap_rank])
+                        r_over_s_swap = 2
+                        maxRank = min(r_swap_rank,s_swap_rank)
+                        r_swap_rank = maxRank
+                        s_swap_rank = maxRank
+                    end
+
+                    if eigenvalue && d_swap_rank == 1 && isClose(abs(r),abs(d)) && !isClose(mags[r_swap_rank],mags[d_swap_rank])
+                        d_largest_swap = 3
+                        r_swap_rank = 1
+                    end
+
+                    # set everything to its ranked magnitude
+                    d_swap = sign(d_swap) * mags[d_swap_rank]
+                    r_swap = sign(r_swap) * mags[r_swap_rank]
+                    s_swap = mags[s_swap_rank]
+
+                end
+
+                # check whether any of d, r, or s are equal such that swapping wouldn't work. If so, raise precision.
+                degenerateCase = (eigenvalue && isClose(abs(d_swap),abs(r_swap)) && !isGreater(s_swap, abs(d_swap)) && !(isClose(abs(d),abs(r)) && !isGreater(s,abs(d)))) ||
+                                (eigenvalue && isClose(abs(d_swap),s_swap) && !isGreater(abs(r_swap),abs(d_swap)) && !(isClose(abs(d),s) && !isGreater(abs(r),abs(d)))) ||
+                                (eigenvalue && isClose(abs(r_swap),s_swap) && !isGreater(abs(d_swap),abs(r_swap)) && !(isClose(abs(r),s) && !isGreater(abs(d),abs(r)))) ||
+                                (eigenvector && isClose(abs(r_swap),s_swap) && !isClose(abs(r),s)) ||
+                                (eigenvector && isClose(r_swap, 0.0) && !isClose(r,0.0))
+
             end # end if the default classifications do not match
 
             # check whether case is degenerate, or whether no changes were made, or whether changes were made and those changes are valid.
             # then, tighten or terminate accordingly.
             if degenerateCase
                 raise_precision(coords...)
-            elseif precisions[coords...] >= 8 || (!modifications && precisions[coords...] == 0 && θ_final[coords...] == θ_intermediate[coords...])
+            elseif precisions[coords...] > MAX_PRECISION || (!modifications && (precisions[coords...] == 0) && θ_final[coords...] == θ_intermediate[coords...])
                 pending = false
             else
-                reconstructed = recomposeTensor(d_swap, r_swap, s_swap, θ_swap)
+                if !modifications && d_codes[coords...] == 0 && r_codes[coords...] == 0 && s_codes[coords...] == 0 && θ_final[coords...] == θ_intermediate[coords...]
+                    reconstructed = getTensor(tfIntermediate, coords...)
+                else
+                    reconstructed = recomposeTensor(d_swap, r_swap, s_swap, θ_swap)
+                end
                 d2, r2, s2, θ2 = decomposeTensor(reconstructed)
 
                 if maximum(abs.(reconstructed - getTensor(tf, coords...))) <= aeb &&
@@ -545,15 +547,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                     pending = false
                     sfix_codes[coords...] = s_fix
-                    type_codes[coords...] = (d_sign_swap << 3) | (r_sign_swap << 2) | (d_largest_swap << 1) | (r_over_s_swap)
-
+                    type_codes[coords...] = (d_sign_swap << 6) | (r_sign_swap << 4) | (d_largest_swap << 2) | (r_over_s_swap)
                     setTensor(tf2, coords..., reconstructed)
-                    # if coords == (47,30,1)
-                    #     println("set 2")
-                    # end
                 else
                     raise_precision(coords...)
-                    eigenvector_special_cases[coords...] = 0 # reset special case as raising precision could affect this.
                 end
             end
 
@@ -643,7 +640,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 # Single vertex: swap values into place.
                                 for v in newVertices
                                     if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
-                                        precisions[vertexCoords[v]...] = 8
+                                        precisions[vertexCoords[v]...] = MAX_PRECISION+1
                                         setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
                                         θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
                                     else
@@ -684,9 +681,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                     while groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
                                         if ll[1] && ll[2] && ll[3]
 
-                                            precisions[vertexCoords[1]...] = 8
-                                            precisions[vertexCoords[2]...] = 8
-                                            precisions[vertexCoords[3]...] = 8
+                                            precisions[vertexCoords[1]...] = MAX_PRECISION+1
+                                            precisions[vertexCoords[2]...] = MAX_PRECISION+1
+                                            precisions[vertexCoords[3]...] = MAX_PRECISION+1
 
                                             setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
                                             setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
@@ -723,10 +720,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                                 end
                                             end
                                             
-                                            if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] < 8
+                                            if θ_codes[vertexCoords[changeTensor]...] != 0 && precisions[vertexCoords[changeTensor]...] <= MAX_PRECISION
 
                                                 θ_final[vertexCoords[changeTensor]...] = θ_quantized[vertexCoords[changeTensor]...]
-
                                                 setTensor(tf2, vertexCoords[changeTensor]..., recomposeTensor(d_final[vertexCoords[changeTensor]...],
                                                                                                             r_final[vertexCoords[changeTensor]...],
                                                                                                             s_final[vertexCoords[changeTensor]...],
@@ -777,61 +773,23 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                         gtval.RPArray == rtval.RPArray && gtval.RNArray == rtval.RNArray && (!eigenvector || (gtval.vertexTypesEigenvector == rtval.vertexTypesEigenvector &&
                                         gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
 
-                                    if precisions[vertexCoords[1]...] != 8 && ((gtval.vertexTypesEigenvalue[1] != rtval.vertexTypesEigenvalue[1] && gtval.vertexTypesEigenvalue[1] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
-                                        (eigenvector && gtval.vertexTypesEigenvector[1] != rtval.vertexTypesEigenvector[1] && gtval.vertexTypesEigenvector[1] in [DegenRP, SYM, DegenRN]) ||
-                                        gtval.hits_corners[1])
-
-                                        precisions[vertexCoords[1]...] = 8
-                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                        θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
-                                        if top
-                                            vertices_modified[3] = true
-                                        else
-                                            vertices_modified[1] = true
-                                        end
-
-                                    elseif precisions[vertexCoords[2]...] != 8 && ((gtval.vertexTypesEigenvalue[2] != rtval.vertexTypesEigenvalue[2] && gtval.vertexTypesEigenvalue[2] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
-                                        (eigenvector && gtval.vertexTypesEigenvector[2] != rtval.vertexTypesEigenvector[2] && gtval.vertexTypesEigenvector[2] in [DegenRP, SYM, DegenRN]) ||
-                                        gtval.hits_corners[2])
-
-                                        precisions[vertexCoords[2]...] = 8
-                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                        θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
+                                    raise_precision(vertexCoords[1]...)
+                                    processPoint(vertexCoords[1])
+        
+                                    raise_precision(vertexCoords[2]...)
+                                    processPoint(vertexCoords[2])
+        
+                                    raise_precision(vertexCoords[3]...)
+                                    processPoint(vertexCoords[3])
+        
+                                    if top
                                         vertices_modified[2] = true
-
-                                    elseif precisions[vertexCoords[3]...] != 8 && ((gtval.vertexTypesEigenvalue[3] != rtval.vertexTypesEigenvalue[3] && gtval.vertexTypesEigenvalue[3] in [DPRP,DPRN,DNRP,DNRN,Z]) ||
-                                    (eigenvector && gtval.vertexTypesEigenvector[3] != rtval.vertexTypesEigenvector[3] && gtval.vertexTypesEigenvector[3] in [DegenRP, SYM, DegenRN]) ||
-                                    gtval.hits_corners[3])
-
-                                        precisions[vertexCoords[3]...] = 8
-                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
-                                        θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
-
-                                        if top
-                                            vertices_modified[4] = true
-                                        else
-                                            vertices_modified[3] = true
-                                        end
-
+                                        vertices_modified[3] = true
+                                        vertices_modified[4] = true
                                     else
-                                        raise_precision(vertexCoords[1]...)
-                                        processPoint(vertexCoords[1])
-            
-                                        raise_precision(vertexCoords[2]...)
-                                        processPoint(vertexCoords[2])
-            
-                                        raise_precision(vertexCoords[3]...)
-                                        processPoint(vertexCoords[3])
-            
-                                        if top
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                            vertices_modified[4] = true
-                                        else
-                                            vertices_modified[1] = true
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                        end
+                                        vertices_modified[1] = true
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
                                     end
 
                                     rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)           
@@ -948,8 +906,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     processSplit = time()
 
     # Encoder (we will play around with concatenating the various codes later)
-    base_codes = zeros(Int64, dims)
-    θ_and_sfix_codes = zeros(Int64, dims)
+    θ_and_sfix_codes = zeros(UInt8, dims)
 
     lossless_d::Array{Float64} = []
     lossless_r::Array{Float64} = []
@@ -966,14 +923,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     for t in 1:dims[3]
         for j in 1:dims[2]
             for i in 1:dims[1]
-                base_codes[i,j,t] = type_codes[i,j,t] | (precisions[i,j,t] << 4)
 
-                if precisions[i,j,t] >= 8
+                if precisions[i,j,t] > MAX_PRECISION
                     θ_and_sfix_codes[i,j,t] = 0
-                    eigenvector_special_cases[i,j,t] = 0
-                    d_codes[i,j,t] = 127
-                    r_codes[i,j,t] = 127
-                    s_codes[i,j,t] = 127
+                    d_codes[i,j,t] = 0
+                    r_codes[i,j,t] = 0
+                    s_codes[i,j,t] = 0
+                    type_codes[i,j,t] = 255
 
                     tensor = getTensor(tf, i, j, t)
                     push!(lossless_A, tensor[1,1])
@@ -981,22 +937,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     push!(lossless_C, tensor[2,1])
                     push!(lossless_D, tensor[2,2])
                 else
-                    if θ_final[i,j,t] == θ_quantized[i,j,t]
+                    if θ_final[i,j,t] == θ_quantized[i,j,t]                               
                         θ_and_sfix_codes[i,j,t] = θ_codes[i,j,t] | (sfix_codes[i,j,t] << 6)
                     else
                         θ_and_sfix_codes[i,j,t] = (sfix_codes[i,j,t] << 6)
-                    end
-
-                    if d_codes[i,j,t] == 255
-                        push!(lossless_d, d_ground[i,j,t])
-                    end
-
-                    if r_codes[i,j,t] == 255
-                        push!(lossless_r, r_ground[i,j,t])
-                    end
-
-                    if s_codes[i,j,t] == 255
-                        push!(lossless_s, s_ground[i,j,t])
                     end
 
                     if θ_codes[i,j,t] == 2^6-1
@@ -1009,12 +953,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         end
     end
 
-    baseCodeBytes = huffmanEncode(vec(base_codes))
+    # saveTensorField64("../output/test", tf2)
+
+    typeCodeBytes = huffmanEncode(vec(type_codes))
     θAndSfixBytes = huffmanEncode(vec(θ_and_sfix_codes))
     dBytes = huffmanEncode(vec(d_codes))
     rBytes = huffmanEncode(vec(r_codes))
     sBytes = huffmanEncode(vec(s_codes))
-    specialCaseBytes = huffmanEncode(vec(eigenvector_special_cases))
 
     vals_file = open("$output/vals.bytes", "w")
 
@@ -1025,8 +970,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, aeb)
 
     # write various codes
-    write(vals_file, length(baseCodeBytes))
-    write(vals_file, baseCodeBytes)
+    write(vals_file, length(typeCodeBytes))
+    write(vals_file, typeCodeBytes)
     write(vals_file, length(θAndSfixBytes))
     write(vals_file, θAndSfixBytes)
     write(vals_file, length(dBytes))
@@ -1035,24 +980,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     write(vals_file, rBytes)
     write(vals_file, length(sBytes))
     write(vals_file, sBytes)
-    write(vals_file, length(specialCaseBytes))
-    write(vals_file, specialCaseBytes)
 
     # write lossless values (we split them up like this)
     # so that perhaps the locality will be better for lossless compression
     # e.g. floating point numbers will have similar exponents.
-    write(vals_file, length(lossless_d))
-    if length(lossless_d) > 0
-        write(vals_file, lossless_d)
-    end
-    write(vals_file, length(lossless_r))
-    if length(lossless_r) > 0
-        write(vals_file, lossless_r)
-    end
-    write(vals_file, length(lossless_s))
-    if length(lossless_s) > 0
-        write(vals_file, lossless_s)
-    end
     write(vals_file, length(lossless_θ))
     if length(lossless_θ) > 0
         write(vals_file, lossless_θ)
