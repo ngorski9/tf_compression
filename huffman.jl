@@ -12,51 +12,6 @@ struct HuffmanNode
     right::Int64
 end
 
-# hopefully we will not use these any more...
-# function getCodeList(node::HuffmanInnerNode)
-#     codes = Dict{Int64, String}()
-#     left_codes = getCodeList(node.left)
-#     right_codes = getCodeList(node.right)
-#     for k in keys(left_codes)
-#         codes[k] = "0" * left_codes[k]
-#     end
-#     for k in keys(right_codes)
-#         codes[k] = "1" * right_codes[k]
-#     end
-#     return codes
-# end
-
-# function getCodeList(node::HuffmanLeafNode)
-#     return Dict(node.name => "")
-# end
-
-# function getCodeList(frequencies::Dict{Int64, Int64})
-#     nodes::Array{HuffmanNode} = Array{HuffmanNode}(undef, 0)
-#     sortedKeys = sort(collect(keys(frequencies)))
-#     for k in sortedKeys
-#         push!(nodes, HuffmanLeafNode(k, frequencies[k]))
-#     end
-
-#     while length(nodes) > 1
-#         sort!(nodes, rev=true, by= f(x)=x.value )
-#         small_1 = pop!(nodes)
-#         small_2 = pop!(nodes)
-#         push!(nodes, HuffmanInnerNode(small_1, small_2, small_1.value+small_2.value))
-#     end
-
-#     return getCodeList(nodes[1])
-# end
-
-# function bitStringToByte(bitString)
-#     byte::UInt8 = 0
-#     for j in 1:8
-#         if bitString[j] == '1'
-#             byte += 2^(j-1)
-#         end
-#     end
-#     return byte
-# end
-
 function makeHuffmanTree(frequencies::Dict{Int64,Int64}, symbols::Array{Int64})
     numSymbols = length(symbols)
     heapList::Array{Tuple{Int64,Int64,Int64}} = Array{Tuple{Int64,Int64,Int64}}(undef,numSymbols)
@@ -119,127 +74,101 @@ function recursiveGetHuffmanCodes(tree::Array{HuffmanNode}, node::Int64, codes::
     end
 end
 
-# # Codes can only be integer type. Currently, must be Int64 but we'll change that if we need to.
-# function huffmanEncode(symbols)
-#     frequencies = Dict{Int64, Int64}()
-#     symbols::Array{Int64} = Array{Int64}([])
+# Codes can only be integer type. Currently, must be Int64 but we'll change that if we need to.
+function huffmanEncode(symbols)
+    frequencies = Dict{Int64, Int64}()
+    symbolTypes::Array{Int64} = Array{Int64}([])
 
-#     for s in symbols
-#         sI64 = Int64(s)
-#         if haskey(frequencies, sI64)
-#             frequencies[sI64] += 1
-#         else
-#             frequencies[sI64] = 1
-#             push!(symbols, sI64)
-#         end
-#     end
+    for s in symbols
+        sI64 = Int64(s)
+        if haskey(frequencies, sI64)
+            frequencies[sI64] += 1
+        else
+            frequencies[sI64] = 1
+            push!(symbolTypes, sI64)
+        end
+    end
 
-#     output::Array{UInt8} = []
-#     nextOut::UInt8 = 0
-#     for s in symbols
-#         bitString *= codes[s]
-#         while length(bitString) >= 8
+    tree = makeHuffmanTree(frequencies, symbolTypes)
+    codes = getHuffmanCodes(tree)
 
-#             byte = bitStringToByte(bitString[1:8])
+    output::Array{UInt8} = []
+    nextOut::UInt8 = 0
+    nextOutPosition = 0
+    for s in symbols
+        code = codes[s]
+        for bit in code
+            if bit == 1
+                nextOut |= 1 << nextOutPosition
+            end
 
-#             push!(output, byte)
-#             bitString = bitString[9:end]
+            nextOutPosition += 1
+            if nextOutPosition == 8
+                push!(output, nextOut)
+                nextOut = 0
+                nextOutPosition = 0
+            end
+        end
+    end
+    push!(output, nextOut)
 
-#         end
-#     end
+    numSymbolTypes = length(symbolTypes)
+    header::Array{Int64} = Array{Int64}(undef, 2*numSymbolTypes+1)
+    header[1] = numSymbolTypes
+    for i in 1:numSymbolTypes
+        header[2*i] = symbolTypes[i]
+        header[2*i+1] = frequencies[symbolTypes[i]]
+    end
 
-#     if mod == 0
-#         padding = 0
-#     else
-#         padding = 8 - length(bitString)
-#         bitString *= ("0"^padding)
-#         byte = bitStringToByte(bitString)
-#         push!(output, byte)
-#     end
+    headerBytes::Array{UInt8} = reinterpret(UInt8, header)
+    return cat(headerBytes, output, dims=(1,1))
 
-#     symbols = collect(keys(frequencies))
-#     numSymbols = length(symbols)
-#     header::Array{Int64} = Array{Int64}(undef, 2*numSymbols+2)
-#     header[1] = numSymbols
-#     header[2] = padding
-#     for i in 1:numSymbols
-#         header[2*i+1] = symbols[i]
-#         header[2*i+2] = frequencies[symbols[i]]
-#     end
+end
 
-#     headerBytes::Array{UInt8} = reinterpret(UInt8, header)
-#     return cat(headerBytes, output, dims=(1,1))
+function huffmanDecode(bytes::Array{UInt8})
+    numSymbolTypes = reinterpret(Int64, bytes[1:8])[1]
+    header = reinterpret(Int64, bytes[9:8+16*numSymbolTypes])
+    body = bytes[9+16*numSymbolTypes:length(bytes)]
 
-# end
+    frequencies = Dict{Int64, Int64}()
+    symbolTypes::Array{Int64} = Array{Int64}(undef, numSymbolTypes)
+    totalLength = 0
 
-# function huffmanDecode(bytes::Array{UInt8})
-#     tableSize, padding = reinterpret(Int64, bytes[1:16])
-#     header = reinterpret(Int64, bytes[17:16+16*tableSize])
-#     body = bytes[17+16*tableSize:length(bytes)]
-#     frequencies = Dict{Int64, Int64}()
-#     for i in 1:tableSize
-#         frequencies[header[2*i-1]] = header[2*i]
-#     end
+    for i in 1:numSymbolTypes
+        symbolTypes[i] = header[2*i-1]
+        frequencies[header[2*i-1]] = header[2*i]
+        totalLength += header[2*i]
+    end
 
-#     bitString = ""
+    tree = makeHuffmanTree(frequencies, symbolTypes)
+    root = length(tree)
 
-#     codes_by_value = getCodeList(frequencies)
-#     codes = Dict{String, Int64}()
+    out = Array{Int64}(undef, totalLength)
 
-#     for k in keys(codes_by_value)
-#         codes[codes_by_value[k]] = k
-#     end
+    currentByteNumber = 1
+    currentByte = body[1]
+    currentPosition = 0
 
-#     out::Array{Int64} = []
+    for i in 1:totalLength
+        node = root
+        while tree[node].left != -1 # test if it is an internal node
+            if currentByte & (1 << currentPosition) == 0
+                node = tree[node].left
+            else
+                node = tree[node].right
+            end
+            currentPosition += 1
+            if currentPosition == 8
+                currentPosition = 0
+                currentByteNumber += 1
+                currentByte = body[currentByteNumber]
+            end
+        end
+        out[i] = tree[node].elt
+    end
 
-#     for byte in body[1:end-1]
-#         for i in 1:8
-#             if byte % 2 == 1
-#                 bitString *= "1"
-#             else
-#                 bitString *= "0"
-#             end
-#             byte ÷= 2
-#         end            
+    return out
 
-#         code = ""
-#         i = 1
-#         while i <= length(bitString)
-#             code *= bitString[i]
-#             if haskey(codes, code)
-#                 push!(out, codes[code])
-#                 bitString = bitString[length(code)+1:end]
-#                 i = 1
-#                 code = ""
-#             else
-#                 i += 1
-#             end
-#         end
-
-#     end
-
-#     byte = body[end]
-#     for i in 1:8
-#         if byte % 2 == 1
-#             bitString *= "1"
-#         else
-#             bitString *= "0"
-#         end
-#         byte ÷= 2
-#     end    
-#     bitString = bitString[1:end-padding]    
-
-#     code = ""
-#     for i in eachindex(bitString)
-#         code *= bitString[i]
-#         if haskey(codes, code)
-#             push!(out, codes[code])
-#             code = ""
-#         end
-#     end
-
-#     return out
-
-# end
+end
 
 end
