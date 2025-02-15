@@ -305,19 +305,20 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             θ_dif += 2pi
         end
 
-        θ_code = UInt8(round( θ_dif * (2^6-1) / 2pi ))
+        θ_code::UInt8 = UInt8(round( θ_dif * (2^6-1) / 2pi ))
         if θ_code == 2^6-1
             θ_code = 0
         end
         θ_codes[i,j,t] = θ_code
         θ_quantized[i,j,t] = θ_intermediate[i,j,t] + 2pi/(2^6-1)*θ_code
+        return nothing
     end
 
     # nested function to raise the precision of a 
     function raise_precision(i,j,t)
         if θ_final[i,j,t] == θ_quantized[i,j,t]
 
-            if precisions[i,j,t] >= MAX_PRECISION
+            if precisions[i,j,t] == MAX_PRECISION
                 precisions[i,j,t] = MAX_PRECISION+1
                 d_final[i,j,t] = d_ground[i,j,t]
                 r_final[i,j,t] = r_ground[i,j,t]
@@ -325,7 +326,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 θ_final[i,j,t] = θ_ground[i,j,t]
                 setTensor(tf2, i,j,t, getTensor(tf,i,j,t))
 
-            else
+            elseif precisions[i,j,t] < MAX_PRECISION
                 precisions[i,j,t] += 1
                 if eigenvalue
                     d_code = Int64(round((d_ground[i,j,t]-d_intermediate[i,j,t])*(2^precisions[i,j,t])/aeb)) * (2^(MAX_PRECISION - precisions[i,j,t]))
@@ -353,10 +354,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
             θ_final[i,j,t] = θ_quantized[i,j,t]
         end
+        return nothing # not sure why but for some reason it thinks this can return a float64, so I have to put this.
     end # end function raise_precision
 
     # internal function 2
-    function processPoint(coords)
+    function processPoint(coords, ground::SMatrix{2,2,Float64,4})
+
+        if precisions[coords...] > MAX_PRECISION
+            return nothing
+        end
 
         pending = true
 
@@ -393,21 +399,21 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 eigenvectorRecon = classifyTensorEigenvector(r_swap, s_swap)
                 eigenvectorGround = classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])
             else
-                eigenvectorRecon = 0
-                eigenvectorGround = 0
+                eigenvectorRecon::Int8 = 0
+                eigenvectorGround::Int8 = 0
             end
 
             if eigenvalue
                 eigenvalueRecon = classifyTensorEigenvalue(d_swap, r_swap, s_swap)
                 eigenvalueGround = classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...])
             else
-                eigenvalueRecon = 0
-                eigenvalueGround = 0
+                eigenvalueRecon::Int8 = 0
+                eigenvalueGround::Int8 = 0
             end
 
 
 
-            if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(getTensor(tf,coords...)-getTensor(tf2,coords...))) <= aeb)
+            if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(ground-getTensor(tf2,coords...))) <= aeb)
                 modifications = true
 
                 if isClose(d,0.0) && isClose(s,0.0) && isClose(r,0.0)
@@ -541,7 +547,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 end
                 d2, r2, s2, θ2 = decomposeTensor(reconstructed)
 
-                if maximum(abs.(reconstructed - getTensor(tf, coords...))) <= aeb &&
+                if maximum(abs.(reconstructed - ground)) <= aeb &&
                     (!eigenvector || classifyTensorEigenvector(r2, s2) == classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])) &&
                     (!eigenvalue || classifyTensorEigenvalue(d2, r2, s2) == classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...]))
 
@@ -616,6 +622,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             vertices_modified = [false,false,false,false]
 
                             vertexCoords = getCellVertexCoords(x,y,t,top)
+                            groundTensors = (getTensor(tf,vertexCoords[1]...), getTensor(tf,vertexCoords[2]...), getTensor(tf,vertexCoords[3]...))
 
                             if processNewVertices
 
@@ -644,9 +651,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                         setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
                                         θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
                                     else
-                                        processPoint(vertexCoords[v])
+                                        processPoint(vertexCoords[v], groundTensors[v])
                                     end
-                                    processPoint(vertexCoords[v])
+                                    processPoint(vertexCoords[v], groundTensors[v])
                                 end
 
                             end
@@ -656,7 +663,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                             # Process individual cells to check circular points.
                             if eigenvector
-                                groundCircularPointType = getCircularPointType(tf, x, y, t, top)
+                                groundCircularPointType = getCircularPointType(groundTensors[1],groundTensors[2],groundTensors[3])
                                 if groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
 
                                     θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
@@ -685,9 +692,9 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                             precisions[vertexCoords[2]...] = MAX_PRECISION+1
                                             precisions[vertexCoords[3]...] = MAX_PRECISION+1
 
-                                            setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                            setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                            setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
+                                            setTensor(tf2, vertexCoords[1]..., groundTensors[1])
+                                            setTensor(tf2, vertexCoords[2]..., groundTensors[2])
+                                            setTensor(tf2, vertexCoords[3]..., groundTensors[3])
 
                                             θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
                                             θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
@@ -728,7 +735,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                                                                                             s_final[vertexCoords[changeTensor]...],
                                                                                                             θ_final[vertexCoords[changeTensor]...]))
                                                                                                             
-                                                processPoint(vertexCoords[changeTensor])
+                                                processPoint(vertexCoords[changeTensor],groundTensors[changeTensor])
 
                                                 θe[changeTensor] = abs(θ_final[vertexCoords[changeTensor]...] - θ_ground[vertexCoords[changeTensor]...])
 
@@ -766,7 +773,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             # process cell topology
                             if eigenvalue
                                 # we need to name gt something different in the 2 cases for type stability purposes.
-                                gtval = tensorField.classifyCellEigenvalue(tf, x, y, t, top, eigenvector)
+                                gtval = cellTopology.classifyCellEigenvalue(groundTensors[1],groundTensors[2],groundTensors[3],eigenvector)
                                 rtval = tensorField.classifyCellEigenvalue(tf2, x, y, t, top, eigenvector)
                                 
                                 while !( gtval.vertexTypesEigenvalue == rtval.vertexTypesEigenvalue && gtval.DPArray == rtval.DPArray && gtval.DNArray == rtval.DNArray &&
@@ -774,13 +781,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                         gtval.RPArrayVec == rtval.RPArrayVec && gtval.RNArrayVec == rtval.RNArrayVec )))
 
                                     raise_precision(vertexCoords[1]...)
-                                    processPoint(vertexCoords[1])
+                                    processPoint(vertexCoords[1],groundTensors[1])
         
                                     raise_precision(vertexCoords[2]...)
-                                    processPoint(vertexCoords[2])
+                                    processPoint(vertexCoords[2],groundTensors[2])
         
                                     raise_precision(vertexCoords[3]...)
-                                    processPoint(vertexCoords[3])
+                                    processPoint(vertexCoords[3],groundTensors[3])
         
                                     if top
                                         vertices_modified[2] = true
@@ -800,13 +807,13 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 rtvec = tensorField.classifyCellEigenvector(tf2, x, y, t, top)
                                 while gtvec.vertexTypes != rtvec.vertexTypes || gtvec.RPArray != rtvec.RPArray || gtvec.RNArray != rtvec.RNArray
                                     raise_precision(vertexCoords[1]...)
-                                    processPoint(vertexCoords[1])
+                                    processPoint(vertexCoords[1],groundTensors[1])
         
                                     raise_precision(vertexCoords[2]...)
-                                    processPoint(vertexCoords[2])
+                                    processPoint(vertexCoords[2],groundTensors[2])
         
                                     raise_precision(vertexCoords[3]...)
-                                    processPoint(vertexCoords[3])
+                                    processPoint(vertexCoords[3],groundTensors[3])
         
                                     if top
                                         vertices_modified[2] = true
@@ -908,9 +915,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
     # Encoder (we will play around with concatenating the various codes later)
     θ_and_sfix_codes = zeros(UInt8, dims)
 
-    lossless_d::Array{Float64} = []
-    lossless_r::Array{Float64} = []
-    lossless_s::Array{Float64} = []
     lossless_θ::Array{Float64} = []
 
     lossless_A::Array{Float64} = []

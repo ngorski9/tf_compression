@@ -14,10 +14,10 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (101,101,1)
+    dims = (384,384,1)
     eb = 0.01
     naive = false
-    eigenvalue = false
+    eigenvalue = true
     eigenvector = true
     minCrossing = 0.0001
     baseCompressor = "sz3"
@@ -50,4 +50,4 @@ function main()
     printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, eigenvalue, eigenvector, minCrossing)
 end
 
-main()
+# main()

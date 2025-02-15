@@ -12,15 +12,15 @@ export classifyCellEigenvector
 # just vec is a separate struct.
 # I am not happy that I have to extend this to the eigenvector manifold. >:(
 struct cellTopologyEigenvalue
-    vertexTypesEigenvalue::MArray{Tuple{3}, Int8}
+    vertexTypesEigenvalue::SArray{Tuple{3}, Int8}
     vertexTypesEigenvector::SArray{Tuple{3}, Int8}
-    DPArray::MArray{Tuple{10}, Int8}
-    DNArray::MArray{Tuple{10}, Int8}
-    RPArray::MArray{Tuple{10}, Int8}
-    RNArray::MArray{Tuple{10}, Int8}
-    RPArrayVec::MArray{Tuple{3}, Int8} # stores number of intersections with each edge
-    RNArrayVec::MArray{Tuple{3}, Int8}
-    hits_corners::MArray{Tuple{3}, Bool}
+    DPArray::SArray{Tuple{10}, Int8}
+    DNArray::SArray{Tuple{10}, Int8}
+    RPArray::SArray{Tuple{10}, Int8}
+    RNArray::SArray{Tuple{10}, Int8}
+    RPArrayVec::SArray{Tuple{3}, Int8} # stores number of intersections with each edge
+    RNArrayVec::SArray{Tuple{3}, Int8}
+    hits_corners::SArray{Tuple{3}, Bool}
 end
 
 struct cellTopologyEigenvector
@@ -467,37 +467,45 @@ macro checkIntersectionPoint(point,d_conic,r_conic,d_center,r_center,DVector1,DV
 end
 
 # negative means leaving, positive means entering
-macro pushCodeFromSign(PList, NList, point, crossingCode, signCode, positiveTest, negativeTest, entering, tangent_vector, alt_conic, edge_vector)
+macro pushCodeFromSign(PList, NList, PListSize, NListSize, point, crossingCode, signCode, positiveTest, negativeTest, entering, tangent_vector, alt_conic, edge_vector)
     return :(
         if $(esc(signCode)) == $positiveTest
-            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+            $(esc(PListSize)) += 1
+            $(esc(PList))[$(esc(PListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
         elseif $(esc(signCode)) == $negativeTest
-            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+            $(esc(NListSize)) += 1
+            $(esc(NList))[$(esc(NListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
         elseif $(esc(signCode)) != NULL
             alt_grad = normalizedGradient($(esc(alt_conic)), $(esc(point))[1], $(esc(point))[2])
             dot_ = dot(alt_grad, $(esc(edge_vector)))
             if !isClose(abs(dot_), 1.0) || (dot_ < 0.0)
                 if $(esc(signCode)) == DREQP
-                    push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+                    $(esc(PListSize)) += 1
+                    $(esc(PList))[$(esc(PListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
                 elseif $(esc(signCode)) == DREQN
-                    push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+                    $(esc(NListSize)) += 1
+                    $(esc(NList))[$(esc(NListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
                 end
             end
         end
     )
 end
 
-macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest, entering, tangent_vector, alt_conic, edge_vector1, edge_vector2, hits_corners, corner_index)
+macro pushCodeFromSignZero(PList, NList, PListSize, NListSize, point, crossingCode, crossingCodeZero, signCode, positiveTest, negativeTest, zeroTest, entering, tangent_vector, alt_conic, edge_vector1, edge_vector2, hits_corners, corner_index)
     return :(
         if $(esc(signCode)) == $positiveTest
-            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+            $(esc(PListSize)) += 1
+            $(esc(PList))[$(esc(PListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
             $(esc(hits_corners))[$corner_index] = true
         elseif $(esc(signCode)) == $negativeTest
-            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+            $(esc(NListSize)) += 1
+            $(esc(NList))[$(esc(NListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
             $(esc(hits_corners))[$corner_index] = true
         elseif $(esc(signCode)) == $zeroTest
-            push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
-            push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero))
+            $(esc(PListSize)) += 1
+            $(esc(NListSize)) += 1            
+            $(esc(PList))[$(esc(PListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero)
+            $(esc(NList))[$(esc(NListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], $crossingCodeZero)
             $(esc(hits_corners))[$corner_index] = true
         elseif $(esc(signCode)) != NULL
             alt_grad = normalizedGradient($(esc(alt_conic)), $(esc(point))[1], $(esc(point))[2])
@@ -506,10 +514,12 @@ macro pushCodeFromSignZero(PList, NList, point, crossingCode, crossingCodeZero, 
 
             if !(isClose(abs(dot1), 1.0) || isClose(abs(dot2), 1.0)) || (dot1 < 0.0 || dot2 < 0.0)
                 if $(esc(signCode)) == DREQP
-                    push!($(esc(PList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+                    $(esc(PListSize)) += 1
+                    $(esc(PList))[$(esc(PListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
                     $(esc(hits_corners))[$corner_index] = true
                 elseif $(esc(signCode)) == DREQN
-                    push!($(esc(NList)), Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode))
+                    $(esc(NListSize)) += 1
+                    $(esc(NList))[$(esc(NListSize))] = Intersection($(esc(point))[1], $(esc(point))[2], Int8($(esc(entering))) * $crossingCode)
                     $(esc(hits_corners))[$corner_index] = true
                 end
             end
@@ -618,7 +628,7 @@ end
 
 # yes this is absolutely horrendus but the alternative is to write this out six times which is even worse.
 # writing one macro that works is far less glitch prone
-macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1, d2, r1, r2, PIntercepts, NIntercepts, conic, alt_conic, check_low, check_high,
+macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1, d2, r1, r2, PIntercepts, NIntercepts, PInterceptsSize, NInterceptsSize, conic, alt_conic, check_low, check_high,
                          do_eigenvector, do_eigenvector_runtime, eigenvectorP, eigenvectorN, any_intercepts, ignore_other, hits_corners)
 
     if is_d
@@ -703,7 +713,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $low_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside, $(esc(hits_corners)), $low_index)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside, $(esc(hits_corners)), $low_index)
 
             end
 
@@ -719,13 +729,15 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $high_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside, $(esc(hits_corners)), $high_index)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside, $(esc(hits_corners)), $high_index)
             end
 
         elseif isClose(dot(tangentVector,$edge_inside ),0.0) || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
             if class == $Z
-                push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
-                push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ))
+                $(esc(PInterceptsSize)) += 1
+                $(esc(NInterceptsSize)) += 1
+                $(esc(PIntercepts))[$(esc(PInterceptsSize))] = Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ)
+                $(esc(NIntercepts))[$(esc(NInterceptsSize))] = Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ)
 
                 if $do_eigenvector && $(esc(do_eigenvector_runtime))
                     $(esc(eigenvectorP))[$E] += 1
@@ -738,7 +750,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
                 entering = dot(tangentVector, $edge_inside)
 
-                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
 
             end
             if $do_eigenvector && $(esc(do_eigenvector_runtime))
@@ -766,7 +778,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $low_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside, $(esc(hits_corners)), $low_index)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside, $(esc(hits_corners)), $low_index)
 
             end
 
@@ -782,13 +794,15 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                     entering = dot(tangentVector, $high_edge_inside)
                 end
 
-                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside, $(esc(hits_corners)), $high_index)
+                @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), $high_coords, $CORNER_H, $CORNER_H_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $high_edge_inside, $(esc(hits_corners)), $high_index)
 
             end
         elseif isClose(dot(tangentVector,$edge_inside ),0.0)  || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
             if class == $Z         
-                push!($(esc(PIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
-                push!($(esc(NIntercepts)), Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ))
+                $(esc(PInterceptsSize)) += 1
+                $(esc(NInterceptsSize)) += 1
+                $(esc(PIntercepts))[$(esc(PInterceptsSize))] = Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ)
+                $(esc(NIntercepts))[$(esc(NInterceptsSize))] = Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ)
 
                 if $do_eigenvector && $(esc(do_eigenvector_runtime))
                     $(esc(eigenvectorP))[$E] += 1
@@ -800,7 +814,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
                 entering = dot(tangentVector, $edge_inside)
 
-                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
+                @pushCodeFromSign($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $E, class, $P, $N, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside)
             end
             if $do_eigenvector && $(esc(do_eigenvector_runtime))
                 @eigenvector_push($(esc(eigenvectorP)), $(esc(eigenvectorN)), $E, class)
@@ -1088,12 +1102,12 @@ end
 # embedding will not affect the topology.
 # The final bool tells whether we simultaneously compute eigenvector topology.
 function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,verbose::Bool=false)
-    DPArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
-    DNArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
-    RPArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
-    RNArray = MArray{Tuple{10}, Int8}(zeros(Int8, 10))
-    RPArrayVec = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
-    RNArrayVec = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
+    DPArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
+    DNArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
+    RPArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
+    RNArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
+    RPArrayVec = MArray{Tuple{3}, Int8}((0,0,0))
+    RNArrayVec = MArray{Tuple{3}, Int8}((0,0,0))
     hits_corners = MArray{Tuple{3}, Bool}((false,false,false))
 
     # we work with everything *2. It does not change the results.
@@ -1163,15 +1177,14 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     ignore_r = (r_type == POINT || r_type == EMPTY)
 
     # third elt is true for double root, false otherwise
-    DPIntercepts = Vector{Intersection}([])
-    DNIntercepts = Vector{Intersection}([])
-    RPIntercepts = Vector{Intersection}([])
-    RNIntercepts = Vector{Intersection}([])
-
-    sizehint!(DPIntercepts, 6)
-    sizehint!(RPIntercepts, 6)
-    sizehint!(DPIntercepts, 6)
-    sizehint!(RNIntercepts, 6)
+    DPIntercepts = MArray{Tuple{6},Intersection}(undef)
+    DNIntercepts = MArray{Tuple{6},Intersection}(undef)
+    RPIntercepts = MArray{Tuple{6},Intersection}(undef)
+    RNIntercepts = MArray{Tuple{6},Intersection}(undef)
+    DPInterceptsSize = 0
+    DNInterceptsSize = 0
+    RPInterceptsSize = 0
+    RNInterceptsSize = 0
 
     # at this point the loop unrolling was so bad that we had to outsource to macros. It is truly awful.
 
@@ -1185,25 +1198,25 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         # (edge_number, is_d, intercepts, alt_list, class_fun, d1, d2, r1, r2, PIntercepts, NIntercepts, conic, alt_conic, check_low, check_high,
         # do_eigenvector, do_eigenvector_runtime, eigenvector_c, eigenvectorP, eigenvectorN, any_intercepts, ignore_other)
 
-        @process_intercepts(1, true, DConicXIntercepts, RConicXIntercepts, DCellIntersection, d2, d1, r2, r1, DPIntercepts, DNIntercepts, DConic, RConic, true, true, 
+        @process_intercepts(1, true, DConicXIntercepts, RConicXIntercepts, DCellIntersection, d2, d1, r2, r1, DPIntercepts, DNIntercepts, DPInterceptsSize, DNInterceptsSize, DConic, RConic, true, true, 
         false, false, RPArrayVec, RNArrayVec, any_d_intercepts, ignore_r, hits_corners)
 
-        @process_intercepts(2, true, DConicHIntercepts, RConicHIntercepts, DCellIntersection, d2, d3, r2, r3, DPIntercepts, DNIntercepts, DConic, RConic, false, false, 
+        @process_intercepts(2, true, DConicHIntercepts, RConicHIntercepts, DCellIntersection, d2, d3, r2, r3, DPIntercepts, DNIntercepts, DPInterceptsSize, DNInterceptsSize, DConic, RConic, false, false, 
         false, false, RPArrayVec, RNArrayVec, any_d_intercepts, ignore_r, hits_corners)
 
-        @process_intercepts(3, true, DConicYIntercepts, RConicYIntercepts, DCellIntersection, d3, d1, r3, r1, DPIntercepts, DNIntercepts, DConic, RConic, false, true, 
+        @process_intercepts(3, true, DConicYIntercepts, RConicYIntercepts, DCellIntersection, d3, d1, r3, r1, DPIntercepts, DNIntercepts, DPInterceptsSize, DNInterceptsSize, DConic, RConic, false, true, 
         false, false, RPArrayVec, RNArrayVec, any_d_intercepts, ignore_r, hits_corners)
     end
 
     if !ignore_r
         # process R intercepts
-        @process_intercepts(1, false, RConicXIntercepts, DConicXIntercepts, RCellIntersection, d2, d1, r2, r1, RPIntercepts, RNIntercepts, RConic, DConic, true, true, 
+        @process_intercepts(1, false, RConicXIntercepts, DConicXIntercepts, RCellIntersection, d2, d1, r2, r1, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, true, true, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
 
-        @process_intercepts(2, false, RConicHIntercepts, DConicHIntercepts, RCellIntersection, d2, d3, r2, r3, RPIntercepts, RNIntercepts, RConic, DConic, false, false, 
+        @process_intercepts(2, false, RConicHIntercepts, DConicHIntercepts, RCellIntersection, d2, d3, r2, r3, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, false, false, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
 
-        @process_intercepts(3, false, RConicYIntercepts, DConicYIntercepts, RCellIntersection, d3, d1, r3, r1, RPIntercepts, RNIntercepts, RConic, DConic, false, true, 
+        @process_intercepts(3, false, RConicYIntercepts, DConicYIntercepts, RCellIntersection, d3, d1, r3, r1, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, false, true, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
     end
 
@@ -1225,7 +1238,9 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # then the triangle is a standard white triangle.
 
     if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse
-        return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
+        return cellTopologyEigenvalue(SArray{Tuple{3},Int8}(S,S,S), vertexTypesEigenvector, 
+            SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), 
+            SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Bool}(false,false,false))
     end
 
     # If we made it this far, it means that this is an "interesting" case :(
@@ -1252,39 +1267,39 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # add edge intersections to list using axis transform
 
     if d_ellipse
-        for i in eachindex(DPIntercepts)
+        for i in 1:DPInterceptsSize
             push!(DPPoints, ellipse_intersection((DPIntercepts[i].x, DPIntercepts[i].y), d_center, DVector1, DVector2, DPIntercepts[i].code))
         end
 
-        for i in eachindex(DNIntercepts)
+        for i in 1:DNInterceptsSize
             push!(DNPoints, ellipse_intersection((DNIntercepts[i].x, DNIntercepts[i].y), d_center, DVector1, DVector2, DNIntercepts[i].code))
         end
     else
         # verbose, but I need to reduce the number of checks that happen
-        for i in eachindex(DPIntercepts)
+        for i in 1:DPInterceptsSize
             @orientHyperbolaAndPush((DPIntercepts[i].x,DPIntercepts[i].y),d_center,DVector1,DVector2,d_orientation,DPPoints,DPIntercepts[i].code,true)
         end
 
-        for i in eachindex(DNIntercepts)
+        for i in 1:DNInterceptsSize
             @orientHyperbolaAndPush((DNIntercepts[i].x,DNIntercepts[i].y),d_center,DVector1,DVector2,d_orientation,DNPoints,DNIntercepts[i].code,false)
         end
     end
 
     if r_ellipse
-        for i in eachindex(RPIntercepts)
+        for i in 1:RPInterceptsSize
             push!(RPPoints, ellipse_intersection((RPIntercepts[i].x, RPIntercepts[i].y), r_center, RVector1, RVector2, RPIntercepts[i].code))
         end
 
-        for i in eachindex(RNIntercepts)
+        for i in 1:RNInterceptsSize
             push!(RNPoints, ellipse_intersection((RNIntercepts[i].x, RNIntercepts[i].y), r_center, RVector1, RVector2, RNIntercepts[i].code))
         end
     else
         # verbose, but I need to reduce the number of checks that happen
-        for i in eachindex(RPIntercepts)
+        for i in 1:RPInterceptsSize
             @orientHyperbolaAndPush((RPIntercepts[i].x,RPIntercepts[i].y),r_center,RVector1,RVector2,r_orientation,RPPoints,RPIntercepts[i].code,true)
         end
 
-        for i in eachindex(RNIntercepts)
+        for i in 1:RNInterceptsSize
             @orientHyperbolaAndPush((RNIntercepts[i].x,RNIntercepts[i].y),r_center,RVector1,RVector2,r_orientation,RNPoints,RNIntercepts[i].code,false)
         end
     end
