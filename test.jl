@@ -1,11 +1,13 @@
-macro test(a)
-    b = esc(a)
-    return :( println($b) )
-end
+include("huffman.jl")
+
+using ..huffman
 
 function main()
-    y = 1
-    println(y)
+    freq = Dict{Int64,Int64}(1 => 1000, 2 => 500, 3 => 2, 4 => 2)
+    symbols = [1,2,3,4]
+    tree = huffman.makeHuffmanTree(freq,symbols)
+    codes = huffman.getHuffmanCodes(tree)
+    println(codes)
 end
 
 main()
