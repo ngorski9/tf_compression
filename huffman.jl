@@ -89,6 +89,20 @@ function huffmanEncode(symbols)
         end
     end
 
+    numSymbolTypes = length(symbolTypes)
+    header::Array{Int64} = Array{Int64}(undef, 2*numSymbolTypes+1)
+    header[1] = numSymbolTypes
+    for i in 1:numSymbolTypes
+        header[2*i] = symbolTypes[i]
+        header[2*i+1] = frequencies[symbolTypes[i]]
+    end
+
+    headerBytes::Array{UInt8} = reinterpret(UInt8, header)
+
+    if numSymbolTypes == 1
+        return headerBytes
+    end
+
     tree = makeHuffmanTree(frequencies, symbolTypes)
     codes = getHuffmanCodes(tree)
 
@@ -112,15 +126,6 @@ function huffmanEncode(symbols)
     end
     push!(output, nextOut)
 
-    numSymbolTypes = length(symbolTypes)
-    header::Array{Int64} = Array{Int64}(undef, 2*numSymbolTypes+1)
-    header[1] = numSymbolTypes
-    for i in 1:numSymbolTypes
-        header[2*i] = symbolTypes[i]
-        header[2*i+1] = frequencies[symbolTypes[i]]
-    end
-
-    headerBytes::Array{UInt8} = reinterpret(UInt8, header)
     return cat(headerBytes, output, dims=(1,1))
 
 end
@@ -138,6 +143,10 @@ function huffmanDecode(bytes::Array{UInt8})
         symbolTypes[i] = header[2*i-1]
         frequencies[header[2*i-1]] = header[2*i]
         totalLength += header[2*i]
+    end
+
+    if numSymbolTypes == 1
+        return symbolTypes[1] * ones(Int64, totalLength)
     end
 
     tree = makeHuffmanTree(frequencies, symbolTypes)

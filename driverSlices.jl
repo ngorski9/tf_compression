@@ -21,7 +21,6 @@ function main()::Cint
     slice = -1
     eigenvalue = false
     eigenvector = false
-    minCrossing = 0.0001
     parameter = 1.0
     csv = ""
     output = ""
@@ -67,9 +66,6 @@ function main()::Cint
             i += 2
         elseif ARGS[i] == "--baseCompressor"
             baseCompressor = ARGS[i+1]
-            i += 2
-        elseif ARGS[i] == "--minCrossing"
-            minCrossing = parse(Float64, ARGS[i+1])
             i += 2
         elseif ARGS[i] == "--compressorParameter"
             parameter = parse(Float64, ARGS[i+1])
@@ -178,7 +174,7 @@ function main()::Cint
         if naive
             compress2dNaive("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, baseCompressor)
         else
-            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, false, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
+            compressionList = compress2d("$output/slice", (dims[1],dims[2],1), "compressed_output", eb, output, false, eigenvalue, eigenvector, baseCompressor, parameter)
             ctv += compressionList
         end
 
@@ -206,7 +202,7 @@ function main()::Cint
         totalCompressionTime += ct
         totalDecompressionTime += dt
 
-        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, eigenvalue, eigenvector, minCrossing)
+        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, eigenvalue, eigenvector )
 
         if !naive && !metrics[1]
             redirect_stdout(stdout_)

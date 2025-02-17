@@ -14,12 +14,11 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (384,384,1)
+    dims = (101,101,1)
     eb = 0.01
     naive = false
     eigenvalue = true
     eigenvector = true
-    minCrossing = 0.0001
     baseCompressor = "sz3"
     parameter = 1.0
 
@@ -31,7 +30,7 @@ function main()
     if naive
         compress2dNaive(folder, dims, "compressed_output", eb, "../output", baseCompressor)
     else
-        compress2d(folder, dims, "compressed_output", eb, "../output", true, eigenvalue, eigenvector, minCrossing, baseCompressor, parameter)
+        compress2d(folder, dims, "compressed_output", eb, "../output", true, eigenvalue, eigenvector, baseCompressor, parameter)
     end
     compression_end = time()
     ct = compression_end - compression_start
@@ -47,7 +46,7 @@ function main()
     decompression_end = time()
     dt = decompression_end - decompression_start
 
-    printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, eigenvalue, eigenvector, minCrossing)
+    printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, eigenvalue, eigenvector )
 end
 
-# main()
+main()

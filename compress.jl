@@ -205,7 +205,7 @@ function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, 
     return [0.0]
 end
 
-function compress2d(containing_folder, dims, output_file, relative_error_bound, output="../output", verbose=false, eigenvalue=true, eigenvector=true, minCrossing = 0.01, baseCompressor = "sz3", parameter=1.0)
+function compress2d(containing_folder, dims, output_file, relative_error_bound, output="../output", verbose=false, eigenvalue=true, eigenvector=true, baseCompressor = "sz3", parameter=1.0)
     startTime = time()
     tf = loadTensorField2dFromFolder(containing_folder, dims)
     

@@ -531,7 +531,7 @@ function main()
     t2 = time()
     print(t2-t1)
 
-    cmap_list = [(0.0,"#001f54"), (0.25,"#034078"), (0.7,"#1282a2"), (1.0,"#fefcfb")]
+    cmap_list = [(0.0,"#2e3b8e"), (0.6,"#8599bc"), (1.0,"#fefcfb")]
     cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
 
     # visualize
