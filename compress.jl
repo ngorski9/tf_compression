@@ -1176,278 +1176,358 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
                         circularPointsT1 = time()
 
                         crit_ground = getCriticalType(tf, x, y, t, top)
-                        crit_intermediate = getCriticalType(tf2, x, y, t, top)
 
-                        if crit_ground != crit_intermediate
+                        if crit_ground == CP_ERROR
 
-                            if checking && t == checkLoc[3] && abs(x-checkLoc[1]) <= 1 && abs(y-checkLoc[2]) <= 1
-                                println("edit")
-                            end
+                            if top
 
-                            vertexCoords = getCellVertexCoords(x,y,t,top)
-
-                            tensor1Ground = getTensor(tf, vertexCoords[1]...)
-                            tensor2Ground = getTensor(tf, vertexCoords[2]...)
-                            tensor3Ground = getTensor(tf, vertexCoords[3]...)
-
-                            numCellsModified += 1
-
-                            tensor1Recon = getTensor(tf2, vertexCoords[1]...)
-                            tensor2Recon = getTensor(tf2, vertexCoords[2]...)
-                            tensor3Recon = getTensor(tf2, vertexCoords[3]...)
-
-                            t1g, r1g, θ1g = decomposeTensorSymmetric(tensor1Ground)
-                            t2g, r2g, θ2g = decomposeTensorSymmetric(tensor2Ground)
-                            t3g, r3g, θ3g = decomposeTensorSymmetric(tensor3Ground)
-                            t1r, r1r, θ1r = decomposeTensorSymmetric(tensor1Recon)
-                            t2r, r2r, θ2r = decomposeTensorSymmetric(tensor2Recon)
-                            t3r, r3r, θ3r = decomposeTensorSymmetric(tensor3Recon)
-
-                            θe1 = abs( θ1g - θ1r )
-                            θe2 = abs( θ2g - θ2r )
-                            θe3 = abs( θ3g - θ3r )
-
-                            if θe1 > pi
-                                θe1 = abs(θe1 - 2pi)
-                            end
-
-                            if θe2 > pi
-                                θe2 = abs(θe2 - 2pi)
-                            end
-
-                            if θe3 > pi
-                                θe3 = abs(θe3 - 2pi)
-                            end
-
-                            θg = [θ1g, θ2g, θ3g]
-                            θr = [θ1r, θ2r, θ3r]
-                            tg = [t1g, t2g, t3g]
-                            tr = [t1r, t2r, t3r]
-                            rr = [r1r, r2r, r3r]
-                            tensorsGround = [tensor1Ground, tensor2Ground, tensor3Ground]
-                            ll = [false, false, false]
-
-                            while crit_ground != crit_intermediate
-
-                                if θe1 == θe2 == θe3 == 0.0
-                                    if !ll[1]
-                                        idx = 1
-                                    elseif !ll[2]
-                                        idx = 2
-                                    elseif !ll[3]
-                                        idx = 3
-                                    else
-                                        idx = 1
-                                    end
-                                elseif θe1 >= θe2 && θe1 >= θe3
-                                    idx = 1
-                                elseif θe2 >= θe1 && θe2 >= θe3
-                                    idx = 2
-                                else
-                                    idx = 3
-                                end
-                                lossless = processed[vertexCoords[idx]...]
-
-                                # that is, it hasn't been touched yet
-                                if !lossless
-                                    processed[vertexCoords[idx]...] = true
-
-                                    θdif = θg[idx] - θr[idx]
-                                    if θdif < 0
-                                        θdif += 2pi
-                                    end
-
-                                    code = round( θdif * ( (2^bits-1) / 2pi ) )
-                                    if code == 2^bits-1
-                                        code = 0.0
-                                    end
-
-                                    θnew = θr[idx] + 2pi/(2^bits-1)*code
-                                    tnew = recomposeTensorSymmetric(tr[idx], rr[idx], θnew)
-                                    
-                                    if maximum(abs.(tnew - tensorsGround[idx])) > aeb || code == 0
-                                        lossless = true
-                                    else
-                                        codes[vertexCoords[idx]...] = code
-                                        setTensor(tf2, vertexCoords[idx]..., tnew)
-
-                                        if idx == 1
-                                            θe1 = abs(θnew - θg[idx])
-
-                                            if θe1 > pi
-                                                θe1 = abs(θe1 - 2pi)
-                                            end
-                                        elseif idx == 2
-                                            θe2 = abs(θnew - θg[idx])
-
-                                            if θe2 > pi
-                                                θe2 = abs(θe2 - 2pi)
-                                            end
-                                        else
-                                            θe3 = abs(θnew - θg[idx])
-
-                                            if θe3 > pi
-                                                θe3 = abs(θe3 - 2pi)
-                                            end
-                                        end
-
-                                        # no need to update the other values because the only other place this can go is lossless...
-
-                                        if top
-                                            if idx == 1
-                                                vertices_modified[3] = true
-                                            elseif idx == 2
-                                                vertices_modified[2] = true
-                                            elseif idx == 3
-                                                vertices_modified[4] = true
-                                            end
-                                        else
-                                            vertices_modified[idx] = true
-                                        end
-
-                                    end
-
+                                if full_lossless[x+1,y,t] == 0
+                                    full_lossless[x+1,y,t] = 1
+                                    setTensor(tf2, x+1,y,t, getTensor(tf, x+1,y,t))
+                                    vertices_modified[2] = true
                                 end
 
-                                if lossless
-                                    if ll[1] && ll[2] && ll[3]                 
-                                        # Storing things losslessly with the trace trick didn't do the job.
-                                        # In this case, just store all three cells totally losslessly
-                                        # This is very rare.
-
-                                        codes[vertexCoords[1]...] = 0
-                                        codes[vertexCoords[2]...] = 0
-                                        codes[vertexCoords[3]...] = 0
-                                        
-                                        full_lossless[vertexCoords[1]...] = 1
-                                        full_lossless[vertexCoords[2]...] = 1
-                                        full_lossless[vertexCoords[3]...] = 1
-
-                                        setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
-                                        setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
-                                        setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
-
-                                        if top
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                            vertices_modified[4] = true
-                                        else
-                                            vertices_modified[1] = true
-                                            vertices_modified[2] = true
-                                            vertices_modified[3] = true
-                                        end
-
-                                    else
-                                        ll[idx] = true
-                                        codes[vertexCoords[idx]...] = 2^bits-1
-
-                                        trDif = tr[idx]-tg[idx]
-                                        newTensor = SVector{3,Float64}( tensorsGround[idx][1] + trDif, tensorsGround[idx][2], tensorsGround[idx][3] + trDif )
-                                        setTensor(tf2, vertexCoords[idx]..., newTensor)
-
-                                        if idx == 1
-                                            θe1 = 0.0
-                                        elseif idx == 2
-                                            θe2 = 0.0
-                                        else
-                                            θe3 = 0.0
-                                        end
-
-                                        if top
-                                            if idx == 1
-                                                vertices_modified[3] = true
-                                            elseif idx == 2
-                                                vertices_modified[2] = true
-                                            elseif idx == 3
-                                                vertices_modified[4] = true
-                                            end
-                                        else
-                                            vertices_modified[idx] = true
-                                        end
-
-                                        # no need to update the other values because we're not going to touch this again.
-                                    end
+                                if full_lossless[x,y+1,t] == 0
+                                    full_lossless[x,y+1,t] = 1
+                                    setTensor(tf2, x,y+1,t, getTensor(tf, x,y+1,t))
+                                    vertices_modified[3] = true
                                 end
 
-                                crit_intermediate = getCriticalType(tf2, x, y, t, top)
+                                if full_lossless[x+1,y+1,t] == 0
+                                    full_lossless[x+1,y+1,t] = 1
+                                    setTensor(tf2, x+1,y+1,t, getTensor(tf, x+1,y+1,t))
+                                    vertices_modified[4] = true
+                                end
+
+                            else
+
+                                if full_lossless[x,y,t] == 0
+                                    full_lossless[x,y,t] = 1
+                                    setTensor(tf2, x,y,t, getTensor(tf, x,y,t))
+                                    vertices_modified[1] = true
+                                end
+
+                                if full_lossless[x+1,y,t] == 0
+                                    full_lossless[x+1,y,t] = 1
+                                    setTensor(tf2, x+1,y,t, getTensor(tf, x+1,y,t))
+                                    vertices_modified[2] = true
+                                end
+
+                                if full_lossless[x,y+1,t] == 0
+                                    full_lossless[x,y+1,t] = 1
+                                    setTensor(tf2, x,y+1,t, getTensor(tf, x,y+1,t))
+                                    vertices_modified[3] = true
+                                end
 
                             end
 
-                            # requeue up any cells that must be hit after edits
+                            if vertices_modified[1] || vertices_modified[2] || vertices_modified[3]
+
+                                if (vertices_modified[3] || vertices_modified[1]) && x != 1
+                                    push!(stack, (x-1,y,true,false))
+                                end
+
+                                if (vertices_modified[1]) && x != 1
+                                    push!(stack, (x-1,y,false,false))
+                                end
+
+                                if (vertices_modified[2]) && x != dims[1]-1 && y != 1
+                                    push!(stack, (x+1,y-1,true,false))
+                                    push!(stack, (x+1,y-1,false,false))
+                                end
+
+                                if (vertices_modified[1] || vertices_modified[2]) && y != 1
+                                    push!(stack, (x,y-1,true,false))
+                                end
+
+                                if (vertices_modified[1]) && y != 1
+                                    push!(stack, (x,y-1,false,false))
+                                end
+
+                                if (vertices_modified[1]) && x != 1 && y != 1
+                                    push!(stack, (x-1,y-1,true,false))
+                                end
+
+                            end
 
                             circularPointsT2 = time()
                             circularPointsTime += circularPointsT2 - circularPointsT1
 
-                            if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
-                                push!(stack, (x,y,top,false))
+                        else
+
+                            crit_intermediate = getCriticalType(tf2, x, y, t, top)
+
+                            if crit_ground != crit_intermediate
+
+                                if checking && t == checkLoc[3] && abs(x-checkLoc[1]) <= 1 && abs(y-checkLoc[2]) <= 1
+                                    println("edit")
+                                end
+
+                                vertexCoords = getCellVertexCoords(x,y,t,top)
+
+                                tensor1Ground = getTensor(tf, vertexCoords[1]...)
+                                tensor2Ground = getTensor(tf, vertexCoords[2]...)
+                                tensor3Ground = getTensor(tf, vertexCoords[3]...)
+
                                 numCellsModified += 1
-                            end
-    
-                            # queue up all cells that will be affected by any current changes.
-                            if vertices_modified[4] && x != dims[1] - 1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
-                                push!(stack, (x+1,y+1,false,false))
-                            end
-    
-                            if vertices_modified[4] && ((y+1 < j) || (y+1 == j && x <= i))
-                                push!(stack, (x,y+1,true,false))
-                            end
-    
-                            if (vertices_modified[3] || vertices_modified[4]) && ((y+1 < j) || (y+1 == j && x <= i))
-                                push!(stack, (x,y+1,false,false))
-                            end
-    
-                            if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
-                                push!(stack, (x-1,y+1,true,false))
-                                push!(stack, (x-1,y+1,false,false))
-                            end
-    
-                            if (vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
-                                push!(stack, (x+1,y,true,false))
-                            end
-    
-                            if (vertices_modified[2] || vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
-                                push!(stack, (x+1,y,false,false))
-                            end
-    
-                            if (vertices_modified[2] || vertices_modified[3]) && ( (y < j) || (y == j && x < i) || (y == j && x == i && k==1) )
-                                push!(stack,(x,y,true,false))
-                            end
-    
-                            if (vertices_modified[2] || vertices_modified[3])
-                                push!(stack, (x,y,false,false))
-                            end
-    
-                            if (vertices_modified[1] || vertices_modified[3]) && x != 1
-                                push!(stack, (x-1,y,true,false))
-                            end
-    
-                            if vertices_modified[1] && x != 1
-                                push!(stack, (x-1,y,false,false))
-                            end
-    
-                            if vertices_modified[2] && x != dims[1]-1 && y != 1
-                                push!(stack, (x+1,y-1,true,false))
-                                push!(stack, (x+1,y-1,false,false))
-                            end
-    
-                            if (vertices_modified[1] || vertices_modified[2]) && y != 1
-                                push!(stack, (x,y-1,true,false))
-                            end
-    
-                            if vertices_modified[1] && y != 1
-                                push!(stack, (x,y-1,false,false))
-                            end
-    
-                            if vertices_modified[1] && x != 1 && y != 1
-                                push!(stack, (x-1,y-1,true,false))
-                            end
 
-                            queueSplit = time()
-                            queueTime += queueSplit - circularPointsT2
+                                tensor1Recon = getTensor(tf2, vertexCoords[1]...)
+                                tensor2Recon = getTensor(tf2, vertexCoords[2]...)
+                                tensor3Recon = getTensor(tf2, vertexCoords[3]...)
 
-                        else # end if crit_ground != crit_intermediate
-                            circularPointsT2 = time()
-                            circularPointsTime += circularPointsT2 - circularPointsT1
+                                t1g, r1g, θ1g = decomposeTensorSymmetric(tensor1Ground)
+                                t2g, r2g, θ2g = decomposeTensorSymmetric(tensor2Ground)
+                                t3g, r3g, θ3g = decomposeTensorSymmetric(tensor3Ground)
+                                t1r, r1r, θ1r = decomposeTensorSymmetric(tensor1Recon)
+                                t2r, r2r, θ2r = decomposeTensorSymmetric(tensor2Recon)
+                                t3r, r3r, θ3r = decomposeTensorSymmetric(tensor3Recon)
+
+                                θe1 = abs( θ1g - θ1r )
+                                θe2 = abs( θ2g - θ2r )
+                                θe3 = abs( θ3g - θ3r )
+
+                                if θe1 > pi
+                                    θe1 = abs(θe1 - 2pi)
+                                end
+
+                                if θe2 > pi
+                                    θe2 = abs(θe2 - 2pi)
+                                end
+
+                                if θe3 > pi
+                                    θe3 = abs(θe3 - 2pi)
+                                end
+
+                                θg = [θ1g, θ2g, θ3g]
+                                θr = [θ1r, θ2r, θ3r]
+                                tg = [t1g, t2g, t3g]
+                                tr = [t1r, t2r, t3r]
+                                rr = [r1r, r2r, r3r]
+                                tensorsGround = [tensor1Ground, tensor2Ground, tensor3Ground]
+                                ll = [false, false, false]
+
+                                while crit_ground != crit_intermediate
+
+                                    if θe1 == θe2 == θe3 == 0.0
+                                        if !ll[1]
+                                            idx = 1
+                                        elseif !ll[2]
+                                            idx = 2
+                                        elseif !ll[3]
+                                            idx = 3
+                                        else
+                                            idx = 1
+                                        end
+                                    elseif θe1 >= θe2 && θe1 >= θe3
+                                        idx = 1
+                                    elseif θe2 >= θe1 && θe2 >= θe3
+                                        idx = 2
+                                    else
+                                        idx = 3
+                                    end
+                                    lossless = processed[vertexCoords[idx]...]
+
+                                    # that is, it hasn't been touched yet
+                                    if !lossless
+                                        processed[vertexCoords[idx]...] = true
+
+                                        θdif = θg[idx] - θr[idx]
+                                        if θdif < 0
+                                            θdif += 2pi
+                                        end
+
+                                        code = round( θdif * ( (2^bits-1) / 2pi ) )
+                                        if code == 2^bits-1
+                                            code = 0.0
+                                        end
+
+                                        θnew = θr[idx] + 2pi/(2^bits-1)*code
+                                        tnew = recomposeTensorSymmetric(tr[idx], rr[idx], θnew)
+                                        
+                                        if maximum(abs.(tnew - tensorsGround[idx])) > aeb || code == 0
+                                            lossless = true
+                                        else
+                                            codes[vertexCoords[idx]...] = code
+                                            setTensor(tf2, vertexCoords[idx]..., tnew)
+
+                                            if idx == 1
+                                                θe1 = abs(θnew - θg[idx])
+
+                                                if θe1 > pi
+                                                    θe1 = abs(θe1 - 2pi)
+                                                end
+                                            elseif idx == 2
+                                                θe2 = abs(θnew - θg[idx])
+
+                                                if θe2 > pi
+                                                    θe2 = abs(θe2 - 2pi)
+                                                end
+                                            else
+                                                θe3 = abs(θnew - θg[idx])
+
+                                                if θe3 > pi
+                                                    θe3 = abs(θe3 - 2pi)
+                                                end
+                                            end
+
+                                            # no need to update the other values because the only other place this can go is lossless...
+
+                                            if top
+                                                if idx == 1
+                                                    vertices_modified[3] = true
+                                                elseif idx == 2
+                                                    vertices_modified[2] = true
+                                                elseif idx == 3
+                                                    vertices_modified[4] = true
+                                                end
+                                            else
+                                                vertices_modified[idx] = true
+                                            end
+
+                                        end
+
+                                    end
+
+                                    if lossless
+                                        if ll[1] && ll[2] && ll[3]                 
+                                            # Storing things losslessly with the trace trick didn't do the job.
+                                            # In this case, just store all three cells totally losslessly
+                                            # This is very rare.
+
+                                            codes[vertexCoords[1]...] = 0
+                                            codes[vertexCoords[2]...] = 0
+                                            codes[vertexCoords[3]...] = 0
+                                            
+                                            full_lossless[vertexCoords[1]...] = 1
+                                            full_lossless[vertexCoords[2]...] = 1
+                                            full_lossless[vertexCoords[3]...] = 1
+
+                                            setTensor(tf2, vertexCoords[1]..., getTensor(tf, vertexCoords[1]...))
+                                            setTensor(tf2, vertexCoords[2]..., getTensor(tf, vertexCoords[2]...))
+                                            setTensor(tf2, vertexCoords[3]..., getTensor(tf, vertexCoords[3]...))
+
+                                            if top
+                                                vertices_modified[2] = true
+                                                vertices_modified[3] = true
+                                                vertices_modified[4] = true
+                                            else
+                                                vertices_modified[1] = true
+                                                vertices_modified[2] = true
+                                                vertices_modified[3] = true
+                                            end
+
+                                        else
+                                            ll[idx] = true
+                                            codes[vertexCoords[idx]...] = 2^bits-1
+
+                                            trDif = tr[idx]-tg[idx]
+                                            newTensor = SVector{3,Float64}( tensorsGround[idx][1] + trDif, tensorsGround[idx][2], tensorsGround[idx][3] + trDif )
+                                            setTensor(tf2, vertexCoords[idx]..., newTensor)
+
+                                            if idx == 1
+                                                θe1 = 0.0
+                                            elseif idx == 2
+                                                θe2 = 0.0
+                                            else
+                                                θe3 = 0.0
+                                            end
+
+                                            if top
+                                                if idx == 1
+                                                    vertices_modified[3] = true
+                                                elseif idx == 2
+                                                    vertices_modified[2] = true
+                                                elseif idx == 3
+                                                    vertices_modified[4] = true
+                                                end
+                                            else
+                                                vertices_modified[idx] = true
+                                            end
+
+                                            # no need to update the other values because we're not going to touch this again.
+                                        end
+                                    end
+
+                                    crit_intermediate = getCriticalType(tf2, x, y, t, top)
+
+                                end
+
+                                # requeue up any cells that must be hit after edits
+
+                                circularPointsT2 = time()
+                                circularPointsTime += circularPointsT2 - circularPointsT1
+
+                                if vertices_modified[1] || vertices_modified[2] || vertices_modified[3] || vertices_modified[4]
+                                    push!(stack, (x,y,top,false))
+                                    numCellsModified += 1
+                                end
+        
+                                # queue up all cells that will be affected by any current changes.
+                                if vertices_modified[4] && x != dims[1] - 1 && ((y+1 < j) || (y+1 == j && x+1 <= i))
+                                    push!(stack, (x+1,y+1,false,false))
+                                end
+        
+                                if vertices_modified[4] && ((y+1 < j) || (y+1 == j && x <= i))
+                                    push!(stack, (x,y+1,true,false))
+                                end
+        
+                                if (vertices_modified[3] || vertices_modified[4]) && ((y+1 < j) || (y+1 == j && x <= i))
+                                    push!(stack, (x,y+1,false,false))
+                                end
+        
+                                if vertices_modified[3] && x != 1 && ((y+1 < j) || (y+1 == j && x-1 <= i))
+                                    push!(stack, (x-1,y+1,true,false))
+                                    push!(stack, (x-1,y+1,false,false))
+                                end
+        
+                                if (vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
+                                    push!(stack, (x+1,y,true,false))
+                                end
+        
+                                if (vertices_modified[2] || vertices_modified[4]) && x != dims[1] - 1 && ((y < j) || (y == j && x+1 <= i))
+                                    push!(stack, (x+1,y,false,false))
+                                end
+        
+                                if (vertices_modified[2] || vertices_modified[3]) && ( (y < j) || (y == j && x < i) || (y == j && x == i && k==1) )
+                                    push!(stack,(x,y,true,false))
+                                end
+        
+                                if (vertices_modified[2] || vertices_modified[3])
+                                    push!(stack, (x,y,false,false))
+                                end
+        
+                                if (vertices_modified[1] || vertices_modified[3]) && x != 1
+                                    push!(stack, (x-1,y,true,false))
+                                end
+        
+                                if vertices_modified[1] && x != 1
+                                    push!(stack, (x-1,y,false,false))
+                                end
+        
+                                if vertices_modified[2] && x != dims[1]-1 && y != 1
+                                    push!(stack, (x+1,y-1,true,false))
+                                    push!(stack, (x+1,y-1,false,false))
+                                end
+        
+                                if (vertices_modified[1] || vertices_modified[2]) && y != 1
+                                    push!(stack, (x,y-1,true,false))
+                                end
+        
+                                if vertices_modified[1] && y != 1
+                                    push!(stack, (x,y-1,false,false))
+                                end
+        
+                                if vertices_modified[1] && x != 1 && y != 1
+                                    push!(stack, (x-1,y-1,true,false))
+                                end
+
+                                queueSplit = time()
+                                queueTime += queueSplit - circularPointsT2
+
+                            else # end if crit_ground != crit_intermediate
+                                circularPointsT2 = time()
+                                circularPointsTime += circularPointsT2 - circularPointsT1
+                            end
                         end
 
                     end # end while length(stack) > 0
