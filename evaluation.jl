@@ -7,7 +7,7 @@ using ..cellTopology
 
 function getCPTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0]
+    types = [0,0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
@@ -23,7 +23,7 @@ end
 
 function getCPTypeFrequencies(tf::TensorField2dSymmetric)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0]
+    types = [0,0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
@@ -121,7 +121,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         else
                             result[FTD] += 1
                         end
-                    elseif c1 == CP_ZERO_CORNER || c1 == CP_ZER_EDGE || c1 == CP_OTHER
+                    else
                         if c2 == CP_NORMAL
                             result[FND] += 1
                         else
@@ -193,7 +193,7 @@ function topologyCellMatching(tf1::TensorField2dSymmetric, tf2::TensorField2dSym
                         else
                             result[FTD] += 1
                         end
-                    elseif c1 == CP_ZERO_CORNER || c1 == CP_ZERO_EDGE || c1 == CP_OTHER
+                    else
                         if c2 == CP_NORMAL
                             result[FND] += 1
                         else

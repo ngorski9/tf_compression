@@ -130,8 +130,8 @@ function main()::Cint
     maxErrorByRange = 0.0
     totalVertexMatching = [0.0 0.0 ; 0.0 0.0]
     totalCellMatching = [0,0,0,0,0,0,0,0,0,0,0]
-    totalCellTypeFrequenciesGround = [0,0,0,0,0,0]
-    totalCellTypeFrequenciesRecon = [0,0,0,0,0,0]
+    totalCellTypeFrequenciesGround = [0,0,0,0,0,0,0]
+    totalCellTypeFrequenciesRecon = [0,0,0,0,0,0,0]
     ctv = zeros(Float64, (13,)) # compression time vector
     dtv = zeros(Float64, (8,)) # decompression time vector
     

@@ -299,6 +299,8 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
             return CP_ZERO_CORNER
         elseif numZeroMatrix == 2 && numZeroSign == 2
             return CP_ZERO_EDGE
+        elseif numZeroMatrix == 3
+            return CP_ZERO_FULL
         else
             return CP_OTHER
         end
