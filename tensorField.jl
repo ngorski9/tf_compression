@@ -266,7 +266,42 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
     sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
-        return CP_ERROR
+        # if we get three zeros, then give an answer according to the number of zeros.
+
+        numZeroSign = 0
+        numZeroMatrix = 0
+
+        if sign1 == 0
+            numZeroSign += 1
+        end
+
+        if sign2 == 0
+            numZeroSign += 1
+        end
+
+        if sign3 == 0
+            numZeroSign += 1
+        end
+
+        if isClose(tensor1[1],0.0) && isClose(tensor1[2],0.0) && isClose(tensor1[3],0.0)
+            numZeroMatrix += 1
+        end
+
+        if isClose(tensor2[1],0.0) && isClose(tensor2[2],0.0) && isClose(tensor2[3],0.0)
+            numZeroMatrix += 1
+        end
+
+        if isClose(tensor3[1],0.0) && isClose(tensor3[2],0.0) && isClose(tensor3[3],0.0)
+            numZeroMatrix += 1
+        end
+
+        if numZeroMatrix == 1 && numZeroSign == 2
+            return CP_ZERO_CORNER
+        elseif numZeroMatrix == 2 && numZeroSign == 2
+            return CP_ZERO_EDGE
+        else
+            return CP_OTHER
+        end
     end
 
     if sign1 == sign2
@@ -338,7 +373,43 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
     sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
-        return CP_ERROR
+        # if we get three zeros, then give an answer according to the number of zeros.
+
+        numZeroSign = 0
+        numZeroMatrix = 0
+
+        if sign1 == 0
+            numZeroSign += 1
+        end
+
+        if sign2 == 0
+            numZeroSign += 1
+        end
+
+        if sign3 == 0
+            numZeroSign += 1
+        end
+
+        if isClose(tensor1[1,1],0.0) && isClose(tensor1[1,2],0.0) && isClose(tensor1[2,1],0.0) && isClose(tensor1[2,2],0.0)
+            numZeroMatrix += 1
+        end
+
+        if isClose(tensor2[1,1],0.0) && isClose(tensor2[1,2],0.0) && isClose(tensor2[2,1],0.0) && isClose(tensor2[2,2],0.0)
+            numZeroMatrix += 1
+        end
+
+        if isClose(tensor3[1,1],0.0) && isClose(tensor3[1,2],0.0) && isClose(tensor3[2,1],0.0) && isClose(tensor3[2,2],0.0)
+            numZeroMatrix += 1
+        end
+
+        if numZeroMatrix == 1 && numZeroSign == 2
+            return CP_ZERO_CORNER
+        elseif numZeroMatrix == 2 && numZeroSign == 2
+            return CP_ZERO_EDGE
+        else
+            return CP_OTHER
+        end
+
     end
 
     if sign1 == sign2
@@ -355,6 +426,7 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
         return CP_NORMAL
     end
 end
+
 
 function decomposeTensor(tensor::FloatMatrix)
 

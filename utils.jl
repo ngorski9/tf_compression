@@ -35,11 +35,15 @@ const smoothness = 0
 export CP_NORMAL
 export CP_TRISECTOR
 export CP_WEDGE
-export CP_ERROR
+export CP_ZERO_CORNER
+export CP_ZERO_EDGE
+export CP_OTHER
 const CP_NORMAL = 0
 const CP_TRISECTOR = 1
 const CP_WEDGE = 2
-const CP_ERROR = 3
+const CP_ZERO_CORNER = 3
+const CP_ZERO_EDGE = 4
+const CP_OTHER = 5
 
 # θ2 - θ1 > π → trisector
 # θ2 - θ1 < π → wedge

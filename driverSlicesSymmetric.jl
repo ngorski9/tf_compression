@@ -104,8 +104,8 @@ function main()
     totalMSEByRangeSquared = 0.0
     totalFrobeniusMSEByRangeSquared = 0.0
     totalCellMatching = [0,0,0,0,0,0,0]
-    totalCellTypeFrequenciesGround = [0,0,0,0]
-    totalCellTypeFrequenciesRecon = [0,0,0,0]
+    totalCellTypeFrequenciesGround = [0,0,0,0,0,0]
+    totalCellTypeFrequenciesRecon = [0,0,0,0,0,0]
     numNonzeroSlices = 0
 
     tf = loadTensorField2dFromFolder(folder, dims)

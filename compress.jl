@@ -1177,7 +1177,7 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                         crit_ground = getCriticalType(tf, x, y, t, top)
 
-                        if crit_ground == CP_ERROR
+                        if crit_ground == CP_OTHER
 
                             if top
 
