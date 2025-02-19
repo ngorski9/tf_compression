@@ -270,6 +270,7 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
 
         numZeroSign = 0
         numZeroMatrix = 0
+        numZeroDeviator = 0
 
         if sign1 == 0
             numZeroSign += 1
@@ -295,9 +296,21 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
             numZeroMatrix += 1
         end
 
-        if numZeroMatrix == 1 && numZeroSign == 2
+        if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
+            numZeroDeviator += 1
+        end
+
+        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
+            numZeroDeviator += 1
+        end
+
+        if isClose(D3_11,0.0) && isClose(D3_21,0.0)
+            numZeroDeviator += 1
+        end
+
+        if numZeroMatrix == 1 && numZeroDeviator == 1 && numZeroSign == 2
             return CP_ZERO_CORNER
-        elseif numZeroMatrix == 2 && numZeroSign == 2
+        elseif numZeroMatrix == 2 && numZeroDeviator == 2
             return CP_ZERO_EDGE
         elseif numZeroMatrix == 3
             return CP_ZERO_FULL
