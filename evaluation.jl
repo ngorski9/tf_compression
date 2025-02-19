@@ -7,12 +7,12 @@ using ..cellTopology
 
 function getCPTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0,0]
+    types = [0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
                 for k in 0:1
-                    type = getCircularPointType(tf, i, j, t, Bool(k))
+                    type = getCircularPointTypeFull(tf, i, j, t, Bool(k))
                     types[type+1] += 1
                 end
             end
@@ -23,12 +23,12 @@ end
 
 function getCPTypeFrequencies(tf::TensorField2dSymmetric)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0,0]
+    types = [0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
                 for k in 0:1
-                    type = getCriticalType(tf, i, j, t, Bool(k))
+                    type = getCriticalTypeFull(tf, i, j, t, Bool(k))
                     types[type+1] += 1
                 end
             end
@@ -102,8 +102,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
             for i in 1:x                
                 for k in 0:1
 
-                    c1 = getCircularPointType(tf1, i, j, t, Bool(k))
-                    c2 = getCircularPointType(tf2, i, j, t, Bool(k))
+                    c1 = getCircularPointTypeFull(tf1, i, j, t, Bool(k))
+                    c2 = getCircularPointTypeFull(tf2, i, j, t, Bool(k))
 
                     if c1 == c2
                         result[SAME] += 1
@@ -174,8 +174,8 @@ function topologyCellMatching(tf1::TensorField2dSymmetric, tf2::TensorField2dSym
             for i in 1:x                
                 for k in 0:1
 
-                    c1 = getCriticalType(tf1, i, j, t, Bool(k))
-                    c2 = getCriticalType(tf2, i, j, t, Bool(k))
+                    c1 = getCriticalTypeFull(tf1, i, j, t, Bool(k))
+                    c2 = getCriticalTypeFull(tf2, i, j, t, Bool(k))
 
                     if c1 == c2
                         result[SAME] += 1

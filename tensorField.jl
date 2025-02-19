@@ -14,6 +14,7 @@ export getTensor
 export setTensor
 export getTensorsAtCell
 export getCircularPointType
+export getCircularPointTypeFull
 export decomposeTensor
 export recomposeTensor
 export decomposeTensorSymmetric
@@ -31,6 +32,7 @@ export saveTensorFieldSymmetric32
 export saveTensorFieldSymmetric64
 export getMinAndMax
 export getCriticalType
+export getCriticalTypeFull
 export edgesMatchSplit
 export duplicateTensorField2d
 
@@ -270,52 +272,137 @@ function getCriticalType( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int
 
         numZeroSign = 0
         numZeroMatrix = 0
+
+        if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
+            if isClose(tensor1[1],0.0) && isClose(tensor1[2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
+
+            numZeroSign += 2
+        else
+            if sign1 == 0
+                numZeroSign += 1
+            end
+
+            if sign3 == 0
+                numZeroSign += 1
+            end
+        end
+
+        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
+            if isClose(tensor2[1],0.0) && isClose(tensor2[2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
+
+            numZeroSign += 1
+        elseif sign2 == 0
+            numZeroSign += 1
+        end
+
+        if isClose(D3_11,0.0) && isClose(D3_21,0.0)
+            if isClose(tensor3[1],0.0) && isClose(tensor3[2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
+        end
+
+        if (numZeroMatrix == 1 && numZeroSign == 2)
+            return CP_ZERO_CORNER
+        elseif numZeroMatrix == 2
+            return CP_ZERO_EDGE
+        elseif numZeroMatrix == 3
+            return CP_ZERO_FULL
+        else
+            return CP_OTHER
+        end
+    end
+
+    if sign1 == sign2
+        if sign3 == sign1
+            if sign3 == 1
+                return CP_WEDGE
+            else
+                return CP_TRISECTOR
+            end
+        else
+            return CP_NORMAL
+        end
+    else
+        return CP_NORMAL
+    end
+
+end
+
+function getCriticalTypeFull( tf::TensorField2dSymmetric, x::Int64, y::Int64, t::Int64, top::Bool )
+    points = getCellVertexCoords(x,y,t,top)
+    tensor1 = getTensor(tf, points[1]...)
+    tensor2 = getTensor(tf, points[2]...)
+    tensor3 = getTensor(tf, points[3]...)
+
+    D1_11 = tensor1[1] - tensor1[3]
+    D1_21 = 2*tensor1[2]
+
+    D2_11 = tensor2[1] - tensor2[3]
+    D2_21 = 2*tensor2[2]
+
+    D3_11 = tensor3[1] - tensor3[3]
+    D3_21 = 2*tensor3[2]
+
+    sign1 = sign(D1_11*D2_21 - D2_11*D1_21)
+    sign2 = sign(D2_11*D3_21 - D3_11*D2_21)
+    sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
+
+    if sign1 == 0 || sign2 == 0 || sign3 == 0
+        # if we get three zeros, then give an answer according to the number of zeros.
+
+        numZeroSign = 0
         numZeroDeviator = 0
-
-        if sign1 == 0
-            numZeroSign += 1
-        end
-
-        if sign2 == 0
-            numZeroSign += 1
-        end
-
-        if sign3 == 0
-            numZeroSign += 1
-        end
-
-        if isClose(tensor1[1],0.0) && isClose(tensor1[2],0.0) && isClose(tensor1[3],0.0)
-            numZeroMatrix += 1
-        end
-
-        if isClose(tensor2[1],0.0) && isClose(tensor2[2],0.0) && isClose(tensor2[3],0.0)
-            numZeroMatrix += 1
-        end
-
-        if isClose(tensor3[1],0.0) && isClose(tensor3[2],0.0) && isClose(tensor3[3],0.0)
-            numZeroMatrix += 1
-        end
 
         if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
             numZeroDeviator += 1
+            numZeroSign += 2
+        else
+            if sign1 == 0
+                numZeroSign += 1
+            end
+
+            if sign3 == 0
+                numZeroSign += 1
+            end
         end
 
         if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
             numZeroDeviator += 1
+            numZeroSign += 1
+        elseif sign2 == 0
+            numZeroSign += 1
         end
 
         if isClose(D3_11,0.0) && isClose(D3_21,0.0)
             numZeroDeviator += 1
         end
 
-        if numZeroMatrix == 1 && numZeroDeviator == 1 && numZeroSign == 2
-            return CP_ZERO_CORNER
-        elseif numZeroMatrix == 2 && numZeroDeviator == 2
-            return CP_ZERO_EDGE
-        elseif numZeroMatrix == 3
-            return CP_ZERO_FULL
+        if numZeroDeviator == 0
+            if numZeroSign == 1
+                return CP_BORDER
+            else
+                return CP_LINE # 3 should not be possible.
+            end
+        elseif numZeroDeviator == 1
+            if numZeroSign == 2
+                return CP_BORDER
+            else
+                return CP_LINE
+            end
+        elseif numZeroDeviator == 2
+            return CP_LINE
         else
-            return CP_OTHER
+            return CP_FULL
         end
     end
 
@@ -363,6 +450,10 @@ function getCircularPointType( tf::TensorField2d, x::Int64, y::Int64, t::Int64, 
     return getCircularPointType( getTensorsAtCell( tf, x, y, t, top )... )
 end
 
+function getCircularPointTypeFull( tf::TensorField2d, x::Int64, y::Int64, t::Int64, top::Bool )
+    return getCircularPointTypeFull( getTensorsAtCell( tf, x, y, t, top )... )
+end
+
 function symmetricDeviator(tensor::FloatMatrix)
     diagonal = 0.5*tr(tensor)
     off_diagonal = 0.5*(tensor[2,1]-tensor[1,2])
@@ -393,38 +484,53 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
         numZeroSign = 0
         numZeroMatrix = 0
 
-        if sign1 == 0
+        if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
+            if isClose(tensor1[1,1],0.0) && isClose(tensor1[1,2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
+
+            numZeroSign += 2
+        else
+            if sign1 == 0
+                numZeroSign += 1
+            end
+
+            if sign3 == 0
+                numZeroSign += 1
+            end
+        end
+
+        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
+            if isClose(tensor2[1,1],0.0) && isClose(tensor2[1,2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
+
+            numZeroSign += 1
+        elseif sign2 == 0
             numZeroSign += 1
         end
 
-        if sign2 == 0
-            numZeroSign += 1
+        if isClose(D3_11,0.0) && isClose(D3_21,0.0)
+            if isClose(tensor3[1,1],0.0) && isClose(tensor3[1,2],0.0)
+                numZeroMatrix += 1
+            else
+                return CP_OTHER
+            end
         end
 
-        if sign3 == 0
-            numZeroSign += 1
-        end
-
-        if isClose(tensor1[1,1],0.0) && isClose(tensor1[1,2],0.0) && isClose(tensor1[2,1],0.0) && isClose(tensor1[2,2],0.0)
-            numZeroMatrix += 1
-        end
-
-        if isClose(tensor2[1,1],0.0) && isClose(tensor2[1,2],0.0) && isClose(tensor2[2,1],0.0) && isClose(tensor2[2,2],0.0)
-            numZeroMatrix += 1
-        end
-
-        if isClose(tensor3[1,1],0.0) && isClose(tensor3[1,2],0.0) && isClose(tensor3[2,1],0.0) && isClose(tensor3[2,2],0.0)
-            numZeroMatrix += 1
-        end
-
-        if numZeroMatrix == 1 && numZeroSign == 2
+        if (numZeroMatrix == 1 && numZeroSign == 2)
             return CP_ZERO_CORNER
-        elseif numZeroMatrix == 2 && numZeroSign == 2
+        elseif numZeroMatrix == 2
             return CP_ZERO_EDGE
+        elseif numZeroMatrix == 3
+            return CP_ZERO_FULL
         else
             return CP_OTHER
         end
-
     end
 
     if sign1 == sign2
@@ -442,6 +548,86 @@ function getCircularPointType(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor
     end
 end
 
+# Classifies the circular point type based on its full class (normal/trisector/corner/onEdge/fullEdge/line/full)
+function getCircularPointTypeFull(tensor1::FloatMatrix, tensor2::FloatMatrix, tensor3::FloatMatrix)
+    # rather than explicitly computing the deviator it is faster to do it this way.
+    # yes I know the readability kind of sucks but it makes kind of a huge difference.
+    D1_11 = tensor1[1,1] - tensor1[2,2]
+    D1_21 = tensor1[2,1] + tensor1[1,2]
+
+    D2_11 = tensor2[1,1] - tensor2[2,2]
+    D2_21 = tensor2[2,1] + tensor2[1,2]
+
+    D3_11 = tensor3[1,1] - tensor3[2,2]
+    D3_21 = tensor3[2,1] + tensor3[1,2]
+
+    sign1 = sign(D1_11*D2_21 - D2_11*D1_21)
+    sign2 = sign(D2_11*D3_21 - D3_11*D2_21)
+    sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
+
+    if sign1 == 0 || sign2 == 0 || sign3 == 0
+        # if we get three zeros, then give an answer according to the number of zeros.
+
+        numZeroSign = 0
+        numZeroDeviator = 0
+
+        if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
+            numZeroDeviator += 1
+            numZeroSign += 2
+        else
+            if sign1 == 0
+                numZeroSign += 1
+            end
+
+            if sign3 == 0
+                numZeroSign += 1
+            end
+        end
+
+        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
+            numZeroDeviator += 1
+            numZeroSign += 1
+        elseif sign2 == 0
+            numZeroSign += 1
+        end
+
+        if isClose(D3_11,0.0) && isClose(D3_21,0.0)
+            numZeroDeviator += 1
+        end
+
+        if numZeroDeviator == 0
+            if numZeroSign == 1
+                return CP_BORDER
+            else
+                return CP_LINE # 3 should not be possible.
+            end
+        elseif numZeroDeviator == 1
+            if numZeroSign == 2
+                return CP_BORDER
+            else
+                return CP_LINE
+            end
+        elseif numZeroDeviator == 2
+            return CP_LINE
+        else
+            return CP_FULL
+        end
+    end
+
+    if sign1 == sign2
+        if sign3 == sign1
+            if sign3 == 1
+                return CP_WEDGE
+            else
+                return CP_TRISECTOR
+            end
+        else
+            return CP_NORMAL
+        end
+    else
+        return CP_NORMAL
+    end
+end
 
 function decomposeTensor(tensor::FloatMatrix)
 

@@ -664,8 +664,32 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                             # Process individual cells to check circular points.
                             if eigenvector
                                 groundCircularPointType = getCircularPointType(groundTensors[1],groundTensors[2],groundTensors[3])
-                                if groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
+                                if processNewVertices && groundCircularPointType == CP_OTHER
+                                    # we preserve weird degeneracies too.
 
+                                    precisions[vertexCoords[1]...] = MAX_PRECISION+1
+                                    precisions[vertexCoords[2]...] = MAX_PRECISION+1
+                                    precisions[vertexCoords[3]...] = MAX_PRECISION+1
+
+                                    setTensor(tf2, vertexCoords[1]..., groundTensors[1])
+                                    setTensor(tf2, vertexCoords[2]..., groundTensors[2])
+                                    setTensor(tf2, vertexCoords[3]..., groundTensors[3])
+
+                                    θ_final[vertexCoords[1]...] = θ_ground[vertexCoords[1]...]
+                                    θ_final[vertexCoords[2]...] = θ_ground[vertexCoords[2]...]
+                                    θ_final[vertexCoords[3]...] = θ_ground[vertexCoords[3]...]
+
+                                    if top
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                        vertices_modified[4] = true
+                                    else
+                                        vertices_modified[1] = true
+                                        vertices_modified[2] = true
+                                        vertices_modified[3] = true
+                                    end
+
+                                elseif groundCircularPointType != getCircularPointType(tf2, x, y, t, top)
                                     θe1 = abs(θ_final[vertexCoords[1]...] - θ_ground[vertexCoords[1]...])
                                     θe2 = abs(θ_final[vertexCoords[2]...] - θ_ground[vertexCoords[2]...])
                                     θe3 = abs(θ_final[vertexCoords[3]...] - θ_ground[vertexCoords[3]...])
