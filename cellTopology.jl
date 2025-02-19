@@ -1238,7 +1238,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # then the triangle is a standard white triangle.
 
     if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse
-        return cellTopologyEigenvalue(SArray{Tuple{3},Int8}(S,S,S), vertexTypesEigenvector, 
+        return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Bool}(false,false,false))
     end
