@@ -1173,8 +1173,8 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     d_type,d_center = classifyAndReturnCenter(DConic)
     r_type,r_center = classifyAndReturnCenter(RConic)
 
-    ignore_d = (d_type == POINT || d_type == EMPTY || (isClose(r1,d1) && isClose(r2,d2) && isClose(r3,d3)) || (isClose(r1,-d1) && isClose(r2,-d2) && isClose(r3,-d3)))
-    ignore_r = (r_type == POINT || r_type == EMPTY)
+    ignore_d = (d_type == POINT || d_type == EMPTY || d_type == LINE_NO_REGION || (isClose(r1,d1) && isClose(r2,d2) && isClose(r3,d3)) || (isClose(r1,-d1) && isClose(r2,-d2) && isClose(r3,-d3)))
+    ignore_r = (r_type == POINT || r_type == EMPTY || r_type == LINE_NO_REGION)
 
     # third elt is true for double root, false otherwise
     DPIntercepts = MArray{Tuple{6},Intersection}(undef)

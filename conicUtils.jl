@@ -29,6 +29,7 @@ export PARALLEL_INNER_HORIZONTAL
 export PARALLEL_OUTER_HORIZONTAL
 export POINT
 export LINE
+export LINE_NO_REGION
 export HORIZONTAL_LINE
 export VERTICAL_LINE
 export EMPTY
@@ -45,9 +46,10 @@ const PARALLEL_INNER_HORIZONTAL = 7
 const PARALLEL_OUTER_HORIZONTAL = 8
 const POINT = 9
 const LINE = 10
-const HORIZONTAL_LINE = 11
-const VERTICAL_LINE = 12
-const EMPTY = 13 # entire domain or nothing
+const LINE_NO_REGION = 11
+const HORIZONTAL_LINE = 12
+const VERTICAL_LINE = 13
+const EMPTY = 14 # entire domain or nothing
 
 # This entire file assumes the interpolation paradigm where we are linearly interpolating three tensors in a triangle.
 # We assume that the first one is (0,0), the second (1,0), and the third (0,1). However, the goal here is just to determine
@@ -206,7 +208,9 @@ function classifyAndReturnCenter(eq::conicEquation)
             center = (x1,0.0)
             grad = gradient(eq, x1, 0.0)
             if grad[1] == 0.0 && grad[2] == 0.0
-                if eq.A > 0
+                if isClose(evaluate(eq, x1, 0.0), 0.0)
+                    return (LINE_NO_REGION, center)
+                elseif eq.A > 0
                     return (PARALLEL_OUTER, center)
                 else
                     return (PARALLEL_INNER, center)
@@ -218,7 +222,9 @@ function classifyAndReturnCenter(eq::conicEquation)
             if eq.C != 0
                 center = (0.0,-eq.E/(2*eq.C))
                 if eq.D == 0
-                    if eq.C > 0
+                    if isClose(eq.E^2 - 4*eq.C*eq.F, 0.0)
+                        return (LINE_NO_REGION, center)
+                    elseif eq.C > 0
                         return (PARALLEL_OUTER_HORIZONTAL, center)
                     else
                         return (PARALLEL_INNER_HORIZONTAL, center)

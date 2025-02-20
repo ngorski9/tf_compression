@@ -195,9 +195,10 @@ function main()
 
     folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 2
+    scale = 30
+    # scale = 2
     evecScale=0.0
-    power = 1.5
+    power = 2.5
 
     # old settings: num_steps: 60
     # max_path_tracing = 60
@@ -208,7 +209,8 @@ function main()
     max_path_tracing = 180 # kill after a certain number of steps to avoid loops
     block_size = 20
     hit_threshold = 8
-    δ = 0.1
+    δ = 0.01
+    # δ = 0.1
     asymmetric = false
 
     # load and set up the tensor field
@@ -220,6 +222,20 @@ function main()
     a_array = reshape( reinterpret( Float64, read(a_file) ), size )
     b_array = reshape( reinterpret( Float64, read(b_file) ), size )
     d_array = reshape( reinterpret( Float64, read(d_file) ), size )
+
+    # delete this nephew
+
+    # wedge
+    a_array = a_array[6:15,34:43]
+    b_array = b_array[6:15,34:43]
+    d_array = d_array[6:15,34:43]
+    size = (10,10)
+
+    # trisector
+    # a_array = a_array[47:57,10:20]
+    # b_array = b_array[47:57,10:20]
+    # d_array = d_array[47:57,10:20]
+    # size = (10,10)
 
     if asymmetric
         c_file = open("$folder/row_2_col_1.dat", "r")
@@ -531,22 +547,22 @@ function main()
     t2 = time()
     print(t2-t1)
 
-    cmap_list = [(0.0,"#2e3b8e"), (0.6,"#8599bc"), (1.0,"#fefcfb")]
+    cmap_list = [(0.0,"#4155c8"), (1.0,"#a1c0ff")]
     cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
 
     # visualize
     finalImage = finalImage .^ power
     plt.imshow(transpose(finalImage), cmap=cmap)
 
-    for cp in trisector_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=500 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=300 )
-    end
+    # for cp in trisector_points
+    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=500 )
+    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=300 )
+    # end
 
-    for cp in wedge_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=450 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=300 )
-    end
+    # for cp in wedge_points
+    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=450 )
+    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=300 )
+    # end
 
     # for j in 1:size[2]
     #     for i in 1:size[1]-1
