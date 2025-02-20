@@ -1534,6 +1534,12 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
 
     RConic = sub(RBase, sinPlusCos)
 
+    # check if the conic is not basically null (I don't believe this is even possible.)
+    class, _ = classifyAndReturnCenter(RConic)
+    if class == POINT || class == EMPTY || class == LINE_NO_REGION
+        return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
+    end
+
     RConicXIntercepts = quadraticFormula(RConic.A, RConic.D, RConic.F) # gives x coordinate
     RConicYIntercepts = quadraticFormula(RConic.C, RConic.E, RConic.F) # gives y coordinate
     # hypotenuse intercepts. Gives x coordinate
