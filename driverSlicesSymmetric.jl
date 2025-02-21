@@ -212,7 +212,7 @@ function main()
             outf = open(csv, "w")
 
             # write header :(
-                write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+                write(outf, "dataset,target,bc,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
                 write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points,")
                 write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
                 write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
@@ -271,7 +271,7 @@ function main()
         totalCellTypeFrequenciesReconS = s(totalCellTypeFrequenciesRecon)
 
         # write the data :((
-        write(outf, "$name,$target,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
+        write(outf, "$name,$target,$baseCompressor,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,")
         write(outf, "$averageMSEByRangeSquared,$averageFrobeniusMSEByRangeSquared,,,,,$totalCellMatchingS,$totalCellTypeFrequenciesGroundS, $totalCellTypeFrequenciesReconS,")
         write(outf, "$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),,$(ctv[6]),$(ctv[7]),")
         write(outf, "$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")

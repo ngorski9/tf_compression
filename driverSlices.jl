@@ -278,7 +278,7 @@ function main()::Cint
             outf = open(csv, "w")
 
             # write header :(
-            write(outf, "dataset,target,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
+            write(outf, "dataset,target,bc,eb,ratio,max error,psnr,ct,dt,tt,mse,frobeniusMse,fp val,fp vec,ft val,ft vec,cells,cp types (ground),cp types (recon),")
             write(outf, "numPoints,numCells,setup 1,bc,setup 2,proc. points,")
             write(outf, "proc. cp,proc. cells,queue,total proc.,num corrected,num proc.'d,write comp.,lossless comp.,comp. clean,decomp. zstd,")
             write(outf, "tar,load,base decomp.,read base decomp.,augment,save decomp.,cleanup\n")
@@ -335,7 +335,7 @@ function main()::Cint
         totalCellTypeFrequenciesReconS = s(totalCellTypeFrequenciesRecon)
 
         # write the data :((
-        write(outf, "$name,$target,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,$averageMSEByRangeSquared,")
+        write(outf, "$name,$target,$baseCompressor,$eb,$ratio,$maxErrorByRange,$psnr,$totalCompressionTime,$totalDecompressionTime,$trialTime,$averageMSEByRangeSquared,")
         write(outf, "$averageFrobeniusMSEByRangeSquared,$(totalVertexMatching[1,2]),$(totalVertexMatching[2,2]),$(totalCellMatching[9]),$(totalCellMatching[11]),$totalCellMatchingS,")
         write(outf, "$totalCellTypeFrequenciesGroundS,$totalCellTypeFrequenciesReconS,$numPoints,$numCells,$(ctv[1]),$(ctv[2]),$(ctv[3]),$(ctv[4]),$(ctv[5]),$(ctv[6]),")
         write(outf, "$(ctv[7]),$(ctv[8]),$(ctv[9]),$(ctv[10]),$(ctv[11]),$(ctv[12]),$(ctv[13]),$(dtv[1]),$(dtv[2]),$(dtv[3]),$(dtv[4]),")
