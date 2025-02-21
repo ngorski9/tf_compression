@@ -1412,8 +1412,8 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                                     end
 
-                                    if lossless
-                                        if ll[1] && ll[2] && ll[3]                 
+                                    if lossless                                            
+                                        if ll[1] && ll[2] && ll[3]
                                             # Storing things losslessly with the trace trick didn't do the job.
                                             # In this case, just store all three cells totally losslessly
                                             # This is very rare.
@@ -1446,7 +1446,14 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                                             trDif = tr[idx]-tg[idx]
                                             newTensor = SVector{3,Float64}( tensorsGround[idx][1] + trDif, tensorsGround[idx][2], tensorsGround[idx][3] + trDif )
-                                            setTensor(tf2, vertexCoords[idx]..., newTensor)
+
+                                            if maximum(abs.(newTensor - tensorsGround[idx])) > aeb
+                                                codes[vertexCoords[idx]...] = 0
+                                                full_lossless[vertexCoords[idx]...] = 1
+                                                setTensor(tf2, vertexCoords[idx]..., getTensor(tf, vertexCoords[idx]...))                                                
+                                            else
+                                                setTensor(tf2, vertexCoords[idx]..., newTensor)
+                                            end
 
                                             if idx == 1
                                                 θe1 = 0.0

@@ -1,5 +1,7 @@
 include("utils.jl")
 include("conicUtils.jl")
+include("cellTopology.jl")
+include("conicUtils.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
@@ -15,8 +17,8 @@ function main()
     # stress slice 12 (or probably others) makes a good teaser!
 
     folder = "../output/slice"
-    dims = (65,65,1)
-    eb = 0.0089
+    dims = (384,384,1)
+    eb = 0.01
 
     # stress3xy slice 13 0.008899 is equivalent to 0.01 for mine
     # stress3xy slice 24 0.0094
@@ -24,10 +26,10 @@ function main()
 
     # slice 10 (sperr) gives 38.39 0.0089 equiv
 
-    naive = true
+    naive =false
     mask = false
     bits = 6 # number of bits used for quantization
-    baseCompressor = "sperr"
+    baseCompressor = "sz3"
 
     println("hi")
     compression_start = time()
