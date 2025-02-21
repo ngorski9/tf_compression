@@ -37,10 +37,10 @@ function compress2dNaive(containing_folder, dims, output_file, relative_error_bo
         run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_1.dat -c $output/row_2_col_1.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
         run(`../MGARD/build/bin/mgard-cpu -z -t d -i $containing_folder/row_2_col_2.dat -c $output/row_2_col_2.cmp -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $aeb -s $smoothness`)
     elseif baseCompressor == "sperr"
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_2_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
     elseif baseCompressor == "zfp"
         run(`../zfp/build/bin/zfp -d -i $containing_folder/row_1_col_1.dat -z $output/row_1_col_1.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
         run(`../zfp/build/bin/zfp -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -a $aeb`)
@@ -95,9 +95,9 @@ function compress2dSymmetricNaive(containing_folder, dims, output_file, relative
         run(`../SZ3/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
         run(`../SZ3/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     elseif baseCompressor == "sperr"
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
     else
         println("ERROR: unrecognized base compressor $baseCompressor")
         exit(1)
@@ -171,9 +171,9 @@ function compress2dSymmetricNaiveWithMask(containing_folder, dims, output_file, 
         run(`../SZ3/build/bin/sz3 -d -i $containing_folder/row_1_col_2.dat -z $output/row_1_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
         run(`../SZ3/build/bin/sz3 -d -i $containing_folder/row_2_col_2.dat -z $output/row_2_col_2.cmp -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     elseif baseCompressor == "sperr"
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_1.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_1_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $containing_folder/row_2_col_2.dat -c --ftype 64 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
     else
         println("ERROR: unrecognized base compressor $baseCompressor")
     end
@@ -260,15 +260,15 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
         run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_1.cmp -d $output/row_2_col_1.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
         run(`../MGARD/build/bin/mgard-cpu -x -t s -c $output/row_2_col_2.cmp -d $output/row_2_col_2.dat -n 3 $(dims[3]) $(dims[2]) $(dims[1]) -m abs -e $(parameter*aeb) -s $smoothness`)
     elseif baseCompressor == "sperr"
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_1.cmp --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $(parameter*aeb)`)
 
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_1.dat --pwe $(parameter*aeb)`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_1.dat --pwe $(parameter*aeb)`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $(parameter*aeb)`)
     end
 
     baseCompressorSplit = time()
@@ -1104,13 +1104,13 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
         run(`../SZ3/build/bin/sz3 -f -i $output/row_1_col_2_g.dat -z $output/row_1_col_2.cmp -o $output/row_1_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
         run(`../SZ3/build/bin/sz3 -f -i $output/row_2_col_2_g.dat -z $output/row_2_col_2.cmp -o $output/row_2_col_2.dat -3 $(dims[1]) $(dims[2]) $(dims[3]) -M ABS $aeb`)
     elseif baseCompressor == "sperr"
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_1_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_1.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_1_col_2.cmp --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_2_g.dat -c --ftype 32 --dims $(dims[1]) $(dims[2]) --bitstream $output/row_2_col_2.cmp --pwe $aeb`)
 
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $aeb`)
-        run(`../SPERR-main/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $aeb`)        
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_1.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_1.dat --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $output/row_1_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_1_col_2.dat --pwe $aeb`)
+        run(`../SPERR/build/bin/sperr2d $output/row_2_col_2.cmp -d --ftype 32 --dims $(dims[1]) $(dims[2]) --decomp_f $output/row_2_col_2.dat --pwe $aeb`)        
     else
         println("ERROR: unrecognized base compressor $baseCompressor")
         exit(1)
