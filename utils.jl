@@ -18,6 +18,7 @@ export isRelativelyGreater
 export isLess
 export isRelativelyLess
 export rankOrder
+export nonzeroSign
 
 # Numerical constants
 
@@ -170,6 +171,14 @@ function rankOrder(a,b,c)
         else
             return (2,1,3)
         end
+    end
+end
+
+function nonzeroSign(x::Float64)
+    if x >= 0.0
+        return 1.0
+    else
+        return -1.0
     end
 end
 

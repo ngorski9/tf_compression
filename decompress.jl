@@ -370,7 +370,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             end
 
                             if d_sign_swap == 1
-                                if d > 0
+                                if isGreater(d,0.0)
                                     d -= aeb
                                 else
                                     d += aeb
@@ -429,8 +429,8 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             end
 
                             # set stuff back to their ranks
-                            d = sign(d) * mags[d_swap_rank]
-                            r = sign(r) * mags[r_swap_rank]
+                            d = nonzeroSign(d) * mags[d_swap_rank]
+                            r = nonzeroSign(r) * mags[r_swap_rank]
                             s = mags[s_swap_rank]
 
                         end

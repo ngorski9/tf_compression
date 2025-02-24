@@ -386,10 +386,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 s_swap += (sqrt(2)-1)*aeb
             end
 
-            d_sign_swap::Int8 = 0 # if 2: set all three to zero
-            r_sign_swap::Int8 = 0 # if 2: set r = 0. If 3, set r=s=0
-            d_largest_swap::Int8 = 0 # if 2: set |d|=s as co-largest. if 3: set |d|=|r| as co-largest
-            r_over_s_swap::Int8 = 0 # if 2: set |r|=s
+            d_sign_swap::UInt8 = 0 # if 2: set all three to zero
+            r_sign_swap::UInt8 = 0 # if 2: set r = 0. If 3, set r=s=0
+            d_largest_swap::UInt8 = 0 # if 2: set |d|=s as co-largest. if 3: set |d|=|r| as co-largest
+            r_over_s_swap::UInt8 = 0 # if 2: set |r|=s
             degenerateCase = false            
 
             # Check whether any modifications need to take place at all.
@@ -453,10 +453,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     if eigenvalue && !isLess(abs(d),s) && !isLess(abs(d),abs(r))
-                        if isGreater(d,0.0) && !isGreater(d_swap,0.0)
+                        if isGreater(d,0.0) && isLess(d_swap,0.0)
                             d_sign_swap = 1
                             d_swap += aeb
-                        elseif isLess(d,0.0) && !isLess(d,0.0)
+                        elseif isLess(d,0.0) && isGreater(d_swap,0.0)
                             d_sign_swap = 1
                             d_swap -= aeb
                         end
@@ -518,8 +518,8 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     # set everything to its ranked magnitude
-                    d_swap = sign(d_swap) * mags[d_swap_rank]
-                    r_swap = sign(r_swap) * mags[r_swap_rank]
+                    d_swap = nonzeroSign(d_swap) * mags[d_swap_rank]
+                    r_swap = nonzeroSign(r_swap) * mags[r_swap_rank]
                     s_swap = mags[s_swap_rank]
 
                 end
@@ -528,6 +528,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 degenerateCase = (eigenvalue && isClose(abs(d_swap),abs(r_swap)) && !isGreater(s_swap, abs(d_swap)) && !(isClose(abs(d),abs(r)) && !isGreater(s,abs(d)))) ||
                                 (eigenvalue && isClose(abs(d_swap),s_swap) && !isGreater(abs(r_swap),abs(d_swap)) && !(isClose(abs(d),s) && !isGreater(abs(r),abs(d)))) ||
                                 (eigenvalue && isClose(abs(r_swap),s_swap) && !isGreater(abs(d_swap),abs(r_swap)) && !(isClose(abs(r),s) && !isGreater(abs(d),abs(r)))) ||
+                                (eigenvector && isClose(r_swap,0.0) && !isClose(r, 0.0) ) ||
                                 (eigenvector && isClose(abs(r_swap),s_swap) && !isClose(abs(r),s)) ||
                                 (eigenvector && isClose(r_swap, 0.0) && !isClose(r,0.0))
 
@@ -646,13 +647,6 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
                                 # Single vertex: swap values into place.
                                 for v in newVertices
-                                    if abs(d_ground[vertexCoords[v]...]) == abs(r_ground[vertexCoords[v]...]) || abs(d_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...] || abs(r_ground[vertexCoords[v]...]) == s_ground[vertexCoords[v]...]
-                                        precisions[vertexCoords[v]...] = MAX_PRECISION+1
-                                        setTensor(tf2, vertexCoords[v]..., getTensor(tf, vertexCoords[v]...))
-                                        θ_final[vertexCoords[v]...] = θ_ground[vertexCoords[v]...]
-                                    else
-                                        processPoint(vertexCoords[v], groundTensors[v])
-                                    end
                                     processPoint(vertexCoords[v], groundTensors[v])
                                 end
 
