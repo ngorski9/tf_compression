@@ -385,8 +385,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             mags[s_swap_rank] = s
 
                             # handle normal swaps
-
-                            if d_largest_swap != 0
+                            if d_largest_swap != 0 || d_sign_swap == 1
                                 if d_swap_rank == 1
                                     if d_largest_swap != 2 && d_largest_swap != 3 # those codes require d to be on top!
                                         d_swap_rank = 2

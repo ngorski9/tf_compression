@@ -474,7 +474,10 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     # do simple swaps to get the (tie-broken) permuatation order to be equal
                     if eigenvalue 
                         if d_rank == 1 && d_swap_rank != 1
-                            d_largest_swap = 1
+                            if d_sign_swap == 0 # if d_sign_swap = 1, this already tells us that d should be first.
+                                d_largest_swap = 1
+                            end
+
                             d_swap_rank = 1                        
                             if s_swap_rank == 1
                                 s_swap_rank = 2
