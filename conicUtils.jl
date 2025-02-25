@@ -161,11 +161,23 @@ function intersectWithStandardFormLine(eq::conicEquation, a::Float64, b::Float64
 end
 
 function quadraticFormula(a::Float64, b::Float64, c::Float64)
+    if abs(a) < ϵ^2
+        a = 0.0
+    end
+
+    if abs(b) < ϵ^2
+        b = 0.0
+    end
+
+    if abs(c) < ϵ^2
+        c = 0.0
+    end
+
     disc = b^2-4*a*c
 
-    if disc != 0.0 && disc/((a+b+c)^2) < -ϵ
+    if disc < -ϵ^4
         return (Inf,Inf)
-    elseif disc != 0.0 && disc/((a+b+c)^2) < ϵ
+    elseif disc < ϵ^4
         disc = 0.0
     end
 
