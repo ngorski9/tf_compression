@@ -1169,6 +1169,10 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # hypotenuse intercepts. Gives x coordinate
     RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
 
+    println(DConicXIntercepts)
+    println(to_string(DConic))
+    println("----")
+
     # first, check for degenerate cases of (a) single line with no intersection region, and (b) single point.
     # in either of these cases, we completely ignore the given conic.
     d_type,d_center = classifyAndReturnCenter(DConic)
