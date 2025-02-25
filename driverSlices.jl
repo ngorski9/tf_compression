@@ -149,6 +149,31 @@ function main()::Cint
 
     trialStart = time()
 
+    if occursin("/",folder)
+        name = folder[first(findlast("/",folder))+1:lastindex(folder)]
+    else
+        name = folder
+    end
+
+    if slice != -1
+        name = name * " (slice $slice)"
+    end
+
+    # compute the target
+    if eigenvector
+        if eigenvalue
+            target = "BOTH"
+        else
+            target = "EIGENVECTOR"
+        end
+    else
+        target = "EIGENVALUE"
+    end
+
+    if naive
+        target = target * " (NAIVE)"
+    end
+
     for t in range
 
         println("t = $t")
@@ -207,6 +232,17 @@ function main()::Cint
         if !naive && !metrics[1]
             redirect_stdout(stdout_)
             println("failed on slice $t")
+
+            if csv != ""
+                if isfile(csv)
+                    outf = open(csv, "a")
+                else
+                    outf = open(csv, "w")
+                end
+            end
+
+            write(outf, "$name $target failed on slice $t")
+
             exit(1)
         end
 
@@ -289,31 +325,6 @@ function main()::Cint
         # compute the name of the dataset
         if last(folder) == '/'
             folder = folder[1:lastindex(folder)-1]
-        end
-
-        if occursin("/",folder)
-            name = folder[first(findlast("/",folder))+1:lastindex(folder)]
-        else
-            name = folder
-        end
-
-        if slice != -1
-            name = name * " (slice $slice)"
-        end
-
-        # compute the target
-        if eigenvector
-            if eigenvalue
-                target = "BOTH"
-            else
-                target = "EIGENVECTOR"
-            end
-        else
-            target = "EIGENVALUE"
-        end
-
-        if naive
-            target = target * " (NAIVE)"
         end
 
         numPoints = dims[1]*dims[2]

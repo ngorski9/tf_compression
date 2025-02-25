@@ -508,11 +508,11 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                         s_swap_rank = 1
                     end
 
-                    if (eigenvector || r_rank == 1) && isClose(abs(r),s) && !isClose(mags[r_swap_rank],mags[s_swap_rank])
+                    if (eigenvector || r_rank == 1 || (s_rank == 1 && isClose(abs(r),s)) || (d_rank == 1 && isClose(abs(r),abs(d)))) && isClose(abs(r),s) && !isClose(mags[r_swap_rank],mags[s_swap_rank])
                         r_over_s_swap = 2
-                        maxRank = min(r_swap_rank,s_swap_rank)
-                        r_swap_rank = maxRank
-                        s_swap_rank = maxRank
+                        minRank = min(r_swap_rank,s_swap_rank)
+                        r_swap_rank = minRank
+                        s_swap_rank = minRank
                     end
 
                     if eigenvalue && d_swap_rank == 1 && isClose(abs(r),abs(d)) && !isClose(mags[r_swap_rank],mags[d_swap_rank])

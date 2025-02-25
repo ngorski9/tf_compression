@@ -387,12 +387,14 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             # handle normal swaps
                             if d_largest_swap != 0 || d_sign_swap == 1
                                 if d_swap_rank == 1
-                                    if d_largest_swap != 2 && d_largest_swap != 3 # those codes require d to be on top!
-                                        d_swap_rank = 2
-                                        if s_swap_rank == 2
-                                            s_swap_rank = 1
-                                        else
-                                            r_swap_rank = 1
+                                    if d_sign_swap == 0
+                                        if d_largest_swap != 2 && d_largest_swap != 3 # those codes require d to be on top!
+                                            d_swap_rank = 2
+                                            if s_swap_rank == 2
+                                                s_swap_rank = 1
+                                            else
+                                                r_swap_rank = 1
+                                            end
                                         end
                                     end
                                 else
@@ -418,9 +420,9 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             end
 
                             if r_over_s_swap == 2
-                                maxRank = min(r_swap_rank,s_swap_rank)
-                                r_swap_rank = maxRank
-                                s_swap_rank = maxRank
+                                minRank = min(r_swap_rank,s_swap_rank)
+                                r_swap_rank = minRank
+                                s_swap_rank = minRank
                             end
 
                             if d_largest_swap == 3
@@ -470,7 +472,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     #                 println(θCode)
     #                 println(sFix)
     #                 println((d_sign_swap,r_sign_swap,d_largest_swap,r_over_s_swap))    
-    #                 println((dCodes[i,j,t],rCodes[i,j,t],sCodes[i,j,t]))           
+    #                 println((dCodes[i,j,t],rCodes[i,j,t],sCodes[i,j,t]))
     #                 println("=======================")  
     #             end
     #         end

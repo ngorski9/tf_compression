@@ -97,6 +97,9 @@ end
 function normalizedGradient(eq::conicEquation,x::Float64,y::Float64)
     grad = gradient(eq,x,y)
     norm = sqrt(grad[1]^2+grad[2]^2)
+    # if norm < ϵ*ϵ
+    #     return (0.0,0.0)
+    # end
     return (grad[1]/norm, grad[2]/norm)
 end
 
@@ -182,8 +185,8 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
 
 end
 
-function to_string(eq::conicEquation)
-    return string(eq.A) * "x^2 + " * string(eq.B) * "xy + " * string(eq.C) * "y^2 + " * string(eq.D) * "x + " * string(eq.E) * "y + " * string(eq.F)
+function to_string(eq::conicEquation,m=1.0)
+    return string(m*eq.A) * "x^2 + " * string(m*eq.B) * "xy + " * string(m*eq.C) * "y^2 + " * string(m*eq.D) * "x + " * string(m*eq.E) * "y + " * string(m*eq.F)
 end
 
 function classifyAndReturnCenter(eq::conicEquation)

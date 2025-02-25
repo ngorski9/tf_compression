@@ -1144,6 +1144,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             (!isRelativelyClose(abs(d1),abs(r1)) && !isRelativelyClose(abs(d2),abs(r2)) && !isRelativelyClose(abs(d3),abs(r3))) )   ||
        (isClose(s1,0.0) && isClose(s2,0.0) && isClose(s3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
+    #    println("return 1")
         return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
     end
 
@@ -1237,8 +1238,9 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # if the two conics do not intersect the triangle, and neither is an internal ellipse,
     # then the triangle is a standard white triangle.
 
-    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse
-        return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, 
+    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse && vertexTypesEigenvalue[1] == S
+        # println("return 2")
+        return cellTopologyEigenvalue(SArray{Tuple{3},Int8}(S,S,S), vertexTypesEigenvector, 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Int8}(0,0,0), SArray{Tuple{3},Bool}(false,false,false))
     end
@@ -1494,6 +1496,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, s3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
 
     # what a racket
+    # println("return 3")
     return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
 end
 
@@ -1545,84 +1548,142 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     # hypotenuse intercepts. Gives x coordinate
     RConicHIntercepts = quadraticFormula(RConic.A - RConic.B + RConic.C, RConic.B - 2*RConic.C + RConic.D - RConic.E, RConic.C + RConic.E + RConic.F)
 
-    if ϵ < RConicXIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[1], 0.0), (0.0,1.0)), 0.0)
+    if ϵ < RConicXIntercepts[1] < 1.0-ϵ
         r = RConicXIntercepts[1]*r2 + (1.0-RConicXIntercepts[1])*r1
-        if isGreater(r, 0.0)
-            RPArray[1] += 1
-        elseif isClose(r, 0.0)
-            RPArray[1] += 1            
-            RNArray[1] += 1
+
+        grad = normalizedGradient(RConic, RConicXIntercepts[1], 0.0)
+
+        if isClose(dot(grad, (1.0,0.0)), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[1] += 1
+            if isGreater(r, 0.0)
+                RPArray[1] += 1
+            elseif isClose(r, 0.0)
+                RPArray[1] += 1            
+                RNArray[1] += 1
+            else
+                RNArray[1] += 1
+            end
         end
     end
 
-    if ϵ < RConicXIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicXIntercepts[2], 0.0), (0.0,1.0)), 0.0) &&
-        RConicXIntercepts[1] != RConicXIntercepts[2]
+    if ϵ < RConicXIntercepts[2] < 1.0-ϵ && RConicXIntercepts[1] != RConicXIntercepts[2]
+        
 
         r = RConicXIntercepts[2]*r2 + (1.0-RConicXIntercepts[2])*r1
-        if isGreater(r, 0.0)
-            RPArray[1] += 1
-        elseif isClose(r, 0.0)
-            RPArray[1] += 1            
-            RNArray[1] += 1
+        
+        grad = normalizedGradient(RConic, RConicXIntercepts[2], 0.0)
+
+        if isClose(dot(grad, (1.0,0.0)), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[1] += 1
+            if isGreater(r, 0.0)
+                RPArray[1] += 1
+            elseif isClose(r, 0.0)
+                RPArray[1] += 1            
+                RNArray[1] += 1
+            else
+                RNArray[1] += 1
+            end
         end
     end
 
-    if ϵ < RConicYIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[1]), (1.0,0.0)), 0.0)
+    if ϵ < RConicYIntercepts[1] < 1.0-ϵ
 
         r = RConicYIntercepts[1]*r3 + (1.0-RConicYIntercepts[1])*r1
-        if isGreater(r, 0.0)
-            RPArray[3] += 1
-        elseif isClose(r, 0.0)
-            RPArray[3] += 1            
-            RNArray[3] += 1
+
+        grad = normalizedGradient(RConic, 0.0, RConicYIntercepts[1])
+
+        if isClose(dot(grad, (0.0,1.0)), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[3] += 1
+            if isGreater(r, 0.0)
+                RPArray[3] += 1
+            elseif isClose(r, 0.0)
+                RPArray[3] += 1            
+                RNArray[3] += 1
+            else
+                RNArray[3] += 1
+            end
         end
     end
 
-    if ϵ < RConicYIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, 0.0, RConicYIntercepts[2]), (1.0,0.0)), 0.0) &&
-        RConicYIntercepts[1] != RConicYIntercepts[2]
+    if ϵ < RConicYIntercepts[2] < 1.0-ϵ && RConicYIntercepts[1] != RConicYIntercepts[2]
 
         r = RConicYIntercepts[2]*r3 + (1.0-RConicYIntercepts[2])*r1
-        if isGreater(r, 0.0)
-            RPArray[3] += 1
-        elseif isClose(r, 0.0)
-            RPArray[3] += 1            
-            RNArray[3] += 1
+
+        grad = normalizedGradient(RConic, 0.0, RConicYIntercepts[2])
+
+        if isClose(dot(grad, (0.0,1.0)), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[3] += 1
+            if isGreater(r, 0.0)
+                RPArray[3] += 1
+            elseif isClose(r, 0.0)
+                RPArray[3] += 1            
+                RNArray[3] += 1
+            else
+                RNArray[3] += 1
+            end
         end
 
     end
 
-    if ϵ < RConicHIntercepts[1] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[1], 1.0-RConicHIntercepts[1]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0)
+    if ϵ < RConicHIntercepts[1] < 1.0-ϵ
 
         r = RConicHIntercepts[1]*r2 + (1.0-RConicHIntercepts[1])*r3
-        if isGreater(r, 0.0)
-            RPArray[2] += 1
-        elseif isClose(r, 0.0)
-            RPArray[2] += 1            
-            RNArray[2] += 1
+
+        grad = normalizedGradient(RConic, RConicHIntercepts[1], 1.0-RConicHIntercepts[1])
+
+        if isClose(dot(grad, (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[2] += 1
+            if isGreater(r, 0.0)
+                RPArray[2] += 1
+            elseif isClose(r, 0.0)
+                RPArray[2] += 1            
+                RNArray[2] += 1
+            else
+                RNArray[2] += 1
+            end
         end
     end
 
-    if ϵ < RConicHIntercepts[2] < 1.0-ϵ && !isClose(dot(normalizedGradient(RConic, RConicHIntercepts[2], 1.0-RConicHIntercepts[2]), (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) &&
-        RConicHIntercepts[1] != RConicHIntercepts[2]
+    if ϵ < RConicHIntercepts[2] < 1.0-ϵ && RConicHIntercepts[1] != RConicHIntercepts[2]
 
         r = RConicHIntercepts[2]*r2 + (1.0-RConicHIntercepts[2])*r3
-        if isGreater(r, 0.0)
-            RPArray[2] += 1
-        elseif isClose(r, 0.0)
-            RPArray[2] += 1            
-            RNArray[2] += 1
+
+        grad = normalizedGradient(RConic, RConicHIntercepts[2], 1.0-RConicHIntercepts[2])
+
+        if isClose(dot(grad, (-1.0/sqrt(2),1.0/sqrt(2))), 0.0) || isnan(grad[1])
+            if isClose(r, 0.0)
+                RPArray[1] += 1
+                RNArray[1] += 1
+            end
         else
-            RNArray[2] += 1
+            if isGreater(r, 0.0)
+                RPArray[2] += 1
+            elseif isClose(r, 0.0)
+                RPArray[2] += 1            
+                RNArray[2] += 1
+            else
+                RNArray[2] += 1
+            end
         end
     end
 

@@ -132,32 +132,49 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
 
-                    # top12 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), false)
-                    # top22 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), false)
-
-                    # if !(top1.vertexTypesEigenvalue == top12.vertexTypesEigenvalue && top1.DPArray == top12.DPArray && top1.DNArray == top12.DNArray && top1.RPArray == top12.RPArray && top1.RNArray == top12.RNArray)
-                    #     println("mismatch")
-                    #     println(top1)
-                    #     println(top12)
-                    #     exit()
-                    # end
-
-                    # if !(top2.vertexTypesEigenvalue == top22.vertexTypesEigenvalue && top2.DPArray == top22.DPArray && top2.DNArray == top22.DNArray && top1.RPArray == top22.RPArray && top1.RNArray == top22.RNArray)
-                    #     println("mismatch")
-                    #     println(top2)
-                    #     println(top22)
-                    # end
-
                     if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && top1.DPArray == top2.DPArray && top1.DNArray == top2.DNArray && top1.RPArray == top2.RPArray && top1.RNArray == top2.RNArray
                         result[VALSAME] += 1
                     else
                         result[VALDIF] += 1
+                        # println(top1)
+                        # println(top2)
+                        
+                        # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))
+
+                        # println("-----")
+
+                        # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))                        
+                        # exit()
                     end
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2
                         result[VECSAME] += 1
                     else
                         result[VECDIF] += 1
+                        # println(top1)
+                        # println(top2)
+                        
+                        # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))
+
+                        # println("-----")
+
+                        # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))                       
+                        # # println(tensors[1]) 
+                        # # println(tensors[2])
+                        # # println(tensors[3])
+                        # exit()                        
                     end
 
                 end
