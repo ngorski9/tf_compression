@@ -175,9 +175,9 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
 
     disc = b^2-4*a*c
 
-    if disc < -ϵ^4
+    if disc != 0 && disc < -ϵ/((a+b+c)^2)
         return (Inf,Inf)
-    elseif disc < ϵ^4
+    elseif disc != 0 && disc < ϵ/((a+b+c)^2)
         disc = 0.0
     end
 
