@@ -173,8 +173,6 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
         c = 0.0
     end
 
-    println((a,b,c))
-
     disc = b^2-4*a*c
 
     if disc != 0 && disc/((a+b+c)^2) < -ϵ
