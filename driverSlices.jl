@@ -239,9 +239,9 @@ function main()::Cint
                 else
                     outf = open(csv, "w")
                 end
-            end
 
-            write(outf, "$name $target failed on slice $t")
+                write(outf, "$name $target failed on slice $t")                
+            end
 
             exit(1)
         end
