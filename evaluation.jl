@@ -157,27 +157,27 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VECSAME] += 1
                     else
                         result[VECDIF] += 1
-                        println(top1)
-                        println(top2)
+                        # println(top1)
+                        # println(top2)
                         
-                        tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
-                        println(decomposeTensor(tensors[1]))
-                        println(decomposeTensor(tensors[2]))
-                        println(decomposeTensor(tensors[3]))
-                        # println(tensors[1])
-                        # println(tensors[2])
-                        # println(tensors[3])
-
-                        println("-----")
-
-                        tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
+                        # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
                         # println(decomposeTensor(tensors[1]))
                         # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))                       
-                        println(tensors[1]) 
-                        println(tensors[2])
-                        println(tensors[3])
-                        exit()                        
+                        # println(decomposeTensor(tensors[3]))
+                        # # println(tensors[1])
+                        # # println(tensors[2])
+                        # # println(tensors[3])
+
+                        # println("-----")
+
+                        # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
+                        # # println(decomposeTensor(tensors[1]))
+                        # # println(decomposeTensor(tensors[2]))
+                        # # println(decomposeTensor(tensors[3]))                       
+                        # println(tensors[1]) 
+                        # println(tensors[2])
+                        # println(tensors[3])
+                        # exit()                        
                     end
 
                 end

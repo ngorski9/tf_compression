@@ -350,7 +350,7 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
         if isGreater(r,0.0)
             return DREQP
         elseif isClose(r,0.0)
-            return DZ
+            return RZ
         else
             return DREQN
         end
