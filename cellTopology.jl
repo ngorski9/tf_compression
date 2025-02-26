@@ -204,7 +204,7 @@ export RNS
 # more gradient based correction may occur later on if two are equal.
 # This breaks ties arbitrarily.
 function classifyTensorEigenvalue(d,r,s)
-    if isRelativelyGreater(abs(d), abs(r))
+    if isGreater(abs(d), abs(r))
         if !isLess(s, abs(d))
             return S
         else
@@ -215,7 +215,7 @@ function classifyTensorEigenvalue(d,r,s)
             end
         end
     else
-        if !isRelativelyLess(s, abs(r))
+        if !isLess(s, abs(r))
             if isClose(s, 0.0)
                 return Z
             else
@@ -239,17 +239,17 @@ function classifyTensorEigenvector(r,s)
             return SYM
         end
     elseif isGreater(r,0.0)
-        if isRelativelyClose(r,s)
+        if isClose(r,s)
             return DegenRP
-        elseif isRelativelyGreater(r,s)
+        elseif isGreater(r,s)
             return RRP
         else
             return SRP
         end
     else
-        if isRelativelyClose(-r,s)
+        if isClose(-r,s)
             return DegenRN
-        elseif isRelativelyGreater(-r,s)
+        elseif isGreater(-r,s)
             return RRN
         else
             return SRN
@@ -326,7 +326,7 @@ function DCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
         else
             return DREQN
         end
-    elseif isRelativelyGreater(abs(r),abs(d))
+    elseif isGreater(abs(r),abs(d))
         return NULL
     elseif isGreater(d, 0.0)
         return DP
@@ -346,7 +346,7 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
 
-    if isRelativelyClose(abs(d),abs(r))
+    if isClose(abs(d),abs(r))
         if isGreater(r,0.0)
             return DREQP
         elseif isClose(r,0.0)
@@ -354,7 +354,7 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
         else
             return DREQN
         end
-    elseif isRelativelyGreater(abs(d),abs(r))
+    elseif isGreater(abs(d),abs(r))
         if isGreater(r,0.0)
             return RPTrumped
         elseif isClose(r,0.0)
@@ -1141,7 +1141,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     if (vertexTypesEigenvalue[1] == Z && vertexTypesEigenvalue[2] == Z && vertexTypesEigenvalue[3] == Z) ||
        ( (( !eigenvector && isGreater(abs(d1),s1) && isGreater(abs(d2),s2) && isGreater(abs(d3),s3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
             ( isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) )) &&
-            (!isRelativelyClose(abs(d1),abs(r1)) && !isRelativelyClose(abs(d2),abs(r2)) && !isRelativelyClose(abs(d3),abs(r3))) )   ||
+            (!isClose(abs(d1),abs(r1)) && !isClose(abs(d2),abs(r2)) && !isClose(abs(d3),abs(r3))) )   ||
        (isClose(s1,0.0) && isClose(s2,0.0) && isClose(s3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
     #    println("return 1")

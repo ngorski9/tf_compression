@@ -136,21 +136,21 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VALSAME] += 1
                     else
                         result[VALDIF] += 1
-                        # println(top1)
-                        # println(top2)
+                        println(top1)
+                        println(top2)
                         
-                        # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))
+                        tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
+                        println(decomposeTensor(tensors[1]))
+                        println(decomposeTensor(tensors[2]))
+                        println(decomposeTensor(tensors[3]))
 
-                        # println("-----")
+                        println("-----")
 
-                        # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))                        
-                        # exit()
+                        tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
+                        println(decomposeTensor(tensors[1]))
+                        println(decomposeTensor(tensors[2]))
+                        println(decomposeTensor(tensors[3]))                        
+                        exit()
                     end
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2

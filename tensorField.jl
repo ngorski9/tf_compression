@@ -672,7 +672,7 @@ function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
             return SYM
         end
     elseif yr > 0
-        if isRelativelyClose(yr,ys)
+        if isClose(yr,ys)
             return DegenRP
         elseif ys > yr
             return SRP
@@ -680,7 +680,7 @@ function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
             return RRP
         end
     else
-        if isRelativelyClose(-yr,ys)
+        if isClose(-yr,ys)
             return DegenRN
         elseif isGreater(ys,-yr)
             return SRN
