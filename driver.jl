@@ -14,11 +14,11 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (150,450,1)
-    eb = 0.0003
+    dims = (640,80,1)
+    eb = 0.0001
     naive = false
-    eigenvalue = true
-    eigenvector = false
+    eigenvalue = false
+    eigenvector = true
     baseCompressor = "sz3"
     parameter = 1.0
 

@@ -1238,7 +1238,9 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # if the two conics do not intersect the triangle, and neither is an internal ellipse,
     # then the triangle is a standard white triangle.
 
-    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse && vertexTypesEigenvalue[1] == S
+    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse && vertexTypesEigenvalue[1] == S &&
+        vertexTypesEigenvector[1] != DegenRP && vertexTypesEigenvector[2] != DegenRP && vertexTypesEigenvector[3] != DegenRP &&
+        vertexTypesEigenvector[1] != DegenRN && vertexTypesEigenvector[2] != DegenRN && vertexTypesEigenvector[3] != DegenRN
         # println("return 2")
         return cellTopologyEigenvalue(SArray{Tuple{3},Int8}(S,S,S), vertexTypesEigenvector, 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), 
