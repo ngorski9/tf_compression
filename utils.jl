@@ -143,27 +143,27 @@ const eigenvalueRegionBorders = Dict(
 
 # Gives out ranks with ties broken in parameter order.
 function rankOrder(a,b,c)
-    if isGreater(a,b)
-        if isGreater(c,a)
+    if isRelativelyGreater(a,b)
+        if isRelativelyGreater(c,a)
             return (2,3,1)
-        elseif isClose(c,a)
+        elseif isRelativelyClose(c,a)
             return (1,3,2)
         else
-            if isGreater(b,c)
+            if isRelativelyGreater(b,c)
                 return (1,2,3)
             else
                 return (1,3,2)
             end
         end
-    elseif isClose(a,b)
-        if isGreater(c,a)
+    elseif isRelativelyClose(a,b)
+        if isRelativelyGreater(c,a)
             return (2,3,1)
         else
             return (1,2,3)
         end
     else
-        if isGreater(c,a)
-            if !isLess(b,c)
+        if isRelativelyGreater(c,a)
+            if !isRelativelyLess(b,c)
                 return (3,1,2)
             else
                 return (3,2,1)

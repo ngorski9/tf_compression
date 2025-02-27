@@ -416,7 +416,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
             if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(ground-getTensor(tf2,coords...))) <= aeb)
                 modifications = true
 
-                if isClose(d,0.0) && isClose(s,0.0) && isClose(r,0.0)
+                if d == 0.0 && s == 0.0 && r == 0.0
                     d_sign_swap = 2
                     d_swap = 0.0
                     r_swap = 0.0
@@ -433,12 +433,12 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     # correct signs
-                    if eigenvector || ( !isLess(abs(r),abs(d)) && !isLess(abs(r),s) )
-                        if isGreater(r,0.0) && isLess(r_swap,0.0) # the case where r_swap is zero is ambiguous so we cannot break the tie either way
+                    if eigenvector || ( !isRelativelyLess(abs(r),abs(d)) && !isRelativelyLess(abs(r),s) )
+                        if r > 0.0 && r_swap < 0.0 # the case where r_swap is zero is ambiguous so we cannot break the tie either way
                             r_sign_swap = 1
                             r_swap += aeb 
-                        elseif isClose(r,0.0) && !isClose(r_swap,0.0)
-                            if isClose(s,0.0) && !isClose(s_swap,0.0)
+                        elseif r == 0.0 && r_swap != 0.0
+                            if s == 0.0 && s_swap != 0.0
                                 r_sign_swap = 3
                                 r_swap = 0.0
                                 s_swap = 0.0
@@ -446,17 +446,17 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                                 r_sign_swap = 2
                                 r_swap = 0.0
                             end
-                        elseif isLess(r,0.0) && isGreater(r_swap,0.0)
+                        elseif r < 0.0 && r_swap > 0.0
                             r_sign_swap = 1
                             r_swap -= aeb
                         end
                     end
 
-                    if eigenvalue && !isLess(abs(d),s) && !isLess(abs(d),abs(r))
-                        if isGreater(d,0.0) && isLess(d_swap,0.0)
+                    if eigenvalue && !isRelativelyLess(abs(d),s) && !isRelativelyLess(abs(d),abs(r))
+                        if d > 0.0 && d_swap < 0.0
                             d_sign_swap = 1
                             d_swap += aeb
-                        elseif isLess(d,0.0) && isGreater(d_swap,0.0)
+                        elseif d < 0.0 && d_swap > 0.0
                             d_sign_swap = 1
                             d_swap -= aeb
                         end
@@ -503,19 +503,19 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                     end
 
                     # Now do the swaps for if two things are equal. No shuffling at this point; only setting.
-                    if eigenvalue && d_swap_rank == 1 && isClose(s,abs(d)) && !isClose(mags[s_swap_rank],mags[d_swap_rank])
+                    if eigenvalue && d_swap_rank == 1 && isRelativelyClose(s,abs(d)) && !isRelativelyClose(mags[s_swap_rank],mags[d_swap_rank])
                         d_largest_swap = 2
                         s_swap_rank = 1
                     end
 
-                    if (eigenvector || r_rank == 1 || (s_rank == 1 && isClose(abs(r),s)) || (d_rank == 1 && isClose(abs(r),abs(d)))) && isClose(abs(r),s) && !isClose(mags[r_swap_rank],mags[s_swap_rank])
+                    if (eigenvector || r_rank == 1 || (s_rank == 1 && isRelativelyClose(abs(r),s)) || (d_rank == 1 && isRelativelyClose(abs(r),abs(d)))) && isRelativelyClose(abs(r),s) && !isRelativelyClose(mags[r_swap_rank],mags[s_swap_rank])
                         r_over_s_swap = 2
                         minRank = min(r_swap_rank,s_swap_rank)
                         r_swap_rank = minRank
                         s_swap_rank = minRank
                     end
 
-                    if eigenvalue && d_swap_rank == 1 && isClose(abs(r),abs(d)) && !isClose(mags[r_swap_rank],mags[d_swap_rank])
+                    if eigenvalue && d_swap_rank == 1 && isRelativelyClose(abs(r),abs(d)) && !isRelativelyClose(mags[r_swap_rank],mags[d_swap_rank])
                         d_largest_swap = 3
                         r_swap_rank = 1
                     end
@@ -528,12 +528,11 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 end
 
                 # check whether any of d, r, or s are equal such that swapping wouldn't work. If so, raise precision.
-                degenerateCase = (eigenvalue && isClose(abs(d_swap),abs(r_swap)) && !isGreater(s_swap, abs(d_swap)) && !(isClose(abs(d),abs(r)) && !isGreater(s,abs(d)))) ||
-                                (eigenvalue && isClose(abs(d_swap),s_swap) && !isGreater(abs(r_swap),abs(d_swap)) && !(isClose(abs(d),s) && !isGreater(abs(r),abs(d)))) ||
-                                (eigenvalue && isClose(abs(r_swap),s_swap) && !isGreater(abs(d_swap),abs(r_swap)) && !(isClose(abs(r),s) && !isGreater(abs(d),abs(r)))) ||
-                                (eigenvector && isClose(r_swap,0.0) && !isClose(r, 0.0) ) ||
-                                (eigenvector && isClose(abs(r_swap),s_swap) && !isClose(abs(r),s)) ||
-                                (eigenvector && isClose(r_swap, 0.0) && !isClose(r,0.0))
+                degenerateCase = (eigenvalue && isRelativelyClose(abs(d_swap),abs(r_swap)) && !isRelativelyGreater(s_swap, abs(d_swap)) && !(isRelativelyClose(abs(d),abs(r)) && !isRelativelyGreater(s,abs(d)))) ||
+                                (eigenvalue && isRelativelyClose(abs(d_swap),s_swap) && !isRelativelyGreater(abs(r_swap),abs(d_swap)) && !(isRelativelyClose(abs(d),s) && !isRelativelyGreater(abs(r),abs(d)))) ||
+                                (eigenvalue && isRelativelyClose(abs(r_swap),s_swap) && !isRelativelyGreater(abs(d_swap),abs(r_swap)) && !(isRelativelyClose(abs(r),s) && !isRelativelyGreater(abs(d),abs(r)))) ||
+                                (eigenvector && r_swap == 0 && r != 0.0 ) ||
+                                (eigenvector && isRelativelyClose(abs(r_swap),s_swap) && !isRelativelyClose(abs(r),s))
 
             end # end if the default classifications do not match
 

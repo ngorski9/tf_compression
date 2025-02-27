@@ -357,7 +357,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             # handle signs (pt 2)
 
                             if r_sign_swap == 1
-                                if isGreater(r,0.0)
+                                if r > 0.0
                                     r -= aeb
                                 else
                                     r += aeb
@@ -370,7 +370,7 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
                             end
 
                             if d_sign_swap == 1
-                                if isGreater(d,0.0)
+                                if d > 0.0
                                     d -= aeb
                                 else
                                     d += aeb

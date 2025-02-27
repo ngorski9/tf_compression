@@ -665,14 +665,14 @@ function recomposeTensorSymmetric(trace,r,θ)
 end
 
 function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
-    if isClose(yr,0.0)
-        if isClose(ys,0.0)
+    if yr == 0.0
+        if ys == 0.0
             return Z
         else
             return SYM
         end
     elseif yr > 0
-        if isClose(yr,ys)
+        if isRelativelyClose(yr,ys)
             return DegenRP
         elseif ys > yr
             return SRP
@@ -680,9 +680,9 @@ function classifyTensorEigenvector(yr::AbstractFloat, ys::AbstractFloat)
             return RRP
         end
     else
-        if isClose(-yr,ys)
+        if isRelativelyClose(-yr,ys)
             return DegenRN
-        elseif isGreater(ys,-yr)
+        elseif isRelativelyGreater(ys,-yr)
             return SRN
         else
             return RRN
@@ -704,9 +704,9 @@ end
 
 function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::AbstractFloat)
 
-    if isClose(abs(yd),abs(yr))
-        if isClose(abs(yd),ys)
-            if isClose(yd,0.0)
+    if isRelativelyClose(abs(yd),abs(yr))
+        if isRelativelyClose(abs(yd),ys)
+            if yd == 0.0
                 return Z
             elseif yd > 0
                 if yr > 0
@@ -739,7 +739,7 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
             end
         end
     elseif abs(yr) > abs(yd)
-        if isClose(abs(yr),ys)
+        if isRelativelyClose(abs(yr),ys)
             if yr > 0
                 return RPS
             else
@@ -755,7 +755,7 @@ function classifyTensorEigenvalue(yd::AbstractFloat, yr::AbstractFloat, ys::Abst
             return S
         end
     else
-        if isClose(abs(yd),ys)
+        if isRelativelyClose(abs(yd),ys)
             if yd > 0
                 return DPS
             else
