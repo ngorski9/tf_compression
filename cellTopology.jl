@@ -1102,8 +1102,10 @@ end
 # embedding will not affect the topology.
 # The final bool tells whether we simultaneously compute eigenvector topology.
 function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,normalize=false)
-    s = sum(abs.(M1)+abs.(M2)+abs.(M3))/12
-    if abs(s) < 1.0
+    s = sum(abs(M1[1,1]) + abs(M1[1,2]) + abs(M1[2,1]) + abs(M1[2,2]) + abs(M2[1,1]) + abs(M2[1,2]) + abs(M2[2,1]) + abs(M2[2,2]) + 
+            abs(M3[1,1]) + abs(M3[1,2]) + abs(M3[2,1]) + abs(M3[2,2]) )/12
+
+    if 0 < abs(s) < 1.0
         M1 /= abs(s)
         M2 /= abs(s)
         M3 /= abs(s)
@@ -1510,8 +1512,9 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 end
 
 function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
-    s = sum(abs.(M1)+abs.(M2)+abs.(M3))/12
-    if abs(s) < 1.0
+    s = sum(abs(M1[1,1]) + abs(M1[1,2]) + abs(M1[2,1]) + abs(M1[2,2]) + abs(M2[1,1]) + abs(M2[1,2]) + abs(M2[2,1]) + abs(M2[2,2]) + 
+            abs(M3[1,1]) + abs(M3[1,2]) + abs(M3[2,1]) + abs(M3[2,2]) )/12
+    if 0 < abs(s) < 1.0
         M1 /= abs(s)
         M2 /= abs(s)
         M3 /= abs(s)
