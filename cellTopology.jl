@@ -1097,18 +1097,43 @@ function getAxesAndCheckIfSortAsEllipse(eq::conicEquation, class::Int64)
     end
 end
 
+macro getMultiplierForNumber(num,multiplier)
+    return :(
+        if ϵ < $(esc(num)) < $(esc(multiplier))
+            $(esc(multiplier)) = $(esc(num))
+        end
+    )
+end
+
+macro getMultiplier(M1, M2, M3, multiplier)
+    return :(begin
+    @getMultiplierForNumber(abs($(esc(M1))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[2,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[2,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[2,2]), $(esc(multiplier)))
+    end)
+end
+
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
 # The final bool tells whether we simultaneously compute eigenvector topology.
 function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,normalize=false)
-    s = sum(abs(M1[1,1]) + abs(M1[1,2]) + abs(M1[2,1]) + abs(M1[2,2]) + abs(M2[1,1]) + abs(M2[1,2]) + abs(M2[2,1]) + abs(M2[2,2]) + 
-            abs(M3[1,1]) + abs(M3[1,2]) + abs(M3[2,1]) + abs(M3[2,2]) )/12
+    multiplier = 1.0
+    @getMultiplier(M1,M2,M3,multiplier)
 
-    if 0 < abs(s) < 1.0
-        M1 /= abs(s)
-        M2 /= abs(s)
-        M3 /= abs(s)
+    if multiplier < 1.0
+        M1 /= multiplier
+        M2 /= multiplier
+        M3 /= multiplier
     end
 
     DPArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
@@ -1509,31 +1534,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
 end
 
-macro getMultiplierForNumber(num,multiplier)
-    return :(
-        if ϵ < $(esc(num)) < $(esc(multiplier))
-            $(esc(multiplier)) = $(esc(num))
-        end
-    )
-end
-
-macro getMultiplier(M1, M2, M3, multiplier)
-    return :(begin
-    @getMultiplierForNumber(abs($(esc(M1))[1,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M1))[1,2]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M1))[2,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M1))[2,2]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M2))[1,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M2))[1,2]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M2))[2,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M2))[2,2]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M3))[1,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M3))[1,2]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M3))[2,1]), $(esc(multiplier)))
-    @getMultiplierForNumber(abs($(esc(M3))[2,2]), $(esc(multiplier)))
-    end)
-end
-
 function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
     
     multiplier = 1.0
@@ -1542,7 +1542,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     if multiplier < 1.0
         M1 /= multiplier
         M2 /= multiplier
-        M3 /= multipler
+        M3 /= multiplier
     end
 
     RPArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
