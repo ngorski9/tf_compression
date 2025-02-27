@@ -1247,9 +1247,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     # if the two conics do not intersect the triangle, and neither is an internal ellipse,
     # then the triangle is a standard white triangle.
 
-    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse && vertexTypesEigenvalue[1] == S &&
-        vertexTypesEigenvector[1] != DegenRP && vertexTypesEigenvector[2] != DegenRP && vertexTypesEigenvector[3] != DegenRP &&
-        vertexTypesEigenvector[1] != DegenRN && vertexTypesEigenvector[2] != DegenRN && vertexTypesEigenvector[3] != DegenRN
+    if !any_d_intercepts && !any_r_intercepts && !d_internal_ellipse && !r_internal_ellipse && vertexTypesEigenvalue[1] == S
         # println("return 2")
         return cellTopologyEigenvalue(SArray{Tuple{3},Int8}(S,S,S), vertexTypesEigenvector, 
             SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), SArray{Tuple{10},Int8}(0,0,0,0,0,0,0,0,0,0), 
@@ -1511,13 +1509,40 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
 end
 
+macro getMultiplierForNumber(num,multiplier)
+    return :(
+        if ϵ < $(esc(num)) < $(esc(multiplier))
+            $(esc(multiplier)) = $(esc(num))
+        end
+    )
+end
+
+macro getMultiplier(M1, M2, M3, multiplier)
+    return :(begin
+    @getMultiplierForNumber(abs($(esc(M1))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M1))[2,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M2))[2,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[1,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[1,2]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[2,1]), $(esc(multiplier)))
+    @getMultiplierForNumber(abs($(esc(M3))[2,2]), $(esc(multiplier)))
+    end)
+end
+
 function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
-    s = sum(abs(M1[1,1]) + abs(M1[1,2]) + abs(M1[2,1]) + abs(M1[2,2]) + abs(M2[1,1]) + abs(M2[1,2]) + abs(M2[2,1]) + abs(M2[2,2]) + 
-            abs(M3[1,1]) + abs(M3[1,2]) + abs(M3[2,1]) + abs(M3[2,2]) )/12
-    if 0 < abs(s) < 1.0
-        M1 /= abs(s)
-        M2 /= abs(s)
-        M3 /= abs(s)
+    
+    multiplier = 1.0
+    @getMultiplier(M1,M2,M3,multiplier)
+
+    if multiplier < 1.0
+        M1 /= multiplier
+        M2 /= multiplier
+        M3 /= multipler
     end
 
     RPArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
