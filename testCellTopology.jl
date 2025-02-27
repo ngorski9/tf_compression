@@ -9,19 +9,26 @@ using ..cellTopology
 using ..tensorField
 
 function main()
-    tf = loadTensorField2dFromFolder("../output", (101,101,1))
-    outf = open("../old.txt", "w")
+    tf = loadTensorField2dFromFolder("../output/slice", (101,101,1))
     for i in 1:100
         for j in 1:100
             for k in 0:1
                 top = Bool(k)
                 topology = classifyCellEigenvalue(getTensorsAtCell(tf,i,j,1,top)..., true)
-                write(outf, string((i,j,k)) * " " * string(topology) * "\n")
+                topology2 = classifyCellEigenvalue(getTensorsAtCell(tf,i,j,1,top)..., true,true)
+                if topology != topology2
+                    tensors = getTensorsAtCell(tf,i,j,1,top)
+                    println(tensors[1])
+                    println(tensors[2])
+                    println(tensors[3])
+                    println(topology)
+                    println(topology2)
+                    exit()
+                end
             end
         end
     end
 
-    close(outf)
 end
 
 main()

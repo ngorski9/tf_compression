@@ -1101,7 +1101,14 @@ end
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
 # The final bool tells whether we simultaneously compute eigenvector topology.
-function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,verbose::Bool=false)
+function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64},eigenvector::Bool,normalize=false)
+    s = sum(abs.(M1)+abs.(M2)+abs.(M3))/12
+    if abs(s) < 1.0
+        M1 /= abs(s)
+        M2 /= abs(s)
+        M3 /= abs(s)
+    end
+
     DPArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
     DNArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
     RPArray = MArray{Tuple{10}, Int8}((0,0,0,0,0,0,0,0,0,0))
@@ -1503,6 +1510,13 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 end
 
 function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
+    s = sum(abs.(M1)+abs.(M2)+abs.(M3))/12
+    if abs(s) < 1.0
+        M1 /= abs(s)
+        M2 /= abs(s)
+        M3 /= abs(s)
+    end
+
     RPArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
     RNArray = MArray{Tuple{3}, Int8}(zeros(Int8, 3))
 
