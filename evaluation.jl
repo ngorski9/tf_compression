@@ -140,16 +140,22 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         # println(top2)
                         
                         # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))
+                        # # println(decomposeTensor(tensors[1]))
+                        # # println(decomposeTensor(tensors[2]))
+                        # # println(decomposeTensor(tensors[3]))
+                        # println(tensors[1])
+                        # println(tensors[2])
+                        # println(tensors[3])
 
                         # println("-----")
 
                         # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
-                        # println(decomposeTensor(tensors[1]))
-                        # println(decomposeTensor(tensors[2]))
-                        # println(decomposeTensor(tensors[3]))                        
+                        # # println(decomposeTensor(tensors[1]))
+                        # # println(decomposeTensor(tensors[2]))
+                        # # println(decomposeTensor(tensors[3]))
+                        # println(tensors[1])
+                        # println(tensors[2])
+                        # println(tensors[3])                                                
                         # exit()
                     end
 
