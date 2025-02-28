@@ -127,6 +127,9 @@ const CLOCKWISE_ROTATION = 4
 const ANISOTROPIC_STRETCHING = 5
 const eigenvalueColors = ["yellow", "red", "blue", "green", "white"]
 
+export globalREB
+const globalREB = 0.001
+
 export eigenvalueRegionBorders
 const eigenvalueRegionBorders = Dict(
     -1 => Dict( POSITIVE_SCALING => CLOCKWISE_ROTATION, COUNTERCLOCKWISE_ROTATION => NEGATIVE_SCALING, NEGATIVE_SCALING => COUNTERCLOCKWISE_ROTATION, CLOCKWISE_ROTATION => POSITIVE_SCALING ),

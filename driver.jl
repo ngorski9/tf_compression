@@ -14,8 +14,8 @@ using .utils
 
 function main()
     folder = "../output/slice"
-    dims = (640,80,1)
-    eb = 0.00055
+    dims = (150,450,1)
+    eb = 0.0003
     naive = false
     eigenvalue = true
     eigenvector = false

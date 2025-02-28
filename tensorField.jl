@@ -35,6 +35,7 @@ export getCriticalType
 export getCriticalTypeFull
 export edgesMatchSplit
 export duplicateTensorField2d
+export inErrorBounds
 
 struct TensorField2d
     entries::Array{Float64}
@@ -44,6 +45,20 @@ end
 struct TensorField2dSymmetric
     entries::Array{Float64}
     dims::Tuple{Int64, Int64, Int64}
+end
+
+function inReb(x,y,reb)
+    if x == 0.0 || y == 0.0
+        return true
+    elseif abs(x) > abs(y)
+        return abs(y)/abs(x) >= reb
+    else
+        return abs(x)/abs(y) >= reb
+    end
+end
+
+function inErrorBounds(M1, M2, aeb, reb)
+    return maximum(abs.(M1-M2)) <= aeb && inReb(M1[1,1],M2[1,1],reb) && inReb(M1[1,2],M2[1,2],reb) && inReb(M1[2,1],M2[2,1],reb) && inReb(M1[2,2],M2[2,2],reb)
 end
 
 function duplicateTensorField2d(tf::TensorField2d)

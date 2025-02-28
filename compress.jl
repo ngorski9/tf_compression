@@ -413,7 +413,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
 
 
 
-            if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && maximum(abs.(ground-getTensor(tf2,coords...))) <= aeb)
+            if !( eigenvectorRecon == eigenvectorGround && eigenvalueRecon == eigenvalueGround && inErrorBounds(ground,getTensor(tf2,coords...),aeb,globalREB) )
                 modifications = true
 
                 if d == 0.0 && s == 0.0 && r == 0.0
@@ -550,7 +550,7 @@ function compress2d(containing_folder, dims, output_file, relative_error_bound, 
                 end
                 d2, r2, s2, θ2 = decomposeTensor(reconstructed)
 
-                if maximum(abs.(reconstructed - ground)) <= aeb &&
+                if inErrorBounds(reconstructed,ground,aeb,globalREB) &&
                     (!eigenvector || classifyTensorEigenvector(r2, s2) == classifyTensorEigenvector(r_ground[coords...], s_ground[coords...])) &&
                     (!eigenvalue || classifyTensorEigenvalue(d2, r2, s2) == classifyTensorEigenvalue(d_ground[coords...], r_ground[coords...], s_ground[coords...]))
 
