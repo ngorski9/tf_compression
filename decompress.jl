@@ -24,8 +24,8 @@ function decompress2dNaive(compressed_file, decompress_folder, output = "../outp
     cd(output)
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
-    run(`zstd -d $output/$compressed_file.tar.zst`)
-    run(`tar xvf $output/$compressed_file.tar`)
+    run(`zstd -d $compressed_file.tar.zst`)
+    run(`tar xvf $compressed_file.tar`)
 
     cd(cwd)
     
@@ -78,8 +78,8 @@ function decompress2dSymmetricNaive(compressed_file, decompress_folder, output =
     cd(output)
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
-    run(`zstd -d $output/$compressed_file.tar.zst`)
-    run(`tar xvf $output/$compressed_file.tar`)
+    run(`zstd -d $compressed_file.tar.zst`)
+    run(`tar xvf $compressed_file.tar`)
 
     cd(cwd)
     
@@ -122,8 +122,8 @@ function decompress2dSymmetricNaiveWithMask(compressed_file, decompress_folder, 
     cd(output)
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
-    run(`zstd -d $output/$compressed_file.tar.zst`)
-    run(`tar xvf $output/$compressed_file.tar`)
+    run(`zstd -d $compressed_file.tar.zst`)
+    run(`tar xvf $compressed_file.tar`)
 
     cd(cwd)
     
@@ -185,9 +185,9 @@ function decompress2d(compressed_file, decompress_folder, output = "../output", 
     cd(output)
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
-    run(`zstd -d $output/$compressed_file.tar.zst`)
+    run(`zstd -d $compressed_file.tar.zst`)
     zstdSplit = time()
-    run(`tar xvf $output/$compressed_file.tar`)
+    run(`tar xvf $compressed_file.tar`)
     tarSplit = time()
 
     cd(cwd)
@@ -513,9 +513,9 @@ function decompress2dSymmetric(compressed_file, decompress_folder, bits, output 
     cd(output)
 
     # run(`xz -dv $output/$compressed_file.tar.xz`)
-    run(`zstd -d $output/$compressed_file.tar.zst`)
+    run(`zstd -d $compressed_file.tar.zst`)
     zstdSplit = time()
-    run(`tar xvf $output/$compressed_file.tar`)
+    run(`tar xvf $compressed_file.tar`)
     tarSplit = time()
 
     cd(cwd)
