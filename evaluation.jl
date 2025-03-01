@@ -136,8 +136,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VALSAME] += 1
                     else
                         result[VALDIF] += 1
-                        println(top1)
-                        println(top2)
+                        # println(top1)
+                        # println(top2)
                         
                         # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
                         # # println(decomposeTensor(tensors[1]))

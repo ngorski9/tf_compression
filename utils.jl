@@ -256,27 +256,27 @@ function remove(filename)
 end
 
 function isClose(x1::Float64, x2::Float64)
-    return abs(x1-x2) < ϵ
+    return abs(x1-x2) <= ϵ
 end
 
 function isGreater(x1::Float64, x2::Float64)
-    return x1 > x2 + ϵ
+    return x1 >= x2 + ϵ
 end
 
 function isLess(x1::Float64, x2::Float64)
-    return x1 < x2 - ϵ
+    return x1 <= x2 - ϵ
 end
 
 function isRelativelyClose(x1::Float64, x2::Float64)
-    return abs(x1-x2) < ϵ * max(x1,x2)
+    return abs(x1-x2) <= ϵ * min(abs(x1),abs(x2))
 end
 
 function isRelativelyGreater(x1::Float64, x2::Float64)
-    return x1 > x2 + ϵ * max(x1,x2)
+    return x1 > x2 + ϵ * min(abs(x1),abs(x2))
 end
 
 function isRelativelyLess(x1::Float64, x2::Float64)
-    return x1 < x2 - ϵ * max(x1,x2)
+    return x1 < x2 - ϵ * min(abs(x1),abs(x2))
 end
 
 end

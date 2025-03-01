@@ -22,7 +22,10 @@ function test_corner(decomp1, decomp2, decomp3, expect_val, expect_vec)
     top1 = classifyCellEigenvector(M1,M2,M3)
     top2 = classifyCellEigenvalue(M1,M2,M3,false)
     top3 = classifyCellEigenvalue(M1,M2,M3,true)
+
     if top1.vertexTypes[1] != expect_vec
+        println(top1.vertexTypes[1])
+        println(expect_vec)
         return 1.1
     elseif top2.vertexTypesEigenvalue[1] != expect_val
         println(top2.vertexTypesEigenvalue[1])
@@ -57,6 +60,8 @@ function test_corner(decomp1, decomp2, decomp3, expect_val, expect_vec)
     elseif top3.vertexTypesEigenvalue[2] != expect_val
         return 3.3
     elseif top3.vertexTypesEigenvector[2] != expect_vec
+        println(top3.vertexTypesEigenvector[2])
+        println(expect_vec)
         return 3.4
     end
 

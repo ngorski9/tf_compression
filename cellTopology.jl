@@ -204,8 +204,8 @@ export RNS
 # more gradient based correction may occur later on if two are equal.
 # This breaks ties arbitrarily.
 function classifyTensorEigenvalue(d,r,s)
-    if isGreater(abs(d), abs(r))
-        if !isLess(s, abs(d))
+    if isRelativelyGreater(abs(d), abs(r))
+        if !isRelativelyLess(s, abs(d))
             return S
         else
             if isGreater(d, 0.0)
@@ -215,7 +215,7 @@ function classifyTensorEigenvalue(d,r,s)
             end
         end
     else
-        if !isLess(s, abs(r))
+        if !isRelativelyLess(s, abs(r))
             if isClose(s, 0.0)
                 return Z
             else
@@ -239,17 +239,17 @@ function classifyTensorEigenvector(r,s)
             return SYM
         end
     elseif isGreater(r,0.0)
-        if isClose(r,s)
+        if isRelativelyClose(r,s)
             return DegenRP
-        elseif isGreater(r,s)
+        elseif isRelativelyGreater(r,s)
             return RRP
         else
             return SRP
         end
     else
-        if isClose(-r,s)
+        if isRelativelyClose(-r,s)
             return DegenRN
-        elseif isGreater(-r,s)
+        elseif isRelativelyGreater(-r,s)
             return RRN
         else
             return SRN
@@ -318,7 +318,7 @@ end
 function DCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t::Float64)
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
-    if isClose(abs(r),abs(d))
+    if isRelativelyClose(abs(r),abs(d))
         if isGreater(d,0.0)
             return DREQP
         elseif isClose(d,0.0)
@@ -326,7 +326,7 @@ function DCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
         else
             return DREQN
         end
-    elseif isGreater(abs(r),abs(d))
+    elseif isRelativelyGreater(abs(r),abs(d))
         return NULL
     elseif isGreater(d, 0.0)
         return DP
@@ -346,7 +346,7 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
     d = d1 * t + d2 * (1-t)
     r = r1 * t + r2 * (1-t)
 
-    if isClose(abs(d),abs(r))
+    if isRelativelyClose(abs(d),abs(r))
         if isGreater(r,0.0)
             return DREQP
         elseif isClose(r,0.0)
@@ -354,7 +354,7 @@ function RCellIntersection(d1::Float64, d2::Float64, r1::Float64, r2::Float64, t
         else
             return DREQN
         end
-    elseif isGreater(abs(d),abs(r))
+    elseif isRelativelyGreater(abs(d),abs(r))
         if isGreater(r,0.0)
             return RPTrumped
         elseif isClose(r,0.0)
@@ -704,7 +704,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         if isClose($(esc(intercepts))[1],0.0)
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
-            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
+            ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, tangentVector, $is_d)
             )))
 
@@ -720,7 +720,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         elseif isClose($(esc(intercepts))[1],1.0)
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
-            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
+            ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, tangentVector, $is_d)
             )))
             
@@ -745,7 +745,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 end
             end
         else
-            if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
+            if (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isRelativelyClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, tangentVector, $is_d)
 
                 entering = dot(tangentVector, $edge_inside)
@@ -769,7 +769,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         if isClose($(esc(intercepts))[2],0.0)
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
-            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
+            ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
             )))
             
@@ -781,11 +781,11 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 @pushCodeFromSignZero($(esc(PIntercepts)), $(esc(NIntercepts)), $(esc(PInterceptsSize)), $(esc(NInterceptsSize)), $low_coords, $CORNER_L, $CORNER_L_Z, class, $P, $N, $Z, sign(entering), tangentVector, $(esc(alt_conic)), $edge_inside, $low_edge_inside, $(esc(hits_corners)), $low_index)
 
             end
-
+ 
         elseif isClose($(esc(intercepts))[2],1.0)
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
-            ($(esc(ignore_other)) || (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
+            ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), (-$edge_orientation[1], -$edge_orientation[2]), $edge_inside, tangentVector, $is_d)
             )))
 
@@ -810,7 +810,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 end
             end
         else   
-            if (!isClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
+            if (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isRelativelyClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
                 entering = dot(tangentVector, $edge_inside)
 
@@ -825,7 +825,9 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 end
 
 # Checks for and accounts for cases where d, r, or s are equal at a corner.
-macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConic, class_list, ignore_d, ignore_r)
+macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, dBase, rBase, sBase, DConic, RConic, class_list, ignore_d, ignore_r)
+    d = esc(dBase)
+    r = esc(rBase)
     s = esc(sBase)
 
     if corner == 1
@@ -833,22 +835,16 @@ macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConi
         y = 0.0
         edge_1 = (1.0,0.0)
         edge_2 = (0.0,1.0)        
-        d = esc(d1)
-        r = esc(r1)
     elseif corner == 2
         x = 1.0
         y = 0.0
         edge_1 = (-1.0,1.0)
         edge_2 = (-1.0,0.0)
-        d = esc(d2)
-        r = esc(r2)
     else
         x = 0.0
         y = 1.0
         edge_1 = (0.0,-1.0)
         edge_2 = (1.0,-1.0)
-        d = esc(d3)
-        r = esc(r3)
     end
 
     return :(begin
@@ -856,11 +852,11 @@ macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConi
         do_r = false
         do_s = false
 
-        if !$(esc(ignore_d)) && !$(esc(ignore_r)) && isClose(abs($r),abs($d)) && isGreater(abs($r),$s)
+        if !$(esc(ignore_d)) && !$(esc(ignore_r)) && isRelativelyClose(abs($r),abs($d)) && isRelativelyGreater(abs($r),$s)
             do_d = true
             do_r = true
         else
-            if !$(esc(ignore_d)) && isClose(abs($d), $s) && !isGreater(abs($r), abs($d))
+            if !$(esc(ignore_d)) && isRelativelyClose(abs($d), $s) && !isRelativelyGreater(abs($r), abs($d))
                 d_grad = normalizedGradient($(esc(DConic)), $x, $y)
 
                 if isGreater(dot(d_grad, $edge_1), 0.0) || isGreater(dot(d_grad, $edge_2), 0.0)
@@ -869,7 +865,7 @@ macro checkEqualityAtCorner(corner, d1, d2, d3, r1, r2, r3, sBase, DConic, RConi
                 end
             end
 
-            if !$(esc(ignore_r)) && isClose(abs($r), $s) && !isGreater(abs($d), abs($r))
+            if !$(esc(ignore_r)) && isRelativelyClose(abs($r), $s) && !isRelativelyGreater(abs($d), abs($r))
                 r_grad = normalizedGradient($(esc(RConic)), $x, $y)
 
                 if isGreater(dot(r_grad, $edge_1), 0.0) || isGreater(dot(r_grad, $edge_2), 0.0)
@@ -1150,33 +1146,42 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     r1 = M1[2,1]-M1[1,2]
     cos1 = M1[1,1]-M1[2,2]
     sin1 = M1[1,2]+M1[2,1]
-    s1 = sqrt(cos1^2+sin1^2)
+    
+    D1 = d1 * abs(d1)
+    R1 = r1 * abs(r1)
+    S1 = cos1^2+sin1^2
 
     d2 = M2[1,1]+M2[2,2]
     r2 = M2[2,1]-M2[1,2]
     cos2 = M2[1,1]-M2[2,2]
     sin2 = M2[1,2]+M2[2,1]
-    s2 = sqrt(cos2^2+sin2^2)
+
+    D2 = d2 * abs(d2)
+    R2 = r2 * abs(r2)
+    S2 = cos2^2+sin2^2
 
     d3 = M3[1,1]+M3[2,2]
     r3 = M3[2,1]-M3[1,2]
     cos3 = M3[1,1]-M3[2,2]
     sin3 = M3[1,2]+M3[2,1]
-    s3 = sqrt(cos3^2+sin3^2)
 
-    vertexTypesEigenvalue = MArray{Tuple{3},Int8}((classifyTensorEigenvalue(d1,r1,s1), classifyTensorEigenvalue(d2,r2,s2), classifyTensorEigenvalue(d3,r3,s3)))
+    D3 = d3 * abs(d3)
+    R3 = r3 * abs(r3)
+    S3 = cos3^2+sin3^2
+
+    vertexTypesEigenvalue = MArray{Tuple{3},Int8}((classifyTensorEigenvalue(D1,R1,S1), classifyTensorEigenvalue(D2,R2,S2), classifyTensorEigenvalue(D3,R3,S3)))
 
     if eigenvector
-        vertexTypesEigenvector = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3, s3)))
+        vertexTypesEigenvector = SArray{Tuple{3},Int8}((classifyTensorEigenvector(R1,S1), classifyTensorEigenvector(R2,S2), classifyTensorEigenvector(R3, S3)))
     else
         vertexTypesEigenvector = SArray{Tuple{3},Int8}((0,0,0))
     end
 
     if (vertexTypesEigenvalue[1] == Z && vertexTypesEigenvalue[2] == Z && vertexTypesEigenvalue[3] == Z) ||
-       ( (( !eigenvector && isGreater(abs(d1),s1) && isGreater(abs(d2),s2) && isGreater(abs(d3),s3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
-            ( isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) )) &&
-            (!isClose(abs(d1),abs(r1)) && !isClose(abs(d2),abs(r2)) && !isClose(abs(d3),abs(r3))) )   ||
-       (isClose(s1,0.0) && isClose(s2,0.0) && isClose(s3,0.0))
+       ( (( !eigenvector && isRelativelyGreater(abs(D1),S1) && isRelativelyGreater(abs(D2),S2) && isRelativelyGreater(abs(D3),S3) && ( ( isGreater(d1,0.0) && isGreater(d2,0.0) && isGreater(d3,0.0)) || ( isLess(d1,0.0) && isLess(d2,0.0) && isLess(d3,0.0) ) ) ) ||
+            ( isRelativelyGreater(abs(R1),S1) && isRelativelyGreater(abs(R2),S2) && isRelativelyGreater(abs(R3),S3) && ( ( isGreater(r1,0.0) && isGreater(r2,0.0) && isGreater(r3,0.0) ) || ( isLess(r1,0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) ) )) &&
+            (!isRelativelyClose(abs(D1),abs(R1)) && !isRelativelyClose(abs(D2),abs(R2)) && !isRelativelyClose(abs(D3),abs(R3))) )   ||
+       (isClose(S1,0.0) && isClose(S2,0.0) && isClose(S3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
     #    println("return 1")
         return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
@@ -1208,7 +1213,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     d_type,d_center = classifyAndReturnCenter(DConic)
     r_type,r_center = classifyAndReturnCenter(RConic)
 
-    ignore_d = (d_type == POINT || d_type == EMPTY || d_type == LINE_NO_REGION || (isClose(r1,d1) && isClose(r2,d2) && isClose(r3,d3)) || (isClose(r1,-d1) && isClose(r2,-d2) && isClose(r3,-d3)))
+    ignore_d = (d_type == POINT || d_type == EMPTY || d_type == LINE_NO_REGION || (isRelativelyClose(r1,d1) && isRelativelyClose(r2,d2) && isRelativelyClose(r3,d3)) || (isRelativelyClose(r1,-d1) && isRelativelyClose(r2,-d2) && isRelativelyClose(r3,-d3)))
     ignore_r = (r_type == POINT || r_type == EMPTY || r_type == LINE_NO_REGION)
 
     # third elt is true for double root, false otherwise
@@ -1250,7 +1255,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 
         @process_intercepts(2, false, RConicHIntercepts, DConicHIntercepts, RCellIntersection, d2, d3, r2, r3, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, false, false, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
-
         @process_intercepts(3, false, RConicYIntercepts, DConicYIntercepts, RCellIntersection, d3, d1, r3, r1, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, false, true, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
     end
@@ -1261,7 +1265,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     d_internal_ellipse = false
     r_internal_ellipse = false
 
-    if d_type == ELLIPSE && !any_d_intercepts && (!eigenvector || !(abs(d1) >= s1 && abs(d2) >= s2 && abs(d3) >= s3) ) && is_inside_triangle(d_center[1], d_center[2]) && !ignore_d
+    if d_type == ELLIPSE && !any_d_intercepts && (!eigenvector || !(abs(D1) >= S1 && abs(D2) >= S2 && abs(D3) >= S3) ) && is_inside_triangle(d_center[1], d_center[2]) && !ignore_d
         d_internal_ellipse = true
     end
 
@@ -1431,7 +1435,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         RNArray[i] = RNPoints[i].code
     end
                                                                                                             # we only check d1 since either all are greater than s1 or all are less
-    if d_type == ELLIPSE && !any_d_intercepts && length(DPPoints) == 0 && length(DNPoints) == 0 && is_inside_triangle(d_center[1], d_center[2]) && (!eigenvector || abs(d1) < s1)
+    if d_type == ELLIPSE && !any_d_intercepts && length(DPPoints) == 0 && length(DNPoints) == 0 && is_inside_triangle(d_center[1], d_center[2]) && (!eigenvector || abs(D1) < S1)
         d_center_class = classifyEllipseCenter(d1, d2, d3, r1, r2, r3, d_center[1], d_center[2])
         if d_center_class == DP
             DPArray[length(DPPoints)+1] = INTERNAL_ELLIPSE
@@ -1440,7 +1444,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
     end
 
-    if !any_r_intercepts && r_type == ELLIPSE && is_inside_triangle(r_center[1], r_center[2]) && abs(r1) < s1
+    if !any_r_intercepts && r_type == ELLIPSE && is_inside_triangle(r_center[1], r_center[2]) && abs(R1) < S1
         if eigenvector
             if (r2-r1)*r_center[1]+(r3-r1)*r_center[2]+r1 >= 0
                 RPArrayVec[1] = INTERNAL_ELLIPSE
@@ -1462,72 +1466,72 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 
     if eigenvector 
         if vertexTypesEigenvector[1] == DegenRP || vertexTypesEigenvector[2] == DegenRP || vertexTypesEigenvector[3] == DegenRP
-            if s1 != 0.0
-                θ1 = asin(sin1/s1)
+            if S1 != 0.0
+                asin1 = sin1^2/S1
             else
-                θ1 = 0.0
+                asin1 = 0.0
+            end
+    
+            if S2 != 0.0
+                asin2 = sin2^2/S2
+            else
+                asin2 = 0.0
+            end
+    
+            if S3 != 0.0
+                asin3 = sin3^3/S3
+            else
+                asin3 = 0.0
             end
 
-            if s2 != 0.0
-                θ2 = asin(sin2/s2)
-            else
-                θ2 = 0.0
-            end
-
-            if s3 != 0.0
-                θ3 = asin(sin3/s3)
-            else
-                θ3 = 0.0
-            end
-
-            if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypesEigenvector[1] == DegenRP && vertexTypesEigenvector[2] == DegenRP
+            if isClose(asin1, asin2) && vertexTypesEigenvector[1] == DegenRP && vertexTypesEigenvector[2] == DegenRP
                 RPArrayVec[1] = STRAIGHT_ANGLES
             end
 
-            if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypesEigenvector[2] == DegenRP && vertexTypesEigenvector[3] == DegenRP
+            if isClose(asin2, asin3) && vertexTypesEigenvector[2] == DegenRP && vertexTypesEigenvector[3] == DegenRP
                 RPArrayVec[2] = STRAIGHT_ANGLES
             end
 
-            if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypesEigenvector[3] == DegenRP && vertexTypesEigenvector[1] == DegenRP
+            if isClose(asin3, asin1) && vertexTypesEigenvector[3] == DegenRP && vertexTypesEigenvector[1] == DegenRP
                 RPArrayVec[3] = STRAIGHT_ANGLES
             end
         elseif vertexTypesEigenvector[1] == DegenRN || vertexTypesEigenvector[2] == DegenRN || vertexTypesEigenvector[3] == DegenRN
-            if s1 != 0.0
-                θ1 = asin(sin1/s1)
+            if S1 != 0.0
+                asin1 = sin1^2/S1
             else
-                θ1 = 0.0
+                asin1 = 0.0
+            end
+    
+            if S2 != 0.0
+                asin2 = sin2^2/S2
+            else
+                asin2 = 0.0
+            end
+    
+            if S3 != 0.0
+                asin3 = sin3^3/S3
+            else
+                asin3 = 0.0
             end
 
-            if s2 != 0.0
-                θ2 = asin(sin2/s2)
-            else
-                θ2 = 0.0
-            end
-
-            if s3 != 0.0
-                θ3 = asin(sin3/s3)
-            else
-                θ3 = 0.0
-            end
-
-            if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypesEigenvector[1] == DegenRN && vertexTypesEigenvector[2] == DegenRN
+            if isClose(asin1, asin2) && vertexTypesEigenvector[1] == DegenRN && vertexTypesEigenvector[2] == DegenRN
                 RNArrayVec[1] = STRAIGHT_ANGLES
             end
 
-            if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypesEigenvector[2] == DegenRN && vertexTypesEigenvector[3] == DegenRN
+            if isClose(asin2, asin3) && vertexTypesEigenvector[2] == DegenRN && vertexTypesEigenvector[3] == DegenRN
                 RNArrayVec[2] = STRAIGHT_ANGLES
             end
 
-            if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypesEigenvector[3] == DegenRN && vertexTypesEigenvector[1] == DegenRN
+            if isClose(asin3, asin1) && vertexTypesEigenvector[3] == DegenRN && vertexTypesEigenvector[1] == DegenRN
                 RNArrayVec[3] = STRAIGHT_ANGLES
             end            
         end
     end
 
     # fix the corners as needed
-    @checkEqualityAtCorner(1, d1, d2, d3, r1, r2, r3, s1, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(2, d1, d2, d3, r1, r2, r3, s2, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, s3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+    @checkEqualityAtCorner(1, d1, d2, d3, r1, r2, r3, D1, R1, S1, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+    @checkEqualityAtCorner(2, d1, d2, d3, r1, r2, r3, D2, R2, S2, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+    @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, D3, R3, S3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
 
     # what a racket
     # println("return 3")
@@ -1535,7 +1539,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 end
 
 function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float64}, M3::SMatrix{2,2,Float64})
-    
     multiplier = 1.0
     @getMultiplier(M1,M2,M3,multiplier)
 
@@ -1553,21 +1556,25 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     r1 = M1[2,1]-M1[1,2]
     cos1 = M1[1,1]-M1[2,2]
     sin1 = M1[1,2]+M1[2,1]
-    s1 = sqrt(cos1^2+sin1^2)
 
     r2 = M2[2,1]-M2[1,2]
     cos2 = M2[1,1]-M2[2,2]
     sin2 = M2[1,2]+M2[2,1]
-    s2 = sqrt(cos2^2+sin2^2)
 
     r3 = M3[2,1]-M3[1,2]
     cos3 = M3[1,1]-M3[2,2]
     sin3 = M3[1,2]+M3[2,1]
-    s3 = sqrt(cos3^2+sin3^2)
 
-    vertexTypes = SArray{Tuple{3},Int8}((classifyTensorEigenvector(r1,s1), classifyTensorEigenvector(r2,s2), classifyTensorEigenvector(r3,s3)))
+    R1 = r1*abs(r1)
+    R2 = r2*abs(r2)
+    R3 = r3*abs(r3)
+    S1 = cos1^2+sin1^2
+    S2 = cos2^2+sin2^2
+    S3 = cos3^2+sin3^2
 
-    if isGreater(abs(r1),s1) && isGreater(abs(r2),s2) && isGreater(abs(r3),s3) && ( ( isGreater(r1, 0.0) && isGreater(r2, 0.0) && isGreater(r3, 0.0) ) || ( isLess(r1, 0.0) && isLess(r2,0.0) && isLess(r3,0.0) ) )
+    vertexTypes = SArray{Tuple{3},Int8}((classifyTensorEigenvector(R1,S1), classifyTensorEigenvector(R2,S2), classifyTensorEigenvector(R3,S3)))
+
+    if isRelativelyGreater(abs(R1),S1) && isRelativelyGreater(abs(R2),S2) && isRelativelyGreater(abs(R3),S3) && ( ( isGreater(R1, 0.0) && isGreater(R2, 0.0) && isGreater(R3, 0.0) ) || ( isLess(R1, 0.0) && isLess(R2,0.0) && isLess(R3,0.0) ) )
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
         return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
     end
@@ -1744,63 +1751,63 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     end
 
     if vertexTypes[1] == DegenRP || vertexTypes[2] == DegenRP || vertexTypes[3] == DegenRP
-        if s1 != 0.0
-            θ1 = asin(sin1/s1)
+        if S1 != 0.0
+            asin1 = sin1^2/S1
         else
-            θ1 = 0.0
+            asin1 = 0.0
         end
 
-        if s2 != 0.0
-            θ2 = asin(sin2/s2)
+        if S2 != 0.0
+            asin2 = sin2^2/S2
         else
-            θ2 = 0.0
+            asin2 = 0.0
         end
 
-        if s3 != 0.0
-            θ3 = asin(sin3/s3)
+        if S3 != 0.0
+            asin3 = sin3^3/S3
         else
-            θ3 = 0.0
+            asin3 = 0.0
         end
 
-        if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypes[1] == DegenRP && vertexTypes[2] == DegenRP
+        if isRelativelyClose(asin1,asin2) && vertexTypes[1] == DegenRP && vertexTypes[2] == DegenRP
             RPArray[1] = STRAIGHT_ANGLES
         end
 
-        if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypes[2] == DegenRP && vertexTypes[3] == DegenRP
+        if isRelativelyClose(asin2,asin3) && vertexTypes[2] == DegenRP && vertexTypes[3] == DegenRP
             RPArray[2] = STRAIGHT_ANGLES
         end
 
-        if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypes[3] == DegenRP && vertexTypes[1] == DegenRP
+        if isRelativelyClose(asin3,asin1) && vertexTypes[3] == DegenRP && vertexTypes[1] == DegenRP
             RPArray[3] = STRAIGHT_ANGLES
         end
     elseif vertexTypes[1] == DegenRN || vertexTypes[2] == DegenRN || vertexTypes[3] == DegenRN
-        if s1 != 0.0
-            θ1 = asin(sin1/s1)
+        if S1 != 0.0
+            asin1 = sin1^2/S1
         else
-            θ1 = 0.0
+            asin1 = 0.0
         end
 
-        if s2 != 0.0
-            θ2 = asin(sin2/s2)
+        if S2 != 0.0
+            asin2 = sin2^2/S2
         else
-            θ2 = 0.0
+            asin2 = 0.0
         end
 
-        if s3 != 0.0
-            θ3 = asin(sin3/s3)
+        if S3 != 0.0
+            asin3 = sin3^3/S3
         else
-            θ3 = 0.0
+            asin3 = 0.0
         end
 
-        if isClose(abs(sin(θ1)), abs(sin(θ2))) && vertexTypes[1] == DegenRN && vertexTypes[2] == DegenRN
+        if isRelativelyClose(asin1,asin2) && vertexTypes[1] == DegenRN && vertexTypes[2] == DegenRN
             RNArray[1] = STRAIGHT_ANGLES
         end
 
-        if isClose(abs(sin(θ2)), abs(sin(θ3))) && vertexTypes[2] == DegenRN && vertexTypes[3] == DegenRN
+        if isRelativelyClose(asin2,asin3) && vertexTypes[2] == DegenRN && vertexTypes[3] == DegenRN
             RNArray[2] = STRAIGHT_ANGLES
         end
 
-        if isClose(abs(sin(θ3)), abs(sin(θ1))) && vertexTypes[3] == DegenRN && vertexTypes[1] == DegenRN
+        if isRelativelyClose(asin3,asin1) && vertexTypes[3] == DegenRN && vertexTypes[1] == DegenRN
             RNArray[3] = STRAIGHT_ANGLES
         end            
     end
