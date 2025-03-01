@@ -696,12 +696,12 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
     return :(begin
     if -ϵ <= $(esc(intercepts))[1] <= 1.0 + ϵ
-        $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[1])
         grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]) )
         tangentVector = tangentDerivative(grad)
 
         if isClose($(esc(intercepts))[1],0.0)
+            $(esc(any_intercepts)) = true
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
@@ -718,6 +718,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
             end
 
         elseif isClose($(esc(intercepts))[1],1.0)
+            $(esc(any_intercepts)) = true
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
@@ -734,6 +735,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
         elseif isClose(dot(tangentVector,$edge_inside ),0.0) || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
             if class == $Z
+                $(esc(any_intercepts)) = true
                 $(esc(PInterceptsSize)) += 1
                 $(esc(NInterceptsSize)) += 1
                 $(esc(PIntercepts))[$(esc(PInterceptsSize))] = Intersection($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1]), $EZ)
@@ -745,6 +747,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 end
             end
         else
+            $(esc(any_intercepts)) = true
             if (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || isRelativelyClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[1]), $y($(esc(intercepts))[1])), $edge_orientation, $edge_inside, tangentVector, $is_d)
 
@@ -762,11 +765,11 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
     end
 
     if -ϵ <= $(esc(intercepts))[2] <= 1.0 + ϵ && $(esc(intercepts))[1] != $(esc(intercepts))[2]
-        $(esc(any_intercepts)) = true
         class = $(class_fun)($(esc(d1)), $(esc(d2)), $(esc(r1)), $(esc(r2)), $(esc(intercepts))[2])
         grad = normalizedGradient( $(esc(conic)), $x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]) )
         tangentVector = tangentDerivative(grad)        
         if isClose($(esc(intercepts))[2],0.0)
+            $(esc(any_intercepts)) = true
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
@@ -783,6 +786,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
             end
  
         elseif isClose($(esc(intercepts))[2],1.0)
+            $(esc(any_intercepts)) = true
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
@@ -798,7 +802,8 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
             end
         elseif isClose(dot(tangentVector,$edge_inside ),0.0)  || isnan(tangentVector[1]) # e.g. if we have a non-transverse intersection
-            if class == $Z         
+            if class == $Z
+                $(esc(any_intercepts)) = true
                 $(esc(PInterceptsSize)) += 1
                 $(esc(NInterceptsSize)) += 1
                 $(esc(PIntercepts))[$(esc(PInterceptsSize))] = Intersection($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2]), $EZ)
@@ -810,6 +815,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
                 end
             end
         else   
+            $(esc(any_intercepts)) = true
             if (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || isRelativelyClose($(esc(alt_list))[1],$(esc(alt_list))[2]) || 
                 doesConicEquationCrossDoubleBoundary($(esc(conic)), $(esc(alt_conic)), ($x($(esc(intercepts))[2]), $y($(esc(intercepts))[2])), $edge_orientation, $edge_inside, tangentVector, $is_d)
                 entering = dot(tangentVector, $edge_inside)
@@ -1116,6 +1122,20 @@ macro getMultiplier(M1, M2, M3, multiplier)
     @getMultiplierForNumber(abs($(esc(M3))[2,1]), $(esc(multiplier)))
     @getMultiplierForNumber(abs($(esc(M3))[2,2]), $(esc(multiplier)))
     end)
+end
+
+function decomposeTensorHere(tensor::FloatMatrix)
+
+    y_d::Float64 = (tensor[1,1] + tensor[2,2])/2
+    y_r::Float64 = (tensor[2,1] - tensor[1,2])/2
+    # tensor -= [ y_d -y_r ; y_r y_d ]
+
+    # cplx = tensor[1,1] + tensor[1,2]*im
+    cplx = (tensor[1,1] - y_d) + (tensor[1,2]+y_r)*im
+    y_s::Float64 = abs(cplx)
+    θ::Float64 = angle(cplx)
+
+    return (y_d, y_r, y_s, θ)
 end
 
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
