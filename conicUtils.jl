@@ -165,14 +165,18 @@ function quadraticFormula(a::Float64, b::Float64, c::Float64)
     b2 = b
     c2 = c
 
-    if abs(a) > abs(b) && abs(a) > abs(c)
+    if abs(a) >= abs(b) && abs(a) >= abs(c)
         a2 = sign(a)
         b2 /= abs(a)
         c2 /= abs(a)
-    elseif abs(c) > abs(a) && abs(c) > abs(a)
+    elseif abs(c) >= abs(a) && abs(c) >= abs(a)
         a2 /= abs(c)
         b2 /= abs(c)
         c2 = sign(c)
+    else
+        a2 /= abs(b)
+        b2 = sign(b)
+        c2 /= abs(b)
     end
 
     if (b != 0.0 && abs(a)/abs(b) < ϵ) || (c != 0.0 && abs(a)/abs(c) < ϵ)

@@ -128,7 +128,7 @@ const ANISOTROPIC_STRETCHING = 5
 const eigenvalueColors = ["yellow", "red", "blue", "green", "white"]
 
 export globalREB
-const globalREB = 0.001
+const globalREB = 0.05
 
 export eigenvalueRegionBorders
 const eigenvalueRegionBorders = Dict(
