@@ -24,6 +24,7 @@ function main()
     csv = ""
     output = ""
     baseCompressor = "sz3"
+    skipEval = false
 
     i = 1
     while i <= length(ARGS)
@@ -57,6 +58,9 @@ function main()
         elseif ARGS[i] == "--baseCompressor"
             baseCompressor = ARGS[i+1]
             i += 2
+        elseif ARGS[i] == "--skipEval"
+            skipEval = true
+            i += 1
         else
             println("ERROR: Unknown argument $(ARGS[i])")
             exit(1)
@@ -166,26 +170,29 @@ function main()
         totalCompressionTime += ct
         totalDecompressionTime += dt
         redirect_stdout(stdout_)
-        metrics = evaluationList2dSymmetric("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size)
 
-        if !naive && !metrics[1]
-            redirect_stdout(stdout_)
-            println("failed on slice $t")
-            exit(1)
+        if !skipEval
+            metrics = evaluationList2dSymmetric("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size)
+
+            if !naive && !metrics[1]
+                redirect_stdout(stdout_)
+                println("failed on slice $t")
+                exit(1)
+            end
+
+            totalBitrate += metrics[2]
+            # a negative value means that the slice is all zeros
+            if metrics[3] >= 0
+                maxErrorByRange = max(maxErrorByRange, metrics[3])
+                totalMSEByRangeSquared += metrics[4]
+                totalFrobeniusMSEByRangeSquared += metrics[5]
+                numNonzeroSlices += 1
+            end
+
+            totalCellMatching += metrics[6]
+            totalCellTypeFrequenciesGround += metrics[7]
+            totalCellTypeFrequenciesRecon += metrics[8]
         end
-
-        totalBitrate += metrics[2]
-        # a negative value means that the slice is all zeros
-        if metrics[3] >= 0
-            maxErrorByRange = max(maxErrorByRange, metrics[3])
-            totalMSEByRangeSquared += metrics[4]
-            totalFrobeniusMSEByRangeSquared += metrics[5]
-            numNonzeroSlices += 1
-        end
-
-        totalCellMatching += metrics[6]
-        totalCellTypeFrequenciesGround += metrics[7]
-        totalCellTypeFrequenciesRecon += metrics[8]
 
         redirect_stdout(stdout_)
 

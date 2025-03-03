@@ -246,7 +246,8 @@ end
 
 function removeIfExists(filename)
     try
-        run(`rm $filename`)
+        rm(filename)
+        # run(`rm $filename`)
     catch
     end
 end
