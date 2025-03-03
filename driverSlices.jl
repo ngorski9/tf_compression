@@ -27,6 +27,7 @@ function main()::Cint
     sizes = ""
     baseCompressor = "sz3"
     verbose = false
+    skipEval = false
 
     i = 1
     while i <= length(ARGS)
@@ -72,6 +73,9 @@ function main()::Cint
             i += 2
         elseif ARGS[i] == "--verbose"
             verbose = true
+            i += 1
+        elseif ARGS[i] == "--skipEval"
+            skipEval = true
             i += 1
         else
             println("ERROR: unknown argument $(ARGS[i])")
@@ -227,47 +231,49 @@ function main()::Cint
         totalCompressionTime += ct
         totalDecompressionTime += dt
 
-        metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, eigenvalue, eigenvector )
+        if !skipEval
+            metrics = evaluationList2d("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size, eigenvalue, eigenvector )
 
-        if !naive && !metrics[1]
-            redirect_stdout(stdout_)
-            println("failed on slice $t")
+            if !naive && !metrics[1]
+                redirect_stdout(stdout_)
+                println("failed on slice $t")
 
-            if csv != ""
-                if isfile(csv)
-                    outf = open(csv, "a")
-                else
-                    outf = open(csv, "w")
+                if csv != ""
+                    if isfile(csv)
+                        outf = open(csv, "a")
+                    else
+                        outf = open(csv, "w")
+                    end
+
+                    write(outf, "$name $target failed on slice $t")                
                 end
 
-                write(outf, "$name $target failed on slice $t")                
+                exit(1)
             end
 
-            exit(1)
-        end
+            totalBitrate += metrics[2]
+            maxErrorByRange = max(maxErrorByRange, metrics[3])
 
-        totalBitrate += metrics[2]
-        maxErrorByRange = max(maxErrorByRange, metrics[3])
+            if metrics[4] != -1
+                totalMSEByRangeSquared += metrics[4]
+                totalFrobeniusMSEByRangeSquared += metrics[5]
+            else
+                numNoRange += 1
+            end
 
-        if metrics[4] != -1
-            totalMSEByRangeSquared += metrics[4]
-            totalFrobeniusMSEByRangeSquared += metrics[5]
-        else
-            numNoRange += 1
-        end
+            totalVertexMatching += metrics[6]
+            totalCellMatching += metrics[7]
+            totalCellTypeFrequenciesGround += metrics[8]
+            totalCellTypeFrequenciesRecon += metrics[9]
 
-        totalVertexMatching += metrics[6]
-        totalCellMatching += metrics[7]
-        totalCellTypeFrequenciesGround += metrics[8]
-        totalCellTypeFrequenciesRecon += metrics[9]
-
-        if naive
-            numCells = 2*(dims[1]-1)*(dims[2]-1)
-            falseVertexEigenvalue += metrics[6][1,2]
-            falseVertexEigenvector += metrics[6][2,2]
-            falseCellCriticalPoint += numCells - metrics[7][1]
-            falseCellTopologyEigenvalue += metrics[7][9]
-            falseCellTopologyEigenvector += metrics[7][11]
+            if naive
+                numCells = 2*(dims[1]-1)*(dims[2]-1)
+                falseVertexEigenvalue += metrics[6][1,2]
+                falseVertexEigenvector += metrics[6][2,2]
+                falseCellCriticalPoint += numCells - metrics[7][1]
+                falseCellTopologyEigenvalue += metrics[7][9]
+                falseCellTopologyEigenvector += metrics[7][11]
+            end
         end
 
         redirect_stdout(stdout_)
