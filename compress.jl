@@ -1243,6 +1243,10 @@ function compress2dSymmetric(containing_folder, dims, output_file, relative_erro
 
                             if vertices_modified[1] || vertices_modified[2] || vertices_modified[3]
 
+                                if (vertices_modified[2] || vertices_modified[3]) && top
+                                    push!(stack, (x,y,false,false))
+                                end
+
                                 if (vertices_modified[3] || vertices_modified[1]) && x != 1
                                     push!(stack, (x-1,y,true,false))
                                 end

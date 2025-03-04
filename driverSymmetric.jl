@@ -1,7 +1,6 @@
 include("utils.jl")
 include("conicUtils.jl")
 include("cellTopology.jl")
-include("conicUtils.jl")
 include("tensorField.jl")
 include("huffman.jl")
 include("decompress.jl")
@@ -17,7 +16,7 @@ function main()
     # stress slice 12 (or probably others) makes a good teaser!
 
     folder = "../output/slice"
-    dims = (384,384,1)
+    dims = (66,108,1)
     eb = 0.01
 
     # stress3xy slice 13 0.008899 is equivalent to 0.01 for mine
