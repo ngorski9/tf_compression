@@ -192,6 +192,8 @@ function main()
             totalCellMatching += metrics[6]
             totalCellTypeFrequenciesGround += metrics[7]
             totalCellTypeFrequenciesRecon += metrics[8]
+        else
+            totalBitrate += compressed_size*8/(dims[1]*dims[2])
         end
 
         redirect_stdout(stdout_)

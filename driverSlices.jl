@@ -274,6 +274,8 @@ function main()::Cint
                 falseCellTopologyEigenvalue += metrics[7][9]
                 falseCellTopologyEigenvector += metrics[7][11]
             end
+        else
+            totalBitrate += compressed_size*8/(dims[1]*dims[2])
         end
 
         redirect_stdout(stdout_)
