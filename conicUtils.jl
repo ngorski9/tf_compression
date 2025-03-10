@@ -97,9 +97,9 @@ end
 function normalizedGradient(eq::conicEquation,x::Float64,y::Float64)
     grad = gradient(eq,x,y)
     norm = sqrt(grad[1]^2+grad[2]^2)
-    # if norm < ϵ*ϵ
-    #     return (0.0,0.0)
-    # end
+    if norm == 0.0
+        return (0.0,0.0)
+    end
     return (grad[1]/norm, grad[2]/norm)
 end
 
