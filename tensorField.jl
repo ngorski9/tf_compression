@@ -373,52 +373,76 @@ function getCriticalTypeFull( tf::TensorField2dSymmetric, x::Int64, y::Int64, t:
     sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
-        # if we get three zeros, then give an answer according to the number of zeros.
+        # ope this had to be totally redone :(
 
-        numZeroSign = 0
-        numZeroDeviator = 0
+        numZeroDeviators = 0
+        mat1Zero = false
+        mat2Zero = false
+        mat3Zero = false
 
         if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
-            numZeroDeviator += 1
-            numZeroSign += 2
-        else
-            if sign1 == 0
-                numZeroSign += 1
-            end
-
-            if sign3 == 0
-                numZeroSign += 1
-            end
+            numZeroDeviators += 1
+            mat1Zero = true
         end
 
-        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
-            numZeroDeviator += 1
-            numZeroSign += 1
-        elseif sign2 == 0
-            numZeroSign += 1
+        if isClose(D2_11,0.0) && isClose(D2_21,0.0)
+            numZeroDeviators += 1
+            mat2Zero = true
         end
 
         if isClose(D3_11,0.0) && isClose(D3_21,0.0)
-            numZeroDeviator += 1
+            numZeroDeviators += 1
+            mat3Zero = true
         end
 
-        if numZeroDeviator == 0
-            if numZeroSign == 1
-                return CP_BORDER
-            else
-                return CP_LINE # 3 should not be possible.
-            end
-        elseif numZeroDeviator == 1
-            if numZeroSign == 2
-                return CP_BORDER
-            else
-                return CP_LINE
-            end
-        elseif numZeroDeviator == 2
-            return CP_LINE
-        else
+        if numZeroDeviators == 3
             return CP_FULL
+        elseif numZeroDeviators == 2
+            return CP_EDGE
+        elseif numZeroDeviators == 1
+            if mat1Zero
+                if sign2 == 0.0 && sign(D2_11*D3_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            elseif mat2Zero
+                if sign3 == 0.0 && sign(D1_11*D3_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            elseif mat3Zero
+                if sign1 == 0.0 && sign(D1_11*D2_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            end
         end
+
+        # this is the "else" where none of the corners vanish...
+        numEdgeZeros = 0
+        if sign2 == 0.0 && sign(D2_11*D3_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if sign3 == 0.0 && sign(D1_11*D3_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if sign1 == 0.0 && sign(D1_11*D2_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if numEdgeZeros == 0
+            return CP_NORMAL
+        elseif numEdgeZeros == 1
+            return CP_EDGE
+        else
+            return CP_LINE
+        end
+
     end
 
     if sign1 == sign2
@@ -581,51 +605,72 @@ function getCircularPointTypeFull(tensor1::FloatMatrix, tensor2::FloatMatrix, te
     sign3 = sign(D3_11*D1_21 - D1_11*D3_21)
 
     if sign1 == 0 || sign2 == 0 || sign3 == 0
-        # if we get three zeros, then give an answer according to the number of zeros.
-
-        numZeroSign = 0
-        numZeroDeviator = 0
+        numZeroDeviators = 0
+        mat1Zero = false
+        mat2Zero = false
+        mat3Zero = false
 
         if isClose(D1_11, 0.0) && isClose(D1_21, 0.0)
-            numZeroDeviator += 1
-            numZeroSign += 2
-        else
-            if sign1 == 0
-                numZeroSign += 1
-            end
-
-            if sign3 == 0
-                numZeroSign += 1
-            end
+            numZeroDeviators += 1
+            mat1Zero = true
         end
 
-        if isClose(D2_11,0.0) && isClose(D2_21, 0.0)
-            numZeroDeviator += 1
-            numZeroSign += 1
-        elseif sign2 == 0
-            numZeroSign += 1
+        if isClose(D2_11,0.0) && isClose(D2_21,0.0)
+            numZeroDeviators += 1
+            mat2Zero = true
         end
 
         if isClose(D3_11,0.0) && isClose(D3_21,0.0)
-            numZeroDeviator += 1
+            numZeroDeviators += 1
+            mat3Zero = true
         end
 
-        if numZeroDeviator == 0
-            if numZeroSign == 1
-                return CP_BORDER
-            else
-                return CP_LINE # 3 should not be possible.
-            end
-        elseif numZeroDeviator == 1
-            if numZeroSign == 2
-                return CP_BORDER
-            else
-                return CP_LINE
-            end
-        elseif numZeroDeviator == 2
-            return CP_LINE
-        else
+        if numZeroDeviators == 3
             return CP_FULL
+        elseif numZeroDeviators == 2
+            return CP_EDGE
+        elseif numZeroDeviators == 1
+            if mat1Zero
+                if sign2 == 0.0 && sign(D2_11*D3_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            elseif mat2Zero
+                if sign3 == 0.0 && sign(D1_11*D3_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            elseif mat3Zero
+                if sign1 == 0.0 && sign(D1_11*D2_11) < 0.0
+                    return CP_LINE
+                else
+                    return CP_CORNER
+                end
+            end
+        end
+
+        # this is the "else" where none of the corners vanish...
+        numEdgeZeros = 0
+        if sign2 == 0.0 && sign(D2_11*D3_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if sign3 == 0.0 && sign(D1_11*D3_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if sign1 == 0.0 && sign(D1_11*D2_11) < 0.0
+            numEdgeZeros += 1
+        end
+
+        if numEdgeZeros == 0
+            return CP_NORMAL
+        elseif numEdgeZeros == 1
+            return CP_EDGE
+        else
+            return CP_LINE
         end
     end
 

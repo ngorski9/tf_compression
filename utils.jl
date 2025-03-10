@@ -40,8 +40,10 @@ export CP_ZERO_CORNER
 export CP_ZERO_EDGE
 export CP_ZERO_FULL
 export CP_OTHER
+export CP_CORNER
 export CP_BORDER
 export CP_LINE
+export CP_EDGE
 export CP_FULL
 const CP_NORMAL = 0
 const CP_TRISECTOR = 1
@@ -52,9 +54,11 @@ const CP_ZERO_FULL = 5
 const CP_OTHER = 6
 
 # used for the full classification that we put in the output
-const CP_BORDER = 3
-const CP_LINE = 4
-const CP_FULL = 5
+const CP_CORNER = 3
+const CP_BORDER = 4
+const CP_LINE = 5
+const CP_EDGE = 6
+const CP_FULL = 7
 
 # θ2 - θ1 > π → trisector
 # θ2 - θ1 < π → wedge

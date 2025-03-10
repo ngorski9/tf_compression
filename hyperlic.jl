@@ -3,6 +3,58 @@ using DataStructures
 using Random
 using PyCall
 
+function extractCP(a_array, b_array, c_array, d_array, size, trisector_points, wedge_points)
+    # identify critical points
+    for j in 1:size[2]-1
+        for i in 1:size[1]-1
+            for k in 0:1
+                
+                if k == 0
+                    # bottom
+                    x1, y1 = (i,j)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i,j+1)
+                else
+                    # top
+                    x1, y1 = (i,j+1)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i+1,j+1)
+                end
+
+                l12 = (a_array[x1,y1] - d_array[x1,y1])*(b_array[x2,y2]+c_array[x2,y2]) - (a_array[x2,y2] - d_array[x2,y2])*(b_array[x1,y1]+c_array[x1,y1])
+                l23 = (a_array[x2,y2] - d_array[x2,y2])*(b_array[x3,y3]+c_array[x3,y3]) - (a_array[x3,y3] - d_array[x3,y3])*(b_array[x2,y2]+c_array[x2,y2])
+                l31 = (a_array[x3,y3] - d_array[x3,y3])*(b_array[x1,y1]+c_array[x1,y1]) - (a_array[x1,y1] - d_array[x1,y1])*(b_array[x3,y3]+c_array[x3,y3])
+
+                cp = 0
+
+                if l12 < 0 && l23 < 0 && l31 < 0
+                    # wedge
+                    cp = 1
+                elseif l12 > 0 && l23 > 0 && l31 > 0
+                    # trisector
+                    cp = 2
+                end
+
+                if cp == 1 || cp == 2
+                    mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1]+c_array[x1,y1] b_array[x2,y2]+c_array[x2,y2] b_array[x3,y3]+c_array[x3,y3] ; 1 1 1 ]
+                    μ = (mat^-1) * [0 ; 0 ; 1]
+
+                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
+                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
+
+                    if cp == 1
+                        push!(wedge_points, (cx, cy))
+                    else
+                        push!(trisector_points, (cx,cy))
+                    end
+
+                end
+
+            end
+        end
+    end
+end
+
 function randomNoise(array)
     width, height = size(array)
     for j in 1:height
@@ -193,12 +245,13 @@ function main()
     plt = pyimport("matplotlib.pyplot")
     colors = pyimport("matplotlib.colors")
 
-    folder = "../output/reconstructed"
+    folder = "../output/slice"
     size = (65, 65)
-    scale = 30
-    # scale = 2
+    scale = 2
     evecScale=0.0
     power = 2.5
+
+    alt_folder = "../output/reconstructed"
 
     # old settings: num_steps: 60
     # max_path_tracing = 60
@@ -223,20 +276,6 @@ function main()
     b_array = reshape( reinterpret( Float64, read(b_file) ), size )
     d_array = reshape( reinterpret( Float64, read(d_file) ), size )
 
-    # delete this nephew
-
-    # wedge
-    a_array = a_array[6:15,34:43]
-    b_array = b_array[6:15,34:43]
-    d_array = d_array[6:15,34:43]
-    size = (10,10)
-
-    # trisector
-    # a_array = a_array[47:57,10:20]
-    # b_array = b_array[47:57,10:20]
-    # d_array = d_array[47:57,10:20]
-    # size = (10,10)
-
     if asymmetric
         c_file = open("$folder/row_2_col_1.dat", "r")
         c_array = reshape( reinterpret( Float64, read(c_file) ), size )
@@ -249,70 +288,29 @@ function main()
     wedge_points = []
     trisector_points = []
 
-    # identify critical points
-    for j in 1:size[2]-1
-        for i in 1:size[1]-1
-            for k in 0:1
-                
-                if k == 0
-                    # bottom
-                    x1, y1 = (i,j)
-                    x2, y2 = (i+1,j)
-                    x3, y3 = (i,j+1)
-                else
-                    # top
-                    x1, y1 = (i,j+1)
-                    x2, y2 = (i+1,j)
-                    x3, y3 = (i+1,j+1)
-                end
+    wedge_points_alt = []
+    trisector_points_alt = []
 
-                l12 = (a_array[x1,y1] - d_array[x1,y1])*(b_array[x2,y2]+c_array[x2,y2]) - (a_array[x2,y2] - d_array[x2,y2])*(b_array[x1,y1]+c_array[x1,y1])
-                l23 = (a_array[x2,y2] - d_array[x2,y2])*(b_array[x3,y3]+c_array[x3,y3]) - (a_array[x3,y3] - d_array[x3,y3])*(b_array[x2,y2]+c_array[x2,y2])
-                l31 = (a_array[x3,y3] - d_array[x3,y3])*(b_array[x1,y1]+c_array[x1,y1]) - (a_array[x1,y1] - d_array[x1,y1])*(b_array[x3,y3]+c_array[x3,y3])
+    # extract critical points
+    extractCP(a_array,b_array,c_array,d_array,size,trisector_points,wedge_points)
 
-                cp = 0
-
-                if l12 < 0 && l23 < 0 && l31 < 0
-                    # wedge
-                    cp = 1
-                elseif l12 > 0 && l23 > 0 && l31 > 0
-                    # trisector
-                    cp = 2
-                end
-
-                if cp == 1 || cp == 2
-
-                    mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1]+c_array[x1,y1] b_array[x2,y2]+c_array[x2,y2] b_array[x3,y3]+c_array[x3,y3] ; 1 1 1 ]
-                    μ = (mat^-1) * [0 ; 0 ; 1]
-                    println([μ[1],μ[2],μ[3]])
-
-                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
-                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
-
-                    # if k == 0
-                    #     # bottom
-                    #     cx = i + μ[3]
-                    #     cy = j + μ[2]
-                    # else
-                    #     # top
-                    #     # cx = i + 1 - μ[1]
-                    #     # cy = j + 1 - μ[3]
-                    #     cx = i + μ[1]
-                    #     cy = j + μ[3]
-                    # end
-
-                    # println((cx,cy))
-
-                    if cp == 1
-                        push!(wedge_points, (cx, cy))
-                    else
-                        push!(trisector_points, (cx,cy))
-                    end
-
-                end
-
-            end
+    if alt_folder != ""
+        a_file_alt = open("$alt_folder/row_1_col_1.dat", "r")
+        b_file_alt = open("$alt_folder/row_1_col_2.dat", "r")
+        d_file_alt = open("$alt_folder/row_2_col_2.dat", "r")
+    
+        a_array_alt = reshape( reinterpret( Float64, read(a_file_alt) ), size )
+        b_array_alt = reshape( reinterpret( Float64, read(b_file_alt) ), size )
+        d_array_alt = reshape( reinterpret( Float64, read(d_file_alt) ), size )
+    
+        if asymmetric
+            c_file_alt = open("$alt_folder/row_2_col_1.dat", "r")
+            c_array_alt = reshape( reinterpret( Float64, read(c_file_alt) ), size )
+        else
+            c_array_alt = b_array_alt
         end
+
+        extractCP(a_array_alt,b_array_alt,c_array_alt,d_array_alt,size,trisector_points_alt,wedge_points_alt)
     end
 
     # set up the input texture and other images
@@ -554,16 +552,27 @@ function main()
     finalImage = finalImage .^ power
     plt.imshow(transpose(finalImage), cmap=cmap)
 
-    # for cp in trisector_points
-    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=500 )
-    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=300 )
-    # end
+    for cp in trisector_points
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#eaeaea", s=500 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=300 )
+    end
 
-    # for cp in wedge_points
-    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#fefcfb", s=450 )
-    #     plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#001f54", s=300 )
-    # end
+    for cp in wedge_points
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=450 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#eaeaea", s=300 )
+    end
 
+    for cp in trisector_points_alt
+        # plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=500, alpha=0.6 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#c9a8f5", s=500, alpha=0.7 )
+    end
+
+    for cp in wedge_points_alt
+        # plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=450, alpha=0.6 )
+        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#e08e45", s=500, alpha=0.7 )
+    end
+
+    # uncomment to show cell boundaries (not recommended lol)
     # for j in 1:size[2]
     #     for i in 1:size[1]-1
     #         plt.plot( [ (i-1)*scale-0.5, i*scale-0.5 ], [(j-1)*scale-0.5,(j-1)*scale-0.5], color="black" )
@@ -581,12 +590,6 @@ function main()
     #         plt.plot( [(i-1)*scale-0.5, i*scale-0.5], [j*scale-0.5, (j-1)*scale-0.5], color="black" )
     #     end
     # end
-
-    # plt.scatter( 0,0, color="black", s=100)
-    # plt.scatter( 0,0, color="blue", s=60)
-
-    # plt.scatter( 2,2, color="black", s=100)
-    # plt.scatter( 2,2, color="blue", s=60)
 
     plt.show()
 end

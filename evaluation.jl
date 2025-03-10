@@ -7,7 +7,7 @@ using ..cellTopology
 
 function getCPTypeFrequencies(tf::TensorField2d)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0]
+    types = [0,0,0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
@@ -23,7 +23,7 @@ end
 
 function getCPTypeFrequencies(tf::TensorField2dSymmetric)
     x,y,T = tf.dims
-    types = [0,0,0,0,0,0]
+    types = [0,0,0,0,0,0,0,0]
     for t in 1:T
         for i in 1:(x-1)
             for j in 1:(y-1)
@@ -80,7 +80,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
     # Same, FP, FN, FT, FP (degenerate), FN (degenerate), FT (degenerate)
     # Critical -> Degen or Degen -> Critical = FT (degenerate)
-    result = [0,0,0,0,0,0,0,0,0,0,0]
+    result = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     SAME = 1 # checks circular points
     FP = 2
@@ -93,6 +93,10 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
     VALDIF = 9
     VECSAME = 10
     VECDIF = 11
+    VECPLUSCIRCSAME = 12
+    VECPLUSCIRCDIF = 13
+    ALLSAME = 14
+    ALLDIF = 15
 
     x, y, T = tf1.dims
     x -= 1
@@ -101,6 +105,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
         for j in 1:y
             for i in 1:x                
                 for k in 0:1
+
+                    all_same = true
 
                     c1 = getCircularPointTypeFull(tf1, i, j, t, Bool(k))
                     c2 = getCircularPointTypeFull(tf2, i, j, t, Bool(k))
@@ -129,12 +135,17 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         end
                     end
 
+                    if c1 != c2
+                        all_same = false
+                    end
+
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
 
                     if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && top1.DPArray == top2.DPArray && top1.DNArray == top2.DNArray && top1.RPArray == top2.RPArray && top1.RNArray == top2.RNArray
                         result[VALSAME] += 1
                     else
+                        all_same = false
                         result[VALDIF] += 1
                         # println(top1)
                         # println(top2)
@@ -161,8 +172,15 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2
                         result[VECSAME] += 1
+                        if c1 == c2
+                            result[VECPLUSCIRCSAME] += 1
+                        else
+                            result[VECPLUSCIRCDIF] += 1
+                        end
                     else
+                        all_same = false
                         result[VECDIF] += 1
+                        result[VECPLUSCIRCDIF] += 1
                         # println(top1)
                         # println(top2)
                         
@@ -184,6 +202,12 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         # println(tensors[2])
                         # println(tensors[3])
                         # exit()                        
+                    end
+
+                    if all_same
+                        result[ALLSAME] += 1
+                    else
+                        result[ALLDIF] += 1
                     end
 
                 end
