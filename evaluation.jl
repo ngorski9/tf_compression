@@ -98,6 +98,13 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
     ALLSAME = 14
     ALLDIF = 15
 
+    outfVal = "../valDifs.txt"
+    outfVec = "../vecDifs.txt"
+
+    if outfVal != ""
+        removeIfExists(outfVal)
+    end
+
     x, y, T = tf1.dims
     x -= 1
     y -= 1
@@ -147,27 +154,36 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                     else
                         all_same = false
                         result[VALDIF] += 1
+
+                        if outfVal != ""
+                            outf = open(outfVal, "a")
+                            write(outf,"$((i,j,k))\n")
+                            close(outf)
+                        end
+
                         # println(top1)
                         # println(top2)
-                        
+                        # println((i,j,Bool(k)))
                         # tensors = getTensorsAtCell(tf1, i,j,t,Bool(k))
-                        # # println(decomposeTensor(tensors[1]))
-                        # # println(decomposeTensor(tensors[2]))
-                        # # println(decomposeTensor(tensors[3]))
-                        # println(tensors[1])
-                        # println(tensors[2])
-                        # println(tensors[3])
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))
+                        # # println(tensors[1])
+                        # # println(tensors[2])
+                        # # println(tensors[3])
 
                         # println("-----")
 
                         # tensors = getTensorsAtCell(tf2, i,j,t,Bool(k))
-                        # # println(decomposeTensor(tensors[1]))
-                        # # println(decomposeTensor(tensors[2]))
-                        # # println(decomposeTensor(tensors[3]))
-                        # println(tensors[1])
-                        # println(tensors[2])
-                        # println(tensors[3])                                                
-                        # exit()
+                        # println(decomposeTensor(tensors[1]))
+                        # println(decomposeTensor(tensors[2]))
+                        # println(decomposeTensor(tensors[3]))
+                        # # println(tensors[1])
+                        # # println(tensors[2])
+                        # # println(tensors[3])
+                        # # exit()
+
+                        println("=========================================================")
                     end
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2
@@ -181,6 +197,13 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         all_same = false
                         result[VECDIF] += 1
                         result[VECPLUSCIRCDIF] += 1
+
+                        if outfVec != ""
+                            outf = open(outfVec, "a")
+                            write(outf,"$((i,j,k))\n")
+                            close(outf)
+                        end
+
                         # println(top1)
                         # println(top2)
                         

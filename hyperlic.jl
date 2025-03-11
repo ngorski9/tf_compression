@@ -245,13 +245,15 @@ function main()
     plt = pyimport("matplotlib.pyplot")
     colors = pyimport("matplotlib.colors")
 
-    folder = "../output/slice"
+    folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 2
+    scale = 8
     evecScale=0.0
     power = 2.5
 
-    alt_folder = "../output/reconstructed"
+    alt_folder = "../output/slice"
+    load_lic = "../lics/stress3sz6"
+    save_lic = ""
 
     # old settings: num_steps: 60
     # max_path_tracing = 60
@@ -333,212 +335,223 @@ function main()
     end
 
     finalImage = zeros(Float64, imageSize)
-    # finalImage = noise
-    numHits = zeros(Int64, imageSize)
-    
-    # iterate and create streamlines
-    blocks_dims = ( Int64(ceil(imageSize[1] / block_size)), Int64(ceil(imageSize[2] / block_size)) )
 
-    numSkips = 0
+    if load_lic != ""
+        inf = open(load_lic, "r")
+        inBytes = reshape(reinterpret(Float64,read(inf)),imageSize)
+        for j in 1:imageSize[2]
+            for i in 1:imageSize[1]
+                finalImage[i,j] = inBytes[i,j]
+            end
+        end
+    else
+        # finalImage = noise
+        numHits = zeros(Int64, imageSize)
 
-    for y in 1:block_size
-        for x in 1:block_size
-            println((x,y,numSkips))
-            for by = 1:blocks_dims[2]
-                for bx in 1:blocks_dims[1]
+        # iterate and create streamlines
+        blocks_dims = ( Int64(ceil(imageSize[1] / block_size)), Int64(ceil(imageSize[2] / block_size)) )
 
-                    px = (bx-1) * block_size + x
-                    py = (by-1) * block_size + y
+        numSkips = 0
 
-                    if px <= imageSize[1] && py <= imageSize[2]
+        for y in 1:block_size
+            for x in 1:block_size
+                println((x,y,numSkips))
+                for by = 1:blocks_dims[2]
+                    for bx in 1:blocks_dims[1]
 
-                        if numHits[px,py] >= hit_threshold
-                            numSkips += 1
-                            continue
-                        end
+                        px = (bx-1) * block_size + x
+                        py = (by-1) * block_size + y
 
-                        seed = [ (px + rand() - 1) / scale + 1, (py + rand() - 1) / scale + 1 ]
+                        if px <= imageSize[1] && py <= imageSize[2]
 
-                        # compute pixels in the path around the seed point
-
-                        pixels = Deque{Tuple{Int64, Int64}}()
-                        push!(pixels, (px, py))
-
-                        # Compute initial eigenvectors for seeding
-
-                        tRoot = interpolate(tf, seed)
-                        evecRoot = vector(tRoot,asymmetric)
-
-                        # forward pass
-                        num_forward = 0
-                        xf = seed
-
-                        vf = evecRoot
-                        for step in 1:num_steps
-                            vf = rk4_vector(tf, xf, δ, vf, asymmetric, evecScale)
-                            xf = xf + vf
-                            if !inBounds(tf, xf)
-                                break
-                            end
-                            push!(pixels, to_pixel(xf,scale))
-                            num_forward += 1
-                            # if pixel_near(xf, wedge_pixels)
-                            #     break
-                            # end
-                        end
-
-                        # backward pass
-                        num_backward = 0
-                        xb = seed
-                        vb = -evecRoot
-                        for step in 1:num_steps
-                            vb = rk4_vector(tf, xb, δ, vb, asymmetric, evecScale)
-                            xb = xb + vb
-                            if !inBounds(tf, xb)
-                                break
-                            end
-                            pushfirst!(pixels, to_pixel(xb,scale))
-                            # if pixel_near(first(pixels), wedge_pixels)
-                            #     break
-                            # end
-                            num_backward += 1
-                        end
-                        
-                        intensity = 0
-
-                        for pixel in pixels
-                            intensity += noise[pixel[1],pixel[2]]
-                        end
-
-                        finalImage[ px, py ] += intensity / length(pixels)
-                        numHits[ px, py ] += 1
-                    
-                        # propagate intensities forward
-
-                        pixels_f = collect(pixels)
-                        head_f = num_forward # the number of pixels in front of the one that we are currently working with.
-                        tail_f = num_backward # the number of pixels behind the one that we are currently working with.
-                        tail_f_position = 1
-                        intensity_f = intensity
-                        steps = 0 # kill counter to avoid getting stuck in a loop
-
-                        if num_forward < num_steps
-                            at_edge = true
-                        else
-                            at_edge = false
-                        end
-
-                        index = 0
-                        for pixel in pixels_f
-                            index += 1
-                            if index <= num_backward
+                            if numHits[px,py] >= hit_threshold
+                                numSkips += 1
                                 continue
                             end
 
-                            steps += 1
-                            if steps >= max_path_tracing
-                                break
-                            end
+                            seed = [ (px + rand() - 1) / scale + 1, (py + rand() - 1) / scale + 1 ]
 
-                            if !at_edge
+                            # compute pixels in the path around the seed point
+
+                            pixels = Deque{Tuple{Int64, Int64}}()
+                            push!(pixels, (px, py))
+
+                            # Compute initial eigenvectors for seeding
+
+                            tRoot = interpolate(tf, seed)
+                            evecRoot = vector(tRoot,asymmetric)
+
+                            # forward pass
+                            num_forward = 0
+                            xf = seed
+
+                            vf = evecRoot
+                            for step in 1:num_steps
                                 vf = rk4_vector(tf, xf, δ, vf, asymmetric, evecScale)
                                 xf = xf + vf
                                 if !inBounds(tf, xf)
-                                    at_edge = true
+                                    break
                                 end
-                            end
-
-                            if tail_f < num_steps
-                                tail_f += 1
-                            else
-                                furthestTail = pixels_f[tail_f_position]
-                                intensity_f -= noise[ furthestTail[1], furthestTail[2] ]
-                                tail_f_position += 1
-                            end
-
-                            if at_edge
-                                head_f -= 1
-                            else
-                                nextPixel = to_pixel(xf,scale)
-                                push!(pixels_f, nextPixel)
-                                intensity_f += noise[ nextPixel[1], nextPixel[2] ]
-                                # if pixel_near(nextPixel, wedge_pixels)
-                                #     at_edge = true
+                                push!(pixels, to_pixel(xf,scale))
+                                num_forward += 1
+                                # if pixel_near(xf, wedge_pixels)
+                                #     break
                                 # end
                             end
 
-                            finalImage[ pixel[1], pixel[2] ] += intensity_f / ( head_f + tail_f + 1 )
-                            numHits[ pixel[1], pixel[2] ] += 1
-                        end
-
-                        # propagate intensities backward
-
-                        pixels_b = reverse(collect(pixels))
-                        head_b = num_backward # the number of pixels in front of the one that we are currently working with.
-                        tail_b = num_forward # the number of pixels behind the one that we are currently working with.
-                        tail_b_position = 1
-                        intensity_b = intensity
-
-                        if num_backward < num_steps
-                            at_edge = true
-                        else
-                            at_edge = false
-                        end
-
-                        index = 0
-                        for pixel in pixels_b
-                            index += 1
-                            if index <= num_forward
-                                continue
-                            end
-
-                            steps += 1
-                            if steps >= max_path_tracing
-                                break
-                            end
-
-                            if !at_edge
+                            # backward pass
+                            num_backward = 0
+                            xb = seed
+                            vb = -evecRoot
+                            for step in 1:num_steps
                                 vb = rk4_vector(tf, xb, δ, vb, asymmetric, evecScale)
                                 xb = xb + vb
                                 if !inBounds(tf, xb)
-                                    at_edge = true
+                                    break
                                 end
-                            end
-
-                            if tail_b < num_steps
-                                tail_b += 1
-                            else
-                                furthestTail = pixels_b[tail_b_position]
-                                intensity_b -= noise[ furthestTail[1], furthestTail[2] ]
-                                tail_b_position += 1
-                            end
-
-                            if at_edge
-                                head_b -= 1
-                            else
-                                nextPixel = to_pixel(xb,scale)
-                                push!(pixels_b, nextPixel)
-                                intensity_b += noise[ nextPixel[1], nextPixel[2] ]
-                                # if pixel_near(nextPixel, wedge_pixels)
-                                #     at_edge = true
+                                pushfirst!(pixels, to_pixel(xb,scale))
+                                # if pixel_near(first(pixels), wedge_pixels)
+                                #     break
                                 # end
+                                num_backward += 1
+                            end
+                            
+                            intensity = 0
+
+                            for pixel in pixels
+                                intensity += noise[pixel[1],pixel[2]]
                             end
 
-                            finalImage[ pixel[1], pixel[2] ] += intensity_b / ( head_b + tail_b + 1 )
-                            numHits[ pixel[1], pixel[2] ] += 1
+                            finalImage[ px, py ] += intensity / length(pixels)
+                            numHits[ px, py ] += 1
+                        
+                            # propagate intensities forward
 
-                        end
+                            pixels_f = collect(pixels)
+                            head_f = num_forward # the number of pixels in front of the one that we are currently working with.
+                            tail_f = num_backward # the number of pixels behind the one that we are currently working with.
+                            tail_f_position = 1
+                            intensity_f = intensity
+                            steps = 0 # kill counter to avoid getting stuck in a loop
 
-                    end # end if px and py are valid coordinates
+                            if num_forward < num_steps
+                                at_edge = true
+                            else
+                                at_edge = false
+                            end
 
-                end # end for bx in 1:blocks_dims[1]
-            end # end for by in 1:blocks_dims[2]
-        end # end for x in 1:block_size
-    end # end for y in 1:block_size
+                            index = 0
+                            for pixel in pixels_f
+                                index += 1
+                                if index <= num_backward
+                                    continue
+                                end
 
-    for j in 1:imageSize[2]
-        for i in 1:imageSize[1]
-            finalImage[i,j] /= numHits[i,j]
+                                steps += 1
+                                if steps >= max_path_tracing
+                                    break
+                                end
+
+                                if !at_edge
+                                    vf = rk4_vector(tf, xf, δ, vf, asymmetric, evecScale)
+                                    xf = xf + vf
+                                    if !inBounds(tf, xf)
+                                        at_edge = true
+                                    end
+                                end
+
+                                if tail_f < num_steps
+                                    tail_f += 1
+                                else
+                                    furthestTail = pixels_f[tail_f_position]
+                                    intensity_f -= noise[ furthestTail[1], furthestTail[2] ]
+                                    tail_f_position += 1
+                                end
+
+                                if at_edge
+                                    head_f -= 1
+                                else
+                                    nextPixel = to_pixel(xf,scale)
+                                    push!(pixels_f, nextPixel)
+                                    intensity_f += noise[ nextPixel[1], nextPixel[2] ]
+                                    # if pixel_near(nextPixel, wedge_pixels)
+                                    #     at_edge = true
+                                    # end
+                                end
+
+                                finalImage[ pixel[1], pixel[2] ] += intensity_f / ( head_f + tail_f + 1 )
+                                numHits[ pixel[1], pixel[2] ] += 1
+                            end
+
+                            # propagate intensities backward
+
+                            pixels_b = reverse(collect(pixels))
+                            head_b = num_backward # the number of pixels in front of the one that we are currently working with.
+                            tail_b = num_forward # the number of pixels behind the one that we are currently working with.
+                            tail_b_position = 1
+                            intensity_b = intensity
+
+                            if num_backward < num_steps
+                                at_edge = true
+                            else
+                                at_edge = false
+                            end
+
+                            index = 0
+                            for pixel in pixels_b
+                                index += 1
+                                if index <= num_forward
+                                    continue
+                                end
+
+                                steps += 1
+                                if steps >= max_path_tracing
+                                    break
+                                end
+
+                                if !at_edge
+                                    vb = rk4_vector(tf, xb, δ, vb, asymmetric, evecScale)
+                                    xb = xb + vb
+                                    if !inBounds(tf, xb)
+                                        at_edge = true
+                                    end
+                                end
+
+                                if tail_b < num_steps
+                                    tail_b += 1
+                                else
+                                    furthestTail = pixels_b[tail_b_position]
+                                    intensity_b -= noise[ furthestTail[1], furthestTail[2] ]
+                                    tail_b_position += 1
+                                end
+
+                                if at_edge
+                                    head_b -= 1
+                                else
+                                    nextPixel = to_pixel(xb,scale)
+                                    push!(pixels_b, nextPixel)
+                                    intensity_b += noise[ nextPixel[1], nextPixel[2] ]
+                                    # if pixel_near(nextPixel, wedge_pixels)
+                                    #     at_edge = true
+                                    # end
+                                end
+
+                                finalImage[ pixel[1], pixel[2] ] += intensity_b / ( head_b + tail_b + 1 )
+                                numHits[ pixel[1], pixel[2] ] += 1
+
+                            end
+
+                        end # end if px and py are valid coordinates
+
+                    end # end for bx in 1:blocks_dims[1]
+                end # end for by in 1:blocks_dims[2]
+            end # end for x in 1:block_size
+        end # end for y in 1:block_size
+
+        for j in 1:imageSize[2]
+            for i in 1:imageSize[1]
+                finalImage[i,j] /= numHits[i,j]
+            end
         end
     end
 
@@ -547,6 +560,12 @@ function main()
 
     cmap_list = [(0.0,"#4155c8"), (1.0,"#a1c0ff")]
     cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
+
+    if save_lic != ""
+        outf = open(save_lic, "w")
+        write(outf, finalImage)
+        close(outf)
+    end
 
     # visualize
     finalImage = finalImage .^ power
