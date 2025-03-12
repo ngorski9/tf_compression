@@ -1,7 +1,7 @@
 using LinearAlgebra
 using DataStructures
 using Random
-using PyCall
+using WriteVTK
 
 function extractCP(a_array, b_array, c_array, d_array, size, trisector_points, wedge_points)
     # identify critical points
@@ -84,67 +84,106 @@ function randomCircles(array, radius)
 end
 
 struct TensorField
-    size::Tuple{Int64,Int64}
+    size_x::Int64
+    size_y::Int64
     a::Matrix{Float64}
     b::Matrix{Float64}
     c::Matrix{Float64}
     d::Matrix{Float64}
 end
 
-function inBounds(tf::TensorField, x::Vector{Float64})
-    return x[1] >= 1 && x[1] <= tf.size[1] && x[2] >= 1 && x[2] <= tf.size[2]
+struct Tensor
+    a::Float64
+    b::Float64
+    c::Float64
+    d::Float64
 end
 
-function dot(a::Vector{Float64}, b::Vector{Float64})
-    return a[1]*b[1] + a[2]*b[2]
+struct Vec
+    u::Float64
+    v::Float64
 end
 
-function vector(A::Array{Float64}, dual=false, scale::Float64=0.0)
+function mag(u::Float64, v::Float64)
+    return sqrt(u^2+v^2)
+end
 
-    if A[1,1] == 0.0 && A[1,2] == 0.0 && A[2,1] == 0.0 && A[2,2] == 0.0
-        return [0.0,0.0]
-    end
+function inBounds(tf::TensorField, v::Vec)
+    return v.u >= 1 && v.u <= tf.size_x && v.v >= 1 && v.v <= tf.size_y
+end
+
+function dot(a::Vec, b::Vec)
+    return a.u*b.u + a.v*b.v
+end
+
+function Base.:+(a::Vec, b::Vec)
+    return Vec(a.u+b.u,a.v+b.v)
+end
+
+function Base.:*(a::Float64, b::Vec)
+    return Vec(a*b.u, a*b.v)
+end
+
+function Base.:*(a::Int64, b::Vec)
+    return Vec(a*b.u, a*b.v)
+end
+
+function Base.:*(a::Vec, b::Float64)
+    return Vec(a.u*b, a.v*b)
+end
+
+function Base.:*(a::Vec, b::Int64)
+    return Vec(a.u*b, a.v*b)
+end
+
+function Base.:/(a::Vec, b::Float64)
+    return Vec(a.u/b, a.v/b)
+end
+
+function Base.:/(a::Vec, b::Int64)
+    return Vec(a.u/b, a.v/b)
+end
+
+function Base.:-(a::Vec)
+    return Vec(-a.u,-a.v)
+end
+
+function vector(A::Tensor, dual=false, scale::Float64=0.0)
 
     if dual
 
-        d = (A[1,1] + A[2,2]) / 2
-        r = (A[2,1] - A[1,2]) / 2
-
-        deviator = (A - d*[1 0 ; 0 1] - r*[0 -1 ; 1 0])/r
-        cplx = deviator[1,1] + deviator[1,2]*im
-        θ = angle(cplx) + pi/2
+        Δ = (A.a - A.d) / 2
+        F = (A.b + A.c) / 2
+        r = (A.c - A.b) / 2
+        s = mag(Δ,F)
+        if s == 0.0
+            return Vec(0.0,0.0)
+        end
 
         if r > 0
-            vector = [ sin(θ), 1 - cos(θ) ]
+            mag1 = mag(F,s-Δ)
+            return Vec(F/mag1, (s-Δ)/mag1)
         else
-            vector = [ cos(θ) - 1, sin(θ) ]
+            mag1 = mag(F,-s-Δ)
+            return Vec(F/mag1, (-s-Δ)/mag1)
         end
-
-        vector /= norm(vector)
-
-        return vector
 
     else
-        vals = eigvals(A)
-        if vals[1] > vals[2]
-            if scale == 0
-                return eigvecs(A)[:,1]
-            else
-                return scale*abs(vals[1])*eigvecs(A)[:,1]
-            end
-        else
-            if scale == 0
-                return eigvecs(A)[:,2]
-            else
-                return scale*abs(vals[2])*eigvecs(A)[:,2]
-            end
+        Δ = (A.a - A.d) / 2
+        F = A.b
+        s = mag(Δ,F)
+        if s == 0.0
+            return Vec(0.0,0.0)
         end
+        mag2 = mag(F,s-Δ)
+        return Vec(F/mag2,(s-Δ)/mag2)
     end
 
 end
 
-function interpolate(tf::TensorField,v::Vector{Float64})
-    x,y = v
+function interpolate(tf::TensorField,v::Vec)
+    x = v.u
+    y = v.v
     xFloor = Int64(floor(x))
     yFloor = Int64(floor(y))
     xFrac = x - floor(x)
@@ -156,7 +195,7 @@ function interpolate(tf::TensorField,v::Vector{Float64})
         c = tf.c[xFloor + 1, yFloor] * xFrac + tf.c[xFloor, yFloor + 1] * yFrac + tf.c[xFloor, yFloor] * (1 - xFrac - yFrac)
         d = tf.d[xFloor + 1, yFloor] * xFrac + tf.d[xFloor, yFloor + 1] * yFrac + tf.d[xFloor, yFloor] * (1 - xFrac - yFrac)
 
-        return [a b ; c d]
+        return Tensor(a,b,c,d)
     else
         # top cell
         a = tf.a[xFloor, yFloor + 1] * (1 - xFrac) + tf.a[xFloor + 1, yFloor] * (1 - yFrac) + tf.a[xFloor + 1, yFloor + 1] * (xFrac + yFrac - 1)
@@ -164,13 +203,13 @@ function interpolate(tf::TensorField,v::Vector{Float64})
         a = tf.c[xFloor, yFloor + 1] * (1 - xFrac) + tf.c[xFloor + 1, yFloor] * (1 - yFrac) + tf.c[xFloor + 1, yFloor + 1] * (xFrac + yFrac - 1)
         a = tf.d[xFloor, yFloor + 1] * (1 - xFrac) + tf.d[xFloor + 1, yFloor] * (1 - yFrac) + tf.d[xFloor + 1, yFloor + 1] * (xFrac + yFrac - 1)
 
-        return [a b ; c d]
+        return Tensor(a,b,c,d)
     end
 
 end
 
 # expensive lol
-function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector::Vector{Float64}, dual::Bool, evecScale::Float64=0.0)
+function rk4_vector(tf::TensorField, x::Vec, δ::Float64, lastVector::Vec, dual::Bool, evecScale::Float64=0.0)
 
     t1 = interpolate(tf, x)
     e1 = vector(t1, dual, evecScale)
@@ -180,7 +219,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     a = δ * e1
     xa = x + 0.5a
     if !inBounds(tf, xa)
-        return [Inf,Inf]
+        return Vec(Inf,Inf)
     end
 
     t2 = interpolate(tf, xa)
@@ -191,7 +230,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     b = δ * e2
     xb = x + 0.5b
     if !inBounds(tf, xb)
-        return [Inf,Inf]
+        return Vec(Inf,Inf)
     end
 
     t3 = interpolate(tf, xb)
@@ -202,7 +241,7 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
     c = δ * e3
     xc = x + c # yes this is correct. This should not be x + 0.5c
     if !inBounds(tf, xc)
-        return [Inf,Inf]
+        return Vec(Inf,Inf)
     end
 
     t4 = interpolate(tf, xc)
@@ -225,7 +264,11 @@ function rk4_vector(tf::TensorField, x::Vector{Float64}, δ::Float64, lastVector
 end
 
 function to_pixel(x, scale)
-    return (Int64(floor( (x[1]-1)*scale+1 )), Int64(floor( (x[2]-1)*scale+1 )))
+    return (Int64(floor( (x.u-1)*scale+1 )), Int64(floor( (x.v-1)*scale+1 )))
+end
+
+function to_vec(px_x, px_y, scale)
+    return 
 end
 
 function pixel_near(px,list)
@@ -242,12 +285,11 @@ end
 function main()
     Random.seed!(1)
     t1 = time()
-    plt = pyimport("matplotlib.pyplot")
-    colors = pyimport("matplotlib.colors")
 
     folder = "../output/reconstructed"
+    saveName = "../LIC"
     size = (65, 65)
-    scale = 2
+    scale = 8
     evecScale=0.0
     power = 2.5
 
@@ -264,8 +306,8 @@ function main()
     max_path_tracing = 180 # kill after a certain number of steps to avoid loops
     block_size = 20
     hit_threshold = 8
-    δ = 0.01
-    # δ = 0.1
+    # δ = 0.01
+    δ = 0.1
     asymmetric = false
 
     # load and set up the tensor field
@@ -285,7 +327,7 @@ function main()
         c_array = b_array
     end
 
-    tf = TensorField(size, a_array, b_array, c_array, d_array)
+    tf = TensorField(size[1], size[2], a_array, b_array, c_array, d_array)
 
     wedge_points = []
     trisector_points = []
@@ -327,7 +369,7 @@ function main()
             yL = (j-0.7)/scale+1.0
             yH = (j-0.3)/scale+1.0
 
-            if interpolate(tf, [xo, yL] ) == [0.0 0.0 ; 0.0 0.0] && interpolate(tf, [xo,yH]) == [0.0 0.0 ; 0.0 0.0]
+            if interpolate(tf, Vec(xo, yL) ) == Tensor(0.0,0.0,0.0,0.0) && interpolate(tf, Vec(xo,yH)) == Tensor(0.0,0.0,0.0,0.0)
                 noise[i,j] = 0.0
             end
 
@@ -335,6 +377,7 @@ function main()
     end
 
     finalImage = zeros(Float64, imageSize)
+    frobenius = zeros(Float64, imageSize)
 
     if load_lic != ""
         inf = open(load_lic, "r")
@@ -364,12 +407,18 @@ function main()
 
                         if px <= imageSize[1] && py <= imageSize[2]
 
+                            # compute the frobenius mse at this pixel
+                            center = Vec( (px + 0.5 - 1.0) / scale + 1, (py + 0.5 - 1.0) / scale + 1 )
+                            tCenter = interpolate(tf, center)
+                            frobenius[ px, py ] = sqrt( tCenter.a^2 + tCenter.b^2 + tCenter.c^2 + tCenter.d^2 )
+
+                            # skip the LIC here if a sufficient number of hits have been hit already.
                             if numHits[px,py] >= hit_threshold
                                 numSkips += 1
                                 continue
                             end
 
-                            seed = [ (px + rand() - 1) / scale + 1, (py + rand() - 1) / scale + 1 ]
+                            seed = Vec( (px + rand() - 1) / scale + 1, (py + rand() - 1) / scale + 1 )
 
                             # compute pixels in the path around the seed point
 
@@ -557,10 +606,6 @@ function main()
 
     t2 = time()
     print(t2-t1)
-    return
-
-    cmap_list = [(0.0,"#4155c8"), (1.0,"#a1c0ff")]
-    cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
 
     if save_lic != ""
         outf = open(save_lic, "w")
@@ -570,48 +615,12 @@ function main()
 
     # visualize
     finalImage = finalImage .^ power
-    plt.imshow(transpose(finalImage), cmap=cmap)
 
-    for cp in trisector_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#eaeaea", s=500 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=300 )
+    vtk_grid(saveName, 0:1:imageSize[1]-1,0:1:imageSize[2]-1,0:1:0) do vtk
+        vtk["frobenius"] = frobenius
+        vtk["LIC"] = finalImage
     end
 
-    for cp in wedge_points
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=450 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#eaeaea", s=300 )
-    end
-
-    for cp in trisector_points_alt
-        # plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=500, alpha=0.6 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#c9a8f5", s=500, alpha=0.7 )
-    end
-
-    for cp in wedge_points_alt
-        # plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#000000", s=450, alpha=0.6 )
-        plt.scatter( (cp[1]-1)*scale-0.5, (cp[2]-1)*scale-0.5, color="#e08e45", s=500, alpha=0.7 )
-    end
-
-    # uncomment to show cell boundaries (not recommended lol)
-    # for j in 1:size[2]
-    #     for i in 1:size[1]-1
-    #         plt.plot( [ (i-1)*scale-0.5, i*scale-0.5 ], [(j-1)*scale-0.5,(j-1)*scale-0.5], color="black" )
-    #     end
-    # end
-
-    # for j in 1:size[2]-1
-    #     for i in 1:size[1]
-    #         plt.plot( [(i-1)*scale-0.5, (i-1)*scale-0.5], [(j-1)*scale-0.5, j*scale-0.5], color="black" )
-    #     end
-    # end
-
-    # for j in 1:size[2]-1
-    #     for i in 1:size[1]-1
-    #         plt.plot( [(i-1)*scale-0.5, i*scale-0.5], [j*scale-0.5, (j-1)*scale-0.5], color="black" )
-    #     end
-    # end
-
-    # plt.show()
 end
 
-# main()
+main()

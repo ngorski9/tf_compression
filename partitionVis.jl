@@ -73,8 +73,8 @@ function main()
     vec_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 5)
     cp_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 2)
 
-    cp_colors[trisector] = ( 201, 168, 245 ) # pink (dn)
-    cp_colors[wedge] = ( 224, 142, 69 ) # orange (dp)
+    cp_colors[trisector] = ( 255, 255, 255 )
+    cp_colors[wedge] = ( 30, 30, 30 ) # orange (dp)
 
     val_colors[dp] = ( 224, 142, 69 )
     val_colors[rp] = ( 155, 39, 51 )
@@ -172,7 +172,7 @@ function main()
                 Mat1 = [Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1]
                 if det(Mat1) != 0.0
                     sol1 = (Mat1^-1) * [0 ; 0 ; 1]
-                    push!(cp_locs, ((i-1+sol1[2])*(scale+1), a_y - 1 - (j-1+sol1[3])*(scale+1)))
+                    # push!(cp_locs, ((i-1+sol1[2])*(scale+1), a_y - 1 - (j-1+sol1[3])*(scale+1)))
 
                     a = sol1[1]*a1 + sol1[2]*a2 + sol1[3]*a3
                     b = sol1[1]*b1 + sol1[2]*b2 + sol1[3]*b3
@@ -184,10 +184,10 @@ function main()
                     class_vec = classifyTensorEigenvector(R,S)
 
                     frobenius_ = sqrt(a^2+b^2+c^2+d^2)
-                    push!(cp_frobenius, frobenius_)
-                    push!(cp_types, cp_type1)
-                    push!(cp_categorical_val, class_val)
-                    push!(cp_categorical_vec, class_vec)
+                    # push!(cp_frobenius, frobenius_)
+                    # push!(cp_types, cp_type1)
+                    # push!(cp_categorical_val, class_val)
+                    # push!(cp_categorical_vec, class_vec)
                 end
             end
 
@@ -211,7 +211,10 @@ function main()
                     sol2 = (Mat2^-1) * [0 ; 0 ; 1]
 
                     # the math works out here. We want (i-1) + (1-sol2[2]) for x and similar for y.
-                    push!(cp_locs, ((i-sol2[2])*(scale+1), a_y - 1 - (j-sol2[1])*(scale+1)))
+
+                    push!( cp_locs,  (( i-sol2[2] )*(scale+1), a_y-1 - ( j-sol2[1] )*(scale+1)) )
+
+                    # push!(cp_locs, ((i-sol2[2])*(scale+1), a_y - (j-sol2[1])*(scale+1)))
 
                     a = sol2[1]*a2 + sol2[2]*a3 + sol2[3]*a4
                     b = sol2[1]*b2 + sol2[2]*b3 + sol2[3]*b4
