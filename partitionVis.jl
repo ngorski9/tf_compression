@@ -1,42 +1,108 @@
 using WriteVTK
 using LinearAlgebra
 
+const dp = 4
+const dn = 5
+const rp = 2
+const rn = 3
+const s = 1
+
+const rrp = 4
+const srp = 2
+const sym = 1
+const srn = 3
+const rrn = 5
+
+const trisector = 1
+const wedge = 2
+
+function decomposeTensor(a,b,c,d)
+    D = (a+d)/2
+    R = (c-b)/2
+    S = sqrt( (a-d)^2 + (b+c)^2 )/2
+
+    return (D,R,S)
+end
+
+function classifyTensorEigenvalue(D,R,S)
+    if abs(D) >= abs(R) && abs(D) >= abs(S)
+        if D > 0
+            return dp
+        else
+            return dn
+        end
+    elseif abs(R) >= abs(D) && abs(R) >= abs(S)
+        if R > 0
+            return rp
+        else
+            return rn
+        end
+    else
+        return s
+    end
+end
+
+function classifyTensorEigenvector(R,S)
+    if R == 0.0
+        return sym
+    elseif R > 0
+        if S > abs(R)
+            return srp
+        else
+            return rrp
+        end
+    else
+        if S > abs(R)
+            return srn
+        else
+            return rrn
+        end
+    end
+end
+
 function main()
     println("hi")
 
     folder = "../output/slice"
-    saveName = "../test.png"
+    saveName = "../test"
     dims = (101,101)
     scale = 10 # how many extra points do we add between the actual grid points (so the quadratic interp is more accurate).
-    val = true
 
 
+    val_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 5)
+    vec_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 5)
+    cp_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 2)
 
+    cp_colors[trisector] = ( 201, 168, 245 ) # pink (dn)
+    cp_colors[wedge] = ( 224, 142, 69 ) # orange (dp)
 
-    dp = ( 224, 142, 69 )
-    rp = ( 155, 39, 51 )
-    dn = ( 201, 168, 245 )
-    rn = ( 49, 59, 142 )
-    s = ( 234, 234, 234 )
+    val_colors[dp] = ( 224, 142, 69 )
+    val_colors[rp] = ( 155, 39, 51 )
+    val_colors[dn] = ( 201, 168, 245 )
+    val_colors[rn] = ( 49, 59, 142 )
+    val_colors[s] = ( 234, 234, 234 )
 
-    rrp = ( 155, 39, 51 )
-    srp = ( 193, 153, 116 )
-    sym = ( 173, 219, 240 )
-    srn = (133, 153, 188 )
-    rrn = (46, 59, 142 )
+    vec_colors[rrp] = ( 155, 39, 51 )
+    vec_colors[srp] = ( 193, 153, 116 )
+    vec_colors[sym] = ( 173, 219, 240 )
+    vec_colors[srn] = (133, 153, 188 )
+    vec_colors[rrn] = (46, 59, 142 )
 
     a_x = scale*(dims[1]-1)+dims[1]
     a_y = scale*(dims[2]-1)+dims[2]
 
-    # experimental...
-    img = Array{UInt8}(undef, (3,a_x,a_y))
+    # data arrays
+    img_val = Array{UInt8}(undef, (3,a_x,a_y))
+    img_vec = Array{UInt8}(undef, (3,a_x,a_y))
     frobenius = Array{Float64}(undef, (a_x, a_y))
-    categorical = Array{Float64}(undef, (a_x, a_y))
+    categorical_val = Array{Float64}(undef, (a_x, a_y))
+    categorical_vec = Array{Float64}(undef, (a_x, a_y))
 
-    # define set functions
-    function set_color(x,y,c)
-        img[]
-    end
+    cp_locs::Array{Tuple{Float64,Float64}} = Array{Tuple{Float64,Float64}}(undef, 0)
+    cp_frobenius::Array{Float64} = Array{Float64}(undef,0)
+    cp_types::Array{Int64} = Array{Int64}(undef,0)
+    cp_categorical_val::Array{Float64} = Array{Float64}(undef,0)
+    cp_categorical_vec::Array{Float64} = Array{Float64}(undef,0)
 
 
     a_file = open("$folder/row_1_col_1.dat", "r")
@@ -54,8 +120,7 @@ function main()
     close(c_file)
     close(d_file)
 
-    cp_vertices = zeros(Bool, dims)
-    cp_locs::Array{Tuple{Float64,Float64}} = Array{Tuple{Float64,Float64}}(undef, 0)
+
 
     for j in 1:dims[2]-1
         for i in 1:dims[1]-1
@@ -80,33 +145,89 @@ function main()
             d3 = d_array[i,j+1]
             d4 = d_array[i+1,j+1]
 
-            if !val
-                # extract degenerate points.
-                Δ1 = (a1-d1)/2
-                Δ2 = (a2-d2)/2
-                Δ3 = (a3-d3)/2
-                Δ4 = (a4-d4)/2
+            # extract degenerate points.
+            Δ1 = (a1-d1)/2
+            Δ2 = (a2-d2)/2
+            Δ3 = (a3-d3)/2
+            Δ4 = (a4-d4)/2
 
-                F1 = (b1+c1)/2
-                F2 = (b2+c2)/2
-                F3 = (b3+c3)/2
-                F4 = (b4+c4)/2
+            F1 = (b1+c1)/2
+            F2 = (b2+c2)/2
+            F3 = (b3+c3)/2
+            F4 = (b4+c4)/2
 
-                # Mat1 = [Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1]
-                # if det(Mat1) != 0
-                #     sol1 = (Mat1^-1) * [0 ; 0 ; 1]
-                #     if 0 <= sol1[1] <= 1 && 0 <= sol1[2] <= 1 && 0 <= sol1[3] <= 1
-                #         if sol1[1] == 1.0
-                #             if !cp_vertices[(i-1)*scale,(j-1)*scale]
-                #                 push!(cp_locs, (i,j))
-                #                 cp_vertices[i,j] = true
-                #             end
-                #         push!(cp_locs, )
-                #     end                    println((px_y,px_x))
-                # end
+            cp_type1 = 0
+            s1 = Δ1*F2-Δ2*F1
+            s2 = Δ2*F3-Δ3*F2
+            s3 = Δ3*F1-Δ1*F3
 
-                # Mat2 = [Δ2 Δ3 Δ4 ; F2 F3 F4 ; 1 1 1]
-                # sol2 = (Mat2^-1) * [0 ; 0 ; 1]
+            if s1 > 0 && s2 > 0 && s3 > 0
+                cp_type1 = 1
+            elseif s1 < 0 && s2 < 0 && s3 < 0
+                cp_type1 = 2
+            end
+
+            # bottom cell
+            if cp_type1 != 0
+                Mat1 = [Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1]
+                if det(Mat1) != 0.0
+                    sol1 = (Mat1^-1) * [0 ; 0 ; 1]
+                    push!(cp_locs, ((i-1+sol1[2])*(scale+1), a_y - 1 - (j-1+sol1[3])*(scale+1)))
+
+                    a = sol1[1]*a1 + sol1[2]*a2 + sol1[3]*a3
+                    b = sol1[1]*b1 + sol1[2]*b2 + sol1[3]*b3
+                    c = sol1[1]*c1 + sol1[2]*c2 + sol1[3]*c3
+                    d = sol1[1]*d1 + sol1[2]*d2 + sol1[3]*d3
+
+                    D,R,S = decomposeTensor(a,b,c,d)
+                    class_val = classifyTensorEigenvalue(D,R,S)
+                    class_vec = classifyTensorEigenvector(R,S)
+
+                    frobenius_ = sqrt(a^2+b^2+c^2+d^2)
+                    push!(cp_frobenius, frobenius_)
+                    push!(cp_types, cp_type1)
+                    push!(cp_categorical_val, class_val)
+                    push!(cp_categorical_vec, class_vec)
+                end
+            end
+
+            # top cell
+
+            # we have to do the orders differently to maintain orientation
+            cp_type2 = 0
+            s1 = Δ3*F2-Δ2*F3
+            s2 = Δ2*F4-Δ4*F2
+            s3 = Δ4*F3-Δ3*F4
+
+            if s1 > 0 && s2 > 0 && s3 > 0
+                cp_type2 = 1
+            elseif s1 < 0 && s2 < 0 && s3 < 0
+                cp_type2 = 2
+            end
+
+            if cp_type2 != 0
+                Mat2 = [Δ2 Δ3 Δ4 ; F2 F3 F4 ; 1 1 1]
+                if det(Mat2) != 0.0
+                    sol2 = (Mat2^-1) * [0 ; 0 ; 1]
+
+                    # the math works out here. We want (i-1) + (1-sol2[2]) for x and similar for y.
+                    push!(cp_locs, ((i-sol2[2])*(scale+1), a_y - 1 - (j-sol2[1])*(scale+1)))
+
+                    a = sol2[1]*a2 + sol2[2]*a3 + sol2[3]*a4
+                    b = sol2[1]*b2 + sol2[2]*b3 + sol2[3]*b4
+                    c = sol2[1]*c2 + sol2[2]*c3 + sol2[3]*c4
+                    d = sol2[1]*d2 + sol2[2]*d3 + sol2[3]*d4
+
+                    D,R,S = decomposeTensor(a,b,c,d)
+                    class_val = classifyTensorEigenvalue(D,R,S)
+                    class_vec = classifyTensorEigenvector(R,S)
+
+                    frobenius_ = sqrt(a^2+b^2+c^2+d^2)
+                    push!(cp_frobenius, frobenius_)
+                    push!(cp_types, cp_type2)
+                    push!(cp_categorical_val, class_val)
+                    push!(cp_categorical_vec, class_vec)
+                end
             end
 
             for cell_y in 0:1+scale
@@ -119,7 +240,6 @@ function main()
                     if cell_x == 1+scale && i != dims[1]-1
                         continue
                     end
-
 
                     if cell_x + cell_y <= (scale + 1.0)
                         t2 = cell_x / (scale+1.0)
@@ -139,77 +259,52 @@ function main()
                     c = t1*c1 + t2*c2 + t3*c3 + t4*c4
                     d = t1*d1 + t2*d2 + t3*d3 + t4*d4
 
-                    D = (a+d)/2
-                    R = (c-b)/2
-                    S = sqrt( (a-d)^2 + (b+c)^2 )/2
+                    D,R,S = decomposeTensor(a,b,c,d)
+                    val_class = classifyTensorEigenvalue(D,R,S)
+                    vec_class = classifyTensorEigenvector(R,S)
 
                     px_x = (i-1)*(scale+1) + cell_x + 1
                     px_y = (j-1)*(scale+1) + cell_y + 1
 
                     frobenius[px_x,a_y-px_y+1] = sqrt(a^2+b^2+c^2+d^2)
-
-                    if val
-                        if abs(D) >= abs(R) && abs(D) >= abs(S)
-                            if D > 0
-                                img[:,px_x,a_y-px_y+1] .= dp
-                                categorical[px_x,a_y-px_y+1] = 5.0
-                            else
-                                img[:,px_x,a_y-px_y+1] .= dn
-                                categorical[px_x,a_y-px_y+1] = 4.0
-                            end
-                        elseif abs(R) >= abs(D) && abs(R) >= abs(S)
-                            if R > 0
-                                img[:,px_x,a_y-px_y+1] .= rp
-                                categorical[px_x,a_y-px_y+1] = 3.0
-                            else
-                                img[:,px_x,a_y-px_y+1] .= rn
-                                categorical[px_x,a_y-px_y+1] = 2.0
-                            end
-                        else
-                            img[:,px_x,a_y-px_y+1] .= s
-                            categorical[px_x,a_y-px_y+1] = 1.0
-                        end
-                    else
-                        if R == 0.0
-                            img[:,px_x,a_y-px_y+1] .= sym
-                            categorical[px_x,a_y-px_y+1] = 1.0
-                        elseif R > 0
-                            if S > abs(R)
-                                img[:,px_x,a_y-px_y+1] .= srp
-                                categorical[px_x,a_y-px_y+1] = 2.0
-                            else
-                                img[:,px_x,a_y-px_y+1] .= rrp
-                                categorical[px_x,a_y-px_y+1] = 3.0
-                            end
-                        else
-                            if S > abs(R)
-                                img[:,px_x,a_y-px_y+1]  .= srn
-                                categorical[px_x,a_y-px_y+1] = 4.0
-                            else
-                                img[:,px_x,a_y-px_y+1] .= rrn
-                                categorical[px_x,a_y-px_y+1] = 5.0
-                            end
-                        end
-                    end # end if val or vec
+                    img_val[:,px_x,a_y-px_y+1] .= val_colors[val_class]
+                    img_vec[:,px_x,a_y-px_y+1] .= vec_colors[vec_class]
+                    categorical_val[px_x,a_y-px_y+1] = val_class
+                    categorical_vec[px_x,a_y-px_y+1] = vec_class
 
                 end # end for cell_x
             end # end for cell_y
         end # end for i
     end # end for j
 
-    vtk_grid("../elevation", 0:1:a_y-1,0:1:a_x-1,0:1:0) do vtk
+    vtk_grid(saveName, 0:1:a_y-1,0:1:a_x-1,0:1:0) do vtk
         vtk["frobenius"] = frobenius
-        vtk["categorical"] = categorical
-        vtk["image"] = img
+        vtk["categorical val"] = categorical_val
+        vtk["categorical vec"] = categorical_vec
+        vtk["color val"] = img_val
+        vtk["color vec"] = img_vec
     end
 
-    # cells::Vector{MeshCell} = []
+    cells::Vector{MeshCell} = []
 
-    # randPoints = rand(3,10)*a_x
-    # pointsColor = rand(10)
-    # vtk_grid("../test",randPoints,cells) do vtk
-    #     vtk["color"] = pointsColor
-    # end
+    cp_mesh::Array{Float64} = Array{Float64}(undef, (3,length(cp_locs)))
+    cp_mesh_colors::Array{UInt8} = Array{UInt8}(undef, (3,length(cp_locs)))
+    for i in eachindex(cp_locs)
+        cp_mesh[1,i] = cp_locs[i][1]
+        cp_mesh[2,i] = cp_locs[i][2]
+        cp_mesh[3,i] = 0.0
+
+        cp_mesh_colors[1,i] = cp_colors[cp_types[i]][1]
+        cp_mesh_colors[2,i] = cp_colors[cp_types[i]][2]
+        cp_mesh_colors[3,i] = cp_colors[cp_types[i]][3]
+    end
+
+    vtk_grid(saveName,cp_mesh,cells) do vtk
+        vtk["frobenius"] = cp_frobenius
+        vtk["color criticalType"] = cp_mesh_colors
+        vtk["categorical val"] = cp_categorical_val
+        vtk["categorical vec"] = cp_categorical_vec
+    end
     
 end
 

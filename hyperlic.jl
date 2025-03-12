@@ -247,12 +247,12 @@ function main()
 
     folder = "../output/reconstructed"
     size = (65, 65)
-    scale = 8
+    scale = 2
     evecScale=0.0
     power = 2.5
 
-    alt_folder = "../output/slice"
-    load_lic = "../lics/stress3sz6"
+    alt_folder = ""
+    load_lic = ""
     save_lic = ""
 
     # old settings: num_steps: 60
@@ -557,6 +557,7 @@ function main()
 
     t2 = time()
     print(t2-t1)
+    return
 
     cmap_list = [(0.0,"#4155c8"), (1.0,"#a1c0ff")]
     cmap = colors.LinearSegmentedColormap.from_list("custom_blue", cmap_list)
@@ -610,7 +611,7 @@ function main()
     #     end
     # end
 
-    plt.show()
+    # plt.show()
 end
 
-main()
+# main()
