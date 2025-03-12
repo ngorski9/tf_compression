@@ -1,4 +1,3 @@
-using Images
 using WriteVTK
 using LinearAlgebra
 
@@ -14,18 +13,6 @@ function main()
 
 
 
-    # dp = RGB( 224 / 255, 142 / 255, 69 / 255 )
-    # rp = RGB( 155 / 255, 39 / 255, 51 / 255 )
-    # dn = RGB( 201 / 255, 168 / 255, 245 / 255 )
-    # rn = RGB( 49 / 255, 59 / 255, 142 / 255 )
-    # s = RGB( 234 / 255, 234 / 255, 234 / 255 )
-
-    # rrp = RGB( 155 / 255, 39 / 255, 51 / 255 )
-    # srp = RGB( 193 / 255, 153 / 255, 116 / 255 )
-    # sym = RGB( 173 / 255, 219 / 255, 240 / 255 )
-    # srn = RGB(133 / 255, 153 / 255, 188 / 255 )
-    # rrn = RGB(46 / 255, 59 / 255, 142 / 255 )
-
     dp = ( 224, 142, 69 )
     rp = ( 155, 39, 51 )
     dn = ( 201, 168, 245 )
@@ -38,14 +25,19 @@ function main()
     srn = (133, 153, 188 )
     rrn = (46, 59, 142 )
 
-    a_x = scale*(dims[2]-1)+dims[2]
-    a_y = scale*(dims[1]-1)+dims[1]
-    img = Matrix{RGB}(undef, a_x, a_y)
+    a_x = scale*(dims[1]-1)+dims[1]
+    a_y = scale*(dims[2]-1)+dims[2]
 
     # experimental...
-    frobenius = Array{Float64}(undef, (a_y, a_x))
-    categorical = Array{Float64}(undef, (a_y, a_x))
-    pngImage = Array{UInt8}(undef, (a_y,a_x))
+    img = Array{UInt8}(undef, (3,a_x,a_y))
+    frobenius = Array{Float64}(undef, (a_x, a_y))
+    categorical = Array{Float64}(undef, (a_x, a_y))
+
+    # define set functions
+    function set_color(x,y,c)
+        img[]
+    end
+
 
     a_file = open("$folder/row_1_col_1.dat", "r")
     b_file = open("$folder/row_1_col_2.dat", "r")
@@ -154,47 +146,48 @@ function main()
                     px_x = (i-1)*(scale+1) + cell_x + 1
                     px_y = (j-1)*(scale+1) + cell_y + 1
 
-                    frobenius[px_x,a_x-px_y+1] = sqrt(a^2+b^2+c^2+d^2)
+                    frobenius[px_x,a_y-px_y+1] = sqrt(a^2+b^2+c^2+d^2)
 
                     if val
                         if abs(D) >= abs(R) && abs(D) >= abs(S)
                             if D > 0
-                                categorical[px_x,a_x-px_y+1] = 5.0
+                                img[:,px_x,a_y-px_y+1] .= dp
+                                categorical[px_x,a_y-px_y+1] = 5.0
                             else
-                                img[px_y,px_x] = dn
-                                categorical[px_x,a_x-px_y+1] = 4.0
+                                img[:,px_x,a_y-px_y+1] .= dn
+                                categorical[px_x,a_y-px_y+1] = 4.0
                             end
                         elseif abs(R) >= abs(D) && abs(R) >= abs(S)
                             if R > 0
-                                img[px_y,px_x] = rp
-                                categorical[px_x,a_x-px_y+1] = 3.0
+                                img[:,px_x,a_y-px_y+1] .= rp
+                                categorical[px_x,a_y-px_y+1] = 3.0
                             else
-                                img[px_y,px_x] = rn
-                                categorical[px_x,a_x-px_y+1] = 2.0
+                                img[:,px_x,a_y-px_y+1] .= rn
+                                categorical[px_x,a_y-px_y+1] = 2.0
                             end
                         else
-                            img[px_y,px_x] = s
-                            categorical[px_x,a_x-px_y+1] = 1.0
+                            img[:,px_x,a_y-px_y+1] .= s
+                            categorical[px_x,a_y-px_y+1] = 1.0
                         end
                     else
                         if R == 0.0
-                            img[px_y,px_x] = sym
-                            categorical[px_x,a_x-px_y+1] = 1.0
+                            img[:,px_x,a_y-px_y+1] .= sym
+                            categorical[px_x,a_y-px_y+1] = 1.0
                         elseif R > 0
                             if S > abs(R)
-                                img[px_y,px_x] = srp
-                                categorical[px_x,a_x-px_y+1] = 2.0
+                                img[:,px_x,a_y-px_y+1] .= srp
+                                categorical[px_x,a_y-px_y+1] = 2.0
                             else
-                                img[px_y,px_x] = rrp
-                                categorical[px_x,a_x-px_y+1] = 3.0
+                                img[:,px_x,a_y-px_y+1] .= rrp
+                                categorical[px_x,a_y-px_y+1] = 3.0
                             end
                         else
                             if S > abs(R)
-                                img[px_y,px_x] = srn
-                                categorical[px_x,a_x-px_y+1] = 4.0
+                                img[:,px_x,a_y-px_y+1]  .= srn
+                                categorical[px_x,a_y-px_y+1] = 4.0
                             else
-                                img[px_y,px_x] = rrn
-                                categorical[px_x,a_x-px_y+1] = 5.0
+                                img[:,px_x,a_y-px_y+1] .= rrn
+                                categorical[px_x,a_y-px_y+1] = 5.0
                             end
                         end
                     end # end if val or vec
@@ -204,16 +197,10 @@ function main()
         end # end for i
     end # end for j
 
-    save(saveName, img)
-
     vtk_grid("../elevation", 0:1:a_y-1,0:1:a_x-1,0:1:0) do vtk
         vtk["frobenius"] = frobenius
         vtk["categorical"] = categorical
-        channel_test = rand(3,a_y,a_x)
-        channel_test[1,:,:] .= 1.0
-        channel_test[2,:,:] .= 2.0
-        channel_test[3,:,:] .= 3.0
-        vtk["idk"] = channel_test
+        vtk["image"] = img
     end
 
     # cells::Vector{MeshCell} = []
