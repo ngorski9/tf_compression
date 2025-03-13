@@ -183,7 +183,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         # # println(tensors[3])
                         # # exit()
 
-                        println("=========================================================")
+                        # println("=========================================================")
                     end
 
                     if top1.vertexTypesEigenvector == top2.vertexTypesEigenvector && top1.RPArrayVec == top2.RPArrayVec && top1.RNArrayVec == top2.RNArrayVec && c1 == c2

@@ -12,23 +12,28 @@ using .decompress
 using .tensorField
 using .utils
 
-function main()
-    # stress slice 12 (or probably others) makes a good teaser!
+function mainSym()
 
     folder = "../output/slice"
     dims = (66,108,1)
     eb = 0.01
+    naive =false
+    mask = false
+    bits = 6 # number of bits used for quantization
+    baseCompressor = "sz3"
+
+    driveSym(folder,dims,eb,naive,mask,bits,baseCompressor)
+
+end
+
+function driveSym(folder, dims, eb, naive, mask, bits, baseCompressor)
+    # stress slice 12 (or probably others) makes a good teaser!
 
     # stress3xy slice 13 0.008899 is equivalent to 0.01 for mine
     # stress3xy slice 24 0.0094
     # stress3xy slice 10 is roughly 0.00875 (sz3)
 
     # slice 10 (sperr) gives 38.39 0.0089 equiv
-
-    naive =false
-    mask = false
-    bits = 6 # number of bits used for quantization
-    baseCompressor = "sz3"
 
     println("hi")
     compression_start = time()
@@ -63,4 +68,4 @@ function main()
 
 end
 
-main()
+#mainSym()

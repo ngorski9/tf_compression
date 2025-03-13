@@ -12,15 +12,20 @@ using .decompress
 using .tensorField
 using .utils
 
-function main()
+function mainAsym()
     folder = "../output/slice"
-    dims = (640,80,1)
+    dims = (101,101,1)
     eb = 0.00055
     naive = false
     eigenvalue = false
     eigenvector = true
     baseCompressor = "sz3"
     parameter = 1.0
+
+    driveAsym(folder,dims,eb,naive,eigenvalue,eigenvector,baseCompressor,parameter)
+end
+
+function driveAsym(folder,dims,eb,naive,eigenvalue,eigenvector,baseCompressor,parameter)
 
     # ocean slice 14 (i think its 14) sperr 0.01 27.01, equiv 0.0034 26.98
     # eigenvalue only: 31 equiv 0.0047
@@ -49,4 +54,4 @@ function main()
     printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, eigenvalue, eigenvector )
 end
 
-main()
+#mainAsym()

@@ -63,18 +63,36 @@ end
 function main()
     println("hi")
 
-    folder = "../output/slice"
-    saveName = "../test"
-    dims = (101,101)
-    scale = 10 # how many extra points do we add between the actual grid points (so the quadratic interp is more accurate).
-
+    if length(ARGS) == 0
+        folder = "../output/slice"
+        saveName = "../test"
+        dims = (101,101)
+        scale = 10 # how many extra points do we add between the actual grid points (so the quadratic interp is more accurate).
+    else
+        try
+            folder = ARGS[1]
+            saveName = ARGS[2]
+            dims = (parse(Int64,ARGS[3]),parse(Int64,ARGS[4]))
+            scale = parse(Int64,ARGS[5])
+        catch
+            println("ERROR: Format is folder savename dims[1] dims[2] scale")
+            exit()
+        end
+    end
 
     val_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 5)
     vec_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 5)
     cp_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 2)
 
     cp_colors[trisector] = ( 255, 255, 255 )
-    cp_colors[wedge] = ( 30, 30, 30 ) # orange (dp)
+    cp_colors[wedge] = ( 255, 140, 198 )
+
+    # candidate colors:
+    # lime green: 195, 211, 80
+    # yellow: 248, 198, 48
+    # pink: 255, 140, 198 (this is the winner)
+    # pale green: 133, 255, 199
+    # a sort of yellow: 255, 204, 51 
 
     val_colors[dp] = ( 224, 142, 69 )
     val_colors[rp] = ( 155, 39, 51 )
@@ -162,9 +180,9 @@ function main()
             s3 = Δ3*F1-Δ1*F3
 
             if s1 > 0 && s2 > 0 && s3 > 0
-                cp_type1 = 1
+                cp_type1 = wedge
             elseif s1 < 0 && s2 < 0 && s3 < 0
-                cp_type1 = 2
+                cp_type1 = trisector
             end
 
             # bottom cell
@@ -172,7 +190,7 @@ function main()
                 Mat1 = [Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1]
                 if det(Mat1) != 0.0
                     sol1 = (Mat1^-1) * [0 ; 0 ; 1]
-                    # push!(cp_locs, ((i-1+sol1[2])*(scale+1), a_y - 1 - (j-1+sol1[3])*(scale+1)))
+                    push!(cp_locs, ((i-1+sol1[2])*(scale+1), a_y - 1 - (j-1+sol1[3])*(scale+1)))
 
                     a = sol1[1]*a1 + sol1[2]*a2 + sol1[3]*a3
                     b = sol1[1]*b1 + sol1[2]*b2 + sol1[3]*b3
@@ -184,10 +202,10 @@ function main()
                     class_vec = classifyTensorEigenvector(R,S)
 
                     frobenius_ = sqrt(a^2+b^2+c^2+d^2)
-                    # push!(cp_frobenius, frobenius_)
-                    # push!(cp_types, cp_type1)
-                    # push!(cp_categorical_val, class_val)
-                    # push!(cp_categorical_vec, class_vec)
+                    push!(cp_frobenius, frobenius_)
+                    push!(cp_types, cp_type1)
+                    push!(cp_categorical_val, class_val)
+                    push!(cp_categorical_vec, class_vec)
                 end
             end
 
@@ -200,9 +218,9 @@ function main()
             s3 = Δ4*F3-Δ3*F4
 
             if s1 > 0 && s2 > 0 && s3 > 0
-                cp_type2 = 1
+                cp_type2 = wedge
             elseif s1 < 0 && s2 < 0 && s3 < 0
-                cp_type2 = 2
+                cp_type2 = trisector
             end
 
             if cp_type2 != 0
@@ -212,9 +230,7 @@ function main()
 
                     # the math works out here. We want (i-1) + (1-sol2[2]) for x and similar for y.
 
-                    push!( cp_locs,  (( i-sol2[2] )*(scale+1), a_y-1 - ( j-sol2[1] )*(scale+1)) )
-
-                    # push!(cp_locs, ((i-sol2[2])*(scale+1), a_y - (j-sol2[1])*(scale+1)))
+                    push!( cp_locs,  (( i-1+1.0-sol2[2] )*(scale+1), a_y-1 - ( j-1+1.0-sol2[1] )*(scale+1)) )
 
                     a = sol2[1]*a2 + sol2[2]*a3 + sol2[3]*a4
                     b = sol2[1]*b2 + sol2[2]*b3 + sol2[3]*b4

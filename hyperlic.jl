@@ -3,85 +3,8 @@ using DataStructures
 using Random
 using WriteVTK
 
-function extractCP(a_array, b_array, c_array, d_array, size, trisector_points, wedge_points)
-    # identify critical points
-    for j in 1:size[2]-1
-        for i in 1:size[1]-1
-            for k in 0:1
-                
-                if k == 0
-                    # bottom
-                    x1, y1 = (i,j)
-                    x2, y2 = (i+1,j)
-                    x3, y3 = (i,j+1)
-                else
-                    # top
-                    x1, y1 = (i,j+1)
-                    x2, y2 = (i+1,j)
-                    x3, y3 = (i+1,j+1)
-                end
-
-                l12 = (a_array[x1,y1] - d_array[x1,y1])*(b_array[x2,y2]+c_array[x2,y2]) - (a_array[x2,y2] - d_array[x2,y2])*(b_array[x1,y1]+c_array[x1,y1])
-                l23 = (a_array[x2,y2] - d_array[x2,y2])*(b_array[x3,y3]+c_array[x3,y3]) - (a_array[x3,y3] - d_array[x3,y3])*(b_array[x2,y2]+c_array[x2,y2])
-                l31 = (a_array[x3,y3] - d_array[x3,y3])*(b_array[x1,y1]+c_array[x1,y1]) - (a_array[x1,y1] - d_array[x1,y1])*(b_array[x3,y3]+c_array[x3,y3])
-
-                cp = 0
-
-                if l12 < 0 && l23 < 0 && l31 < 0
-                    # wedge
-                    cp = 1
-                elseif l12 > 0 && l23 > 0 && l31 > 0
-                    # trisector
-                    cp = 2
-                end
-
-                if cp == 1 || cp == 2
-                    mat = [ (a_array[x1,y1] - d_array[x1,y1]) (a_array[x2,y2] - d_array[x2,y2]) (a_array[x3,y3] - d_array[x3,y3]) ; b_array[x1,y1]+c_array[x1,y1] b_array[x2,y2]+c_array[x2,y2] b_array[x3,y3]+c_array[x3,y3] ; 1 1 1 ]
-                    μ = (mat^-1) * [0 ; 0 ; 1]
-
-                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
-                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
-
-                    if cp == 1
-                        push!(wedge_points, (cx, cy))
-                    else
-                        push!(trisector_points, (cx,cy))
-                    end
-
-                end
-
-            end
-        end
-    end
-end
-
-function randomNoise(array)
-    width, height = size(array)
-    for j in 1:height
-        for i in 1:width
-            array[i,j] = rand()
-        end
-    end
-end
-
-function randomCircles(array, radius)
-    width, height = size(array)
-
-    for i in 1:width*height/radius
-        centerX = Int64(round(rand() * (width-1))+1)
-        centerY = Int64(round(rand() * (height-1))+1)
-        intensity = rand()
-        for xo in -radius:radius
-            for yo in -radius:radius
-                if xo^2 + yo^2 <= radius && 1 <= centerX + xo <= width && 1 <= centerY + yo <= height
-                    array[centerX+xo, centerY+yo] = intensity
-                end
-            end
-        end
-
-    end
-
-end
+const trisector = 2
+const wedge = 1
 
 struct TensorField
     size_x::Int64
@@ -146,6 +69,95 @@ end
 
 function Base.:-(a::Vec)
     return Vec(-a.u,-a.v)
+end
+
+function extractCP(tf::TensorField, cp_array, ctypes_array, cp_frobenius_array, scale)
+    # identify critical points
+    for j in 1:tf.size_y-1
+        for i in 1:tf.size_x-1
+            for k in 0:1
+                
+                if k == 0
+                    # bottom
+                    x1, y1 = (i,j)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i,j+1)
+                else
+                    # top
+                    x1, y1 = (i,j+1)
+                    x2, y2 = (i+1,j)
+                    x3, y3 = (i+1,j+1)
+                end
+
+                Δ1 = tf.a[x1,y1] - tf.d[x1,y1]
+                Δ2 = tf.a[x2,y2] - tf.d[x2,y2]
+                Δ3 = tf.a[x3,y3] - tf.d[x3,y3]
+
+                F1 = tf.b[x1,y1] + tf.c[x1,y1]
+                F2 = tf.b[x2,y2] + tf.c[x2,y2]
+                F3 = tf.b[x3,y3] + tf.c[x3,y3]
+
+                l12 = Δ1*F2 - Δ2*F1
+                l23 = Δ2*F3 - Δ3*F2
+                l31 = Δ3*F1 - Δ1*F3
+
+                cp = 0
+
+                if l12 < 0 && l23 < 0 && l31 < 0
+                    cp = trisector
+                elseif l12 > 0 && l23 > 0 && l31 > 0
+                    cp = wedge
+                end
+
+                if cp == 1 || cp == 2
+                    mat = [ Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1 ]
+                    μ = (mat^-1) * [0 ; 0 ; 1]
+
+                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
+                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
+
+                    t = interpolate(tf, Vec(cx,cy))
+
+                    cx = (cx - 1)*scale + 1
+                    cy = (cy - 1)*scale + 1
+
+                    frobenius = sqrt(t.a^2 + t.b^2 + t.c^2 + t.d^2)
+                    push!(cp_array, (cx,cy))
+                    push!(ctypes_array, cp)
+                    push!(cp_frobenius_array, frobenius)
+                end
+
+            end
+        end
+    end
+end
+
+function randomNoise(array)
+    width, height = size(array)
+    for j in 1:height
+        for i in 1:width
+            array[i,j] = rand()
+        end
+    end
+end
+
+function randomCircles(array, radius)
+    width, height = size(array)
+
+    for i in 1:width*height/radius
+        centerX = Int64(round(rand() * (width-1))+1)
+        centerY = Int64(round(rand() * (height-1))+1)
+        intensity = rand()
+        for xo in -radius:radius
+            for yo in -radius:radius
+                if xo^2 + yo^2 <= radius && 1 <= centerX + xo <= width && 1 <= centerY + yo <= height
+                    array[centerX+xo, centerY+yo] = intensity
+                end
+            end
+        end
+
+    end
+
 end
 
 function vector(A::Tensor, dual=false, scale::Float64=0.0)
@@ -283,16 +295,35 @@ function pixel_near(px,list)
 end
 
 function main()
-    Random.seed!(1)
+    Random.seed!(2)
     t1 = time()
 
-    folder = "../output/reconstructed"
-    saveName = "../LIC"
-    size = (65, 65)
-    scale = 8
-    evecScale=0.0
-    power = 2.5
+    if length(ARGS) == 0
+        folder = "../output/reconstructed"
+        saveName = "../LIC"
+        size = (65, 65)
+        scale = 16
+        evecScale=0.0
+        power = 1.0
+    else
+        try
+            folder = ARGS[1]
+            saveName = ARGS[2]
+            size = (parse(Int64,ARGS[3]),parse(Int64,ARGS[4]))
+            scale = parse(Int64,ARGS[5])
+            evecScale = 0.0
+            if length(ARGS) >= 6
+                power = parse(Float64,ARGS[6])
+            else
+                power = 1.0
+            end
+        catch
+            println("ERROR: Format is folder saveName size[1] size[2] scale (power)")
+            exit()
+        end
+    end
 
+    # don't think I'm gonna use this again.
     alt_folder = ""
     load_lic = ""
     save_lic = ""
@@ -329,33 +360,12 @@ function main()
 
     tf = TensorField(size[1], size[2], a_array, b_array, c_array, d_array)
 
-    wedge_points = []
-    trisector_points = []
-
-    wedge_points_alt = []
-    trisector_points_alt = []
+    cp_locs::Array{Tuple{Float64,Float64}} = Array{Tuple{Float64,Float64}}(undef, 0)
+    cp_frobenius::Array{Float64} = Array{Float64}(undef,0)
+    cp_types::Array{Int64} = Array{Int64}(undef,0)
 
     # extract critical points
-    extractCP(a_array,b_array,c_array,d_array,size,trisector_points,wedge_points)
-
-    if alt_folder != ""
-        a_file_alt = open("$alt_folder/row_1_col_1.dat", "r")
-        b_file_alt = open("$alt_folder/row_1_col_2.dat", "r")
-        d_file_alt = open("$alt_folder/row_2_col_2.dat", "r")
-    
-        a_array_alt = reshape( reinterpret( Float64, read(a_file_alt) ), size )
-        b_array_alt = reshape( reinterpret( Float64, read(b_file_alt) ), size )
-        d_array_alt = reshape( reinterpret( Float64, read(d_file_alt) ), size )
-    
-        if asymmetric
-            c_file_alt = open("$alt_folder/row_2_col_1.dat", "r")
-            c_array_alt = reshape( reinterpret( Float64, read(c_file_alt) ), size )
-        else
-            c_array_alt = b_array_alt
-        end
-
-        extractCP(a_array_alt,b_array_alt,c_array_alt,d_array_alt,size,trisector_points_alt,wedge_points_alt)
-    end
+    extractCP(tf,cp_locs, cp_types, cp_frobenius,scale)
 
     # set up the input texture and other images
 
@@ -378,6 +388,7 @@ function main()
 
     finalImage = zeros(Float64, imageSize)
     frobenius = zeros(Float64, imageSize)
+    majorEigval = zeros(Float64, imageSize)
 
     if load_lic != ""
         inf = open(load_lic, "r")
@@ -411,6 +422,7 @@ function main()
                             center = Vec( (px + 0.5 - 1.0) / scale + 1, (py + 0.5 - 1.0) / scale + 1 )
                             tCenter = interpolate(tf, center)
                             frobenius[ px, py ] = sqrt( tCenter.a^2 + tCenter.b^2 + tCenter.c^2 + tCenter.d^2 )
+                            majorEigval[px, py] = (tCenter.a+tCenter.d)/2 + sqrt( (tCenter.d-tCenter.a)^2 + (tCenter.b+tCenter.c)^2 )/2
 
                             # skip the LIC here if a sufficient number of hits have been hit already.
                             if numHits[px,py] >= hit_threshold
@@ -605,7 +617,7 @@ function main()
     end
 
     t2 = time()
-    print(t2-t1)
+    println(t2-t1)
 
     if save_lic != ""
         outf = open(save_lic, "w")
@@ -619,6 +631,34 @@ function main()
     vtk_grid(saveName, 0:1:imageSize[1]-1,0:1:imageSize[2]-1,0:1:0) do vtk
         vtk["frobenius"] = frobenius
         vtk["LIC"] = finalImage
+        vtk["Major Eigval"] = majorEigval
+    end
+
+    cp_colors::Array{Tuple{UInt8,UInt8,UInt8}} = Array{Tuple{UInt8,UInt8,UInt8}}(undef, 2)
+
+    cp_colors[trisector] = ( 255, 255, 255 )
+    cp_colors[wedge] = ( 255, 140, 198 )
+
+    if length(cp_locs) > 0
+        cells::Vector{MeshCell} = []
+        cp_mesh::Array{Float64} = Array{Float64}(undef, (3,length(cp_locs)))
+        cp_mesh_colors::Array{UInt8} = Array{UInt8}(undef, (3,length(cp_locs)))
+        for i in eachindex(cp_locs)
+            cp_mesh[1,i] = cp_locs[i][1]
+            cp_mesh[2,i] = cp_locs[i][2]
+            cp_mesh[3,i] = 0.0
+
+            cp_mesh_colors[1,i] = cp_colors[cp_types[i]][1]
+            cp_mesh_colors[2,i] = cp_colors[cp_types[i]][2]
+            cp_mesh_colors[3,i] = cp_colors[cp_types[i]][3]
+        end
+
+        vtk_grid(saveName,cp_mesh,cells) do vtk
+            vtk["frobenius"] = cp_frobenius
+            vtk["color criticalType"] = cp_mesh_colors
+        end
+    else
+        println("no degenerate points")
     end
 
 end

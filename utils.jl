@@ -148,6 +148,23 @@ const eigenvalueRegionBorders = Dict(
 # |  \|        the "top" cell has the top border.
 # o---o        the "bottom cell has the bottom border.
 
+function slice(folder,dims,slice,output)
+    try
+        run(`rm -r $output`)
+        run(`mkdir $output`)
+    catch
+    end
+
+    tf = loadTensorField2dFromFolder(folder, dims)
+
+    run(`mkdir $output/slice`)
+    saveArray64("$output/slice/row_1_col_1.dat", tf.entries[1,:,:,t])
+    saveArray64("$output/slice/row_1_col_2.dat", tf.entries[2,:,:,t])
+    saveArray64("$output/slice/row_2_col_1.dat", tf.entries[3,:,:,t])
+    saveArray64("$output/slice/row_2_col_2.dat", tf.entries[4,:,:,t])
+
+end
+
 # Gives out ranks with ties broken in parameter order.
 function rankOrder(a,b,c)
     if isRelativelyGreater(a,b)
