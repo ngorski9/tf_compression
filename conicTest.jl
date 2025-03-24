@@ -22,18 +22,18 @@ function main()
     θ2 = 2.76
     θ3 = -9.0
 
-    D = (-10, -1.8, 6.6)
-    W = (4.47, 8.23, 8.3)
-    R = (-7.1945144, 7.1, -1.3)
-    θ = (0, 0, pi)
+    # D = (-11, -2.8, 5.6)
+    # W = (4.47, 8.23, 8.3)
+    # R = (0, 0, 0)
+    # θ = (0, 0, pi)
 
-    decomp1 = (D[1],R[1],W[1],θ[1])
-    decomp2 = (D[2],R[2],W[2],θ[2])
-    decomp3 = (D[3],R[3],W[3],θ[3])
+    # decomp1 = (D[1],R[1],W[1],θ[1])
+    # decomp2 = (D[2],R[2],W[2],θ[2])
+    # decomp3 = (D[3],R[3],W[3],θ[3])
 
-    # decomp1 = (-3.0, -9.0, 10.0, 2.2)
-    # decomp2 = (-9.0, -3.0, 10.0, 3.95)
-    # decomp3 = (-4.0, -1.0, 4.55, 4.05)
+    decomp1 = (2.3785250959917903e-7, 0.0, 1.9963058573385585e-7, -1.7316951292458234)
+    decomp2 = (1.2089704071253089e-6, 0.0, 0.0, 0.0)
+    decomp3 = (9.635572130661347e-8, 0.0, 0.0, 0.0)
 
     d1, r1, w1, θ1 = decomp1
     d2, r2, w2, θ2 = decomp2
@@ -51,6 +51,8 @@ function main()
     # println(top1)
 
     top2 = classifyCellEigenvalue(M1,M2,M3,true)
+    println(top2)
+    top2 = classifyCellEigenvalue(M1,M2,M3,false)
     println(top2)
 
 end

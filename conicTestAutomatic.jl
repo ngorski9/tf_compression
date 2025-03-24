@@ -1852,6 +1852,66 @@ function main()
         )
     , 127)
 
+    # zero in the middle
+    D = (-10, -1.8, 6.6)
+    W = (4.47, 8.23, 8.3)
+    R = (-7.1945144, 7.1, -1.3)
+    θ = (0, 0, pi)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,S,S),
+            SArray{Tuple{3},Int8}(RRN,SRP,SRN),
+            MArray{Tuple{10},Int8}(Z, -E2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(Z, -E1 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E2, Z  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E3, Z ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,2,0), # we'll need to change this later!
+            MArray{Tuple{3},Int8}(1,0,1),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 128)
+
+    # two double lines that don't overlap.
+    D = (-11, -2.8, 5.6)
+    W = (4.47, 8.23, 8.3)
+    R = (-7.1945144, 7.1, -1.3)
+    θ = (0, 0, pi)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,S,S),
+            SArray{Tuple{3},Int8}(RRN,SRP,SRN),
+            MArray{Tuple{10},Int8}(-DPRP, -E2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(-DNRN, DNRP, -DNRP, -E1 ,0 , 0, 0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E2, DNRP  ,-DNRP  ,DPRP  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E3, DNRN ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,2,0), # we'll need to change this later!
+            MArray{Tuple{3},Int8}(1,0,1),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 129)
+
+    # two double lines. Red is zero so it doesn't interact with D at all.
+    D = (-11, -2.8, 5.6)
+    W = (4.47, 8.23, 8.3)
+    R = (0.0, 0.0, 0.0)
+    θ = (0, 0, pi)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,S,S),
+            SArray{Tuple{3},Int8}(SYM,SYM,SYM),
+            MArray{Tuple{10},Int8}(E2, Z, -E2  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E3, Z, -E1 , 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0), # we'll need to change this later!
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 130)
+
     # ------------------------------------------------------------------
     #                 end of automated tests
     # ------------------------------------------------------------------

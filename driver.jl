@@ -14,11 +14,11 @@ using .utils
 
 function mainAsym()
     folder = "../output/slice"
-    dims = (101,101,1)
-    eb = 0.00055
+    dims = (384,384,1)
+    eb = 0.001
     naive = false
-    eigenvalue = false
-    eigenvector = true
+    eigenvalue = true
+    eigenvector = false
     baseCompressor = "sz3"
     parameter = 1.0
 
@@ -54,4 +54,4 @@ function driveAsym(folder,dims,eb,naive,eigenvalue,eigenvector,baseCompressor,pa
     printEvaluation2d(folder,  "../output/reconstructed", dims, eb, compressed_size, ct, dt, eigenvalue, eigenvector )
 end
 
-#mainAsym()
+# mainAsym()

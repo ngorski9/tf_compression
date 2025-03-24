@@ -1601,6 +1601,24 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             @checkIntersectionPoint(rnd_intersections[2],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_2)
         end
 
+        if d_type == INTERSECTING_LINES && r_type == INTERSECTING_LINES && rpd_intersections[1] == rpd_intersections[2] && rpd_intersections[1] != Inf && is_inside_triangle(rpd_intersections[1][1], rpd_intersections[1][2]) && !isClose(rpd_intersections[1][1],0.0) && !isClose(rpd_intersections[1][2],0.0)
+            # println("Z1")
+            push!(DPPoints, Intersection(0.0,-1.0,Z))
+            push!(DNPoints, Intersection(0.0,-1.0,Z))
+            push!(RPPoints, Intersection(0.0,-1.0,Z))
+            push!(RNPoints, Intersection(0.0,-1.0,Z))
+        end
+
+    end
+
+    if d_type == INTERSECTING_LINES && isClose(r1,0.0) && isClose(r2,0.0) && isClose(r3,0.0) && !isClose(d_center[1], 0.0) && !isClose(d_center[2], 0.0) && is_inside_triangle(d_center[1], d_center[2])
+        # println("Z2")
+        push!(DPPoints, Intersection(0.0,-1.0,Z))
+        push!(DNPoints, Intersection(0.0,-1.0,Z))
+    elseif r_type == INTERSECTING_LINES && isClose(d1,0.0) && isClose(d2,0.0) && isClose(d3,0.0) && !isClose(r_center[1], 0.0) && !isClose(r_center[2], 0.0) && is_inside_triangle(d_center[1], d_center[2])
+        # println("Z3")
+        push!(RPPoints, Intersection(0.0,-1.0,Z))
+        push!(RNPoints, Intersection(0.0,-1.0,Z))
     end
 
     # custom sort function that ensures the clockwise ordering that we were shooting for.

@@ -227,14 +227,14 @@ function classifyAndReturnCenter(eq::conicEquation)
     disc = discriminant(eq)
     if disc < -ϵ
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
-        if evaluate(eq, center[1], center[2]) == 0.0
+        if isClose(evaluate(eq, center[1], center[2]),0.0)
             return (POINT, center)
         else
             return (ELLIPSE, center)
         end
     elseif disc > ϵ
         center = ((2*eq.C*eq.D - eq.B*eq.E)/disc, (2*eq.A*eq.E - eq.B*eq.D)/disc)
-        if evaluate(eq, center[1], center[2]) == 0.0
+        if isClose(evaluate(eq, center[1], center[2]),0.0)
             return (INTERSECTING_LINES, center)
         else
             return (HYPERBOLA, center)
