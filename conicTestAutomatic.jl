@@ -3,6 +3,7 @@ include("conicUtils.jl")
 include("cellTopology.jl")
 include("tensorField.jl")
 
+using ..utils
 using ..cellTopology
 using ..tensorField
 
@@ -144,25 +145,27 @@ function test_full_topology(decomp1, decomp2, decomp3, expect::cellTopology.cell
         return 2.1
     end
     
-    if top2.RPArray != expect.RPArray
+    if !cyclicMatch(top2.RPArray,expect.RPArray)
         println(top2.RPArray)
         println(expect.RPArray)
         return 2.2
     end 
     
-    if top2.RNArray != expect.RNArray
+    if !cyclicMatch(top2.RNArray,expect.RNArray)
         println(top2.RNArray)
         println(expect.RNArray)
         return 2.3
     end
 
-    if top2.DPArray != expect.DPArray 
+    if !cyclicMatch(top2.DPArray,expect.DPArray)
         println(top2.DPArray)
         println(expect.DPArray)
         return 2.4
     end 
     
-    if top2.DNArray != expect.DNArray
+    if !cyclicMatch(top2.DNArray,expect.DNArray)
+        println(top2.DNArray)
+        println(expect.DNArray)
         return 2.5
     end
 
@@ -174,19 +177,19 @@ function test_full_topology(decomp1, decomp2, decomp3, expect::cellTopology.cell
         return 3.2
     end
         
-    if top3.RPArray != expect.RPArray 
+    if !cyclicMatch(top3.RPArray,expect.RPArray)
         return 3.3
     end
         
-    if top3.RNArray != expect.RNArray 
+    if !cyclicMatch(top3.RNArray,expect.RNArray)
         return 3.4
     end
         
-    if top3.DPArray != expect.DPArray 
+    if !cyclicMatch(top3.DPArray,expect.DPArray)
         return 3.5
     end
         
-    if top3.DNArray != expect.DNArray 
+    if !cyclicMatch(top3.DNArray,expect.DNArray)
         return 3.6
     end
         
@@ -1051,8 +1054,8 @@ function main()
         cellTopology.cellTopologyEigenvalue(
             MArray{Tuple{3},Int8}(DP,DN,DP),
             SArray{Tuple{3},Int8}(SRP,SYM,SRN),
-            MArray{Tuple{10},Int8}(2  ,DPRN,-DPRN,-1  ,0  ,0  ,0  ,0  ,0  ,0  ),
-            MArray{Tuple{10},Int8}(1  ,-2 ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(E2ClosestLow,DPRN,-DPRN,-1  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(1  ,-E2ClosestHigh ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(2  ,DPRN,-DPRN,-2  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(0,0,0),
@@ -1481,7 +1484,7 @@ function main()
             SArray{Tuple{3},Int8}(RRP,SRP,RRP),
             MArray{Tuple{10},Int8}(0 ,0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
-            MArray{Tuple{10},Int8}(0  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0  ,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,1,0),
             MArray{Tuple{3},Int8}(0,0,0),
@@ -1702,12 +1705,152 @@ function main()
             MArray{Tuple{10},Int8}(3, E1Z ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E1Z , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E1Z  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
-            MArray{Tuple{10},Int8}(E1Z  , -2 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{10},Int8}(E1Z  , -2 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{3},Int8}(1,0,1),
             MArray{Tuple{3},Int8}(1,1,0),
             MArray{Tuple{3},Bool}(false,false,false)
         )
     ,120)
+
+    # ambiguous two ellipse case.
+    D = (-3.0, -9.0, -4.0)
+    W = (10.0, 10.0, 4.55)
+    R = (-9.0, -3.0, -1.0)
+    θ = (2.2, 3.95, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(S,S,S),
+            SArray{Tuple{3},Int8}(SRN,SRN,SRN),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(-E1ClosestHigh, 1 ,-3 , E3ClosestHigh, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(-1, E1ClosestLow ,-E3ClosestLow, 3  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Int8}(2,0,2),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 121)
+
+    # everything is white (idk why I didnt test this yet)
+    D = (-6.5, -2.7, -2.1)
+    W = (10, 10, 9.85)
+    R = (-5.4, -3.0, -1.0)
+    θ = (2.2, 3.95, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(S,S,S),
+            SArray{Tuple{3},Int8}(SRN,SRN,SRN),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 122)
+
+    # corners are R, but the region in the middle is D-
+    D = (-3.7, -2.8, -3.6)
+    W = (4.47, 3.5, 4.8)
+    R = (-6.2, -5.3, 6.6)
+    θ = (2.2, 2.1, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(RN,RN,RP),
+            SArray{Tuple{3},Int8}(RRN,RRN,RRP),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 123)
+
+    # corners are R, but the region in the middle is D+
+    D = (3.7, 2.8, 3.6)
+    W = (4.47, 3.5, 4.8)
+    R = (-6.2, -5.3, 6.6)
+    θ = (2.2, 2.1, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(RN,RN,RP),
+            SArray{Tuple{3},Int8}(RRN,RRN,RRP),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Int8}(0,1,1),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 124)
+
+    # corners are D but the region in the middle is R-
+    D = (-6.2, -5.3, 6.6)
+    W = (4.47, 3.5, 4.8)
+    R = (-3.7, -2.8, -3.6)
+    θ = (2.2, 2.1, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,DN,DP),
+            SArray{Tuple{3},Int8}(SRN,SRN,SRN),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Int8}(0,2,2),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 125)
+
+    # corners are D but the region in the middle is R+
+    D = (-6.2, -5.3, 6.6)
+    W = (4.47, 3.5, 4.8)
+    R = (3.7, 2.8, 3.6)
+    θ = (2.2, 2.1, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,DN,DP),
+            SArray{Tuple{3},Int8}(SRP,SRP,SRP),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,2,2),
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 126)
+
+    # similar to before, but the values for R aren't all positive, so the type cant be inferred from the vertices.
+    D = (-6.2, -5.3, 6.6)
+    W = (4.47, 3.5, 4.8)
+    R = (0.0, -0.3, 4.0)
+    θ = (0.37, 1.17, 3.84)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DN,DN,DP),
+            SArray{Tuple{3},Int8}(SYM,SRN,SRP),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,2,2),
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 127)
 
     # ------------------------------------------------------------------
     #                 end of automated tests
@@ -1728,6 +1871,7 @@ function main()
 
     for f in full_tests
         test_output = test_full_topology(f.decomp1, f.decomp2, f.decomp3, f.expect)
+        println(f.id)
         if test_output != 0.0
             println("full test $(f.id) returned $test_output")
             println(f.decomp1)

@@ -301,4 +301,39 @@ function isRelativelyLess(x1::Float64, x2::Float64)
     return x1 < x2 - ϵ * min(abs(x1),abs(x2))
 end
 
+export cyclicMatch
+
+function cyclicMatch(M1::SVector{10,Int8}, M2::SVector{10,Int8})
+    l = 10
+    for i in 1:10
+        if M1[i] == 0
+            if M2[i] != 0
+                return false
+            else
+                l = i-1
+                break
+            end
+        end
+    end
+
+    if l == 0
+        return true
+    end
+    
+    for off in 0:l-1
+        match = true
+        for i in 1:l
+            if M1[i] != M2[ (i-1 + off) % l + 1 ]
+                match = false
+                break
+            end
+        end
+        if match
+            return true
+        end
+    end
+
+    return false
+end
+
 end

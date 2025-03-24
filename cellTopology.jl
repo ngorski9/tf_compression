@@ -133,6 +133,13 @@ const DNS::Int8 = 45
 const RPS::Int8 = 46
 const RNS::Int8 = 47
 
+const E1ClosestLow::Int8 = 48
+const E1ClosestHigh::Int8 = 49
+const E2ClosestLow::Int8 = 50
+const E2ClosestHigh::Int8 = 51
+const E3ClosestLow::Int8 = 52
+const E3ClosestHigh::Int8 = 53
+
 export BLANK
 export E1
 export E2
@@ -174,6 +181,12 @@ export DPS
 export DNS
 export RPS
 export RNS
+export E1ClosestLow
+export E1ClosestHigh
+export E2ClosestLow
+export E2ClosestHigh
+export E3ClosestLow
+export E3ClosestHigh
 
 # function getCellEdgeFromPoint(root::Root)
 #     if root.y == 0.0
@@ -1138,6 +1151,105 @@ function decomposeTensorHere(tensor::FloatMatrix)
     return (y_d, y_r, y_s, θ)
 end
 
+# :(
+# e1LowestWhich::Int8 = -1
+# e1LowestIndex::Int8 = -1
+# e1LowestVal::Float64 = Inf
+# e1HighestWhich::Int8 = -1
+# e1HighestIndex::Int8 = -1
+# e1HighestVal::Float64 = -Inf
+# e2LowestWhich::Int8 = -1
+# e2LowestIndex::Int8 = -1
+# e2LowestVal::Float64 = Inf
+# e2HighestWhich::Int8 = -1
+# e2HighestIndex::Int8 = -1
+# e2HighestVal::Float64 = -Inf
+# e3LowestWhich::Int8 = -1
+# e3LowestIndex::Int8 = -1
+# e3LowestVal::Float64 = Inf
+# e3HighestWhich::Int8 = -1
+# e3HighestIndex::Int8 = -1
+# e3HighestVal::Float64 = -Inf
+
+macro checkValInEdges(i, val, liNumber, lowestWhich, lowestIndex, lowestVal, highestWhich, highestIndex, highestVal)
+    return :(begin
+        if $(esc(val)) < $(esc(lowestVal))
+            $(esc(lowestVal)) = $(esc(val))
+            $(esc(lowestWhich)) = $(esc(liNumber))
+            $(esc(lowestIndex)) = $(esc(i))
+        end
+
+        if $(esc(val)) > $(esc(highestVal))
+            $(esc(highestVal)) = $(esc(val))
+            $(esc(highestWhich)) = $(esc(liNumber))
+            $(esc(highestIndex)) = $(esc(i))
+        end
+    end)
+end
+
+macro findClosestToEach(li, len, liNumber, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal, e1Count,
+                                           e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal, e2Count,
+                                           e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal, e3Count)
+
+    return :(
+        for i in 1:$(esc(len))
+            if $(esc(li))[i].code == 1 || $(esc(li))[i].code == -1
+                $(esc(e1Count)) += 1
+                val = $(esc(li))[i].x
+                @checkValInEdges(i, val, $(esc(liNumber)), $(esc(e1LowestWhich)), $(esc(e1LowestIndex)), $(esc(e1LowestVal)), $(esc(e1HighestWhich)), $(esc(e1HighestIndex)), $(esc(e1HighestVal)) )
+            elseif $(esc(li))[i].code == 2 || $(esc(li))[i].code == -2
+                $(esc(e2Count)) += 1
+                val = $(esc(li))[i].x
+                @checkValInEdges(i, val, $(esc(liNumber)), $(esc(e2LowestWhich)), $(esc(e2LowestIndex)), $(esc(e2LowestVal)), $(esc(e2HighestWhich)), $(esc(e2HighestIndex)), $(esc(e2HighestVal)) )
+            elseif $(esc(li))[i].code == 3 || $(esc(li))[i].code == -3
+                $(esc(e3Count)) += 1
+                val = $(esc(li))[i].y
+                @checkValInEdges(i, val, $(esc(liNumber)), $(esc(e3LowestWhich)), $(esc(e3LowestIndex)), $(esc(e3LowestVal)), $(esc(e3HighestWhich)), $(esc(e3HighestIndex)), $(esc(e3HighestVal)) )
+            end
+        end
+    )
+
+end
+
+function changeCode(list, index, newCode)
+    list[index] = Intersection(list[index].x, list[index].y, sign(list[index].code)*newCode)
+end
+
+macro adjustClosestVals(edgeNo, DP, DN, RP, RN, lowestWhich, lowestIndex, highestWhich, highestIndex)
+    if edgeNo == 1
+        lowCode = E1ClosestLow
+        highCode = E1ClosestHigh
+    elseif edgeNo == 2
+        lowCode = E2ClosestLow
+        highCode = E2ClosestHigh
+    else
+        lowCode = E3ClosestLow
+        highCode = E3ClosestHigh
+    end
+
+    return :(begin
+        if $(esc(lowestWhich)) == 1
+            changeCode($(esc(DP)), $(esc(lowestIndex)), $lowCode)
+        elseif $(esc(lowestWhich)) == 2
+            changeCode($(esc(DN)), $(esc(lowestIndex)), $lowCode)
+        elseif $(esc(lowestWhich)) == 3
+            changeCode($(esc(RP)), $(esc(lowestIndex)), $lowCode)
+        else
+            changeCode($(esc(RN)), $(esc(lowestIndex)), $lowCode)
+        end
+
+        if $(esc(highestWhich)) == 1
+            changeCode($(esc(DP)), $(esc(highestIndex)), $highCode)
+        elseif $(esc(highestWhich)) == 2
+            changeCode($(esc(DN)), $(esc(highestIndex)), $highCode)
+        elseif $(esc(highestWhich)) == 3
+            changeCode($(esc(RP)), $(esc(highestIndex)), $highCode)
+        else
+            changeCode($(esc(RN)), $(esc(highestIndex)), $highCode)
+        end
+    end)
+end
+
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
@@ -1277,6 +1389,64 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
         @process_intercepts(3, false, RConicYIntercepts, DConicYIntercepts, RCellIntersection, d3, d1, r3, r1, RPIntercepts, RNIntercepts, RPInterceptsSize, RNInterceptsSize, RConic, DConic, false, true, 
         true, eigenvector, RPArrayVec, RNArrayVec, any_r_intercepts, ignore_d, hits_corners)
+    end
+
+    # we can't use mutable structs here because they fricking heap allocate.
+    # I am never using julia again.
+    e1LowestWhich::Int8 = -1
+    e1LowestIndex::Int8 = -1
+    e1LowestVal::Float64 = Inf
+    e1HighestWhich::Int8 = -1
+    e1HighestIndex::Int8 = -1
+    e1HighestVal::Float64 = -Inf
+    e1Count::Int8 = 0
+    e2LowestWhich::Int8 = -1
+    e2LowestIndex::Int8 = -1
+    e2LowestVal::Float64 = Inf
+    e2HighestWhich::Int8 = -1
+    e2HighestIndex::Int8 = -1
+    e2HighestVal::Float64 = -Inf
+    e2Count::Int8 = 0
+    e3LowestWhich::Int8 = -1
+    e3LowestIndex::Int8 = -1
+    e3LowestVal::Float64 = Inf
+    e3HighestWhich::Int8 = -1
+    e3HighestIndex::Int8 = -1
+    e3HighestVal::Float64 = -Inf
+    e3Count::Int8 = 0
+
+    # macro findClosestToEach(li, len, liNumber, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal,
+    #     e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal,
+    #     e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal)
+
+    @findClosestToEach(DPIntercepts, DPInterceptsSize, 1, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal, e1Count,
+                                                          e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal, e2Count,
+                                                          e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal, e3Count)
+                                                
+    @findClosestToEach(DNIntercepts, DNInterceptsSize, 2, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal, e1Count,
+                                                          e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal, e2Count,
+                                                          e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal, e3Count)
+
+    @findClosestToEach(RPIntercepts, RPInterceptsSize, 3, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal, e1Count,
+                                                          e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal, e2Count,
+                                                          e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal, e3Count)
+
+    @findClosestToEach(RNIntercepts, RNInterceptsSize, 4, e1LowestWhich, e1LowestIndex, e1LowestVal, e1HighestWhich, e1HighestIndex, e1HighestVal, e1Count,
+                                                          e2LowestWhich, e2LowestIndex, e2LowestVal, e2HighestWhich, e2HighestIndex, e2HighestVal, e2Count,
+                                                          e3LowestWhich, e3LowestIndex, e3LowestVal, e3HighestWhich, e3HighestIndex, e3HighestVal, e3Count)
+
+    # adjustClosestVals(edgeNo, DP, DN, RP, RN, lowestWhich, lowestIndex, highestWhich, highestIndex)
+
+    if e1Count > 2
+        @adjustClosestVals(1, DPIntercepts, DNIntercepts, RPIntercepts, RNIntercepts, e1LowestWhich, e1LowestIndex, e1HighestWhich, e1HighestIndex)
+    end
+
+    if e2Count > 2
+        @adjustClosestVals(2, DPIntercepts, DNIntercepts, RPIntercepts, RNIntercepts, e2LowestWhich, e2LowestIndex, e2HighestWhich, e2HighestIndex)
+    end
+
+    if e3Count > 2
+        @adjustClosestVals(3, DPIntercepts, DNIntercepts, RPIntercepts, RNIntercepts, e3LowestWhich, e3LowestIndex, e3HighestWhich, e3HighestIndex)
     end
 
     # Check if either is an internal ellipse
@@ -1454,7 +1624,166 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     for i in eachindex(RNPoints)
         RNArray[i] = RNPoints[i].code
     end
-                                                                                                            # we only check d1 since either all are greater than s1 or all are less
+
+    # fix the corners as needed. Do this before internal ellipse detection.
+    # internal ellipse doesnt just mean internal ellipse anymore :)
+    @checkEqualityAtCorner(1, d1, d2, d3, r1, r2, r3, D1, R1, S1, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+    @checkEqualityAtCorner(2, d1, d2, d3, r1, r2, r3, D2, R2, S2, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+    @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, D3, R3, S3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
+
+    # check for the weird case where there are no intersections yet three colors (none of which are white)
+    if length(DPPoints) == 0 && length(DNPoints) == 0 && length(RPPoints) == 0 && length(RNPoints) == 0
+        checkRInternal = false
+
+        if vertexTypesEigenvalue[1] == DP
+            checkRInternal = (vertexTypesEigenvalue[2] == DN || vertexTypesEigenvalue[3] == DN)
+        elseif vertexTypesEigenvalue[1] == DN
+            checkRInternal = (vertexTypesEigenvalue[2] == DP || vertexTypesEigenvalue[3] == DP)
+        end
+
+        if checkRInternal
+            rsign::Int8 = 0 # 1 means positive, -1 means negative, 0 means not done checking yet :)
+
+            if -ϵ <= RConicXIntercepts[1] <= 1+ϵ
+                r_val = (r2-r1)*RConicXIntercepts[1] + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 0 && -ϵ <= RConicXIntercepts[2] <= 1+ϵ
+                r_val = (r2-r1)*RConicXIntercepts[2] + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 0 && -ϵ <= RConicYIntercepts[1] <= 1+ϵ
+                r_val = (r3-r1)*RConicYIntercepts[1] + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 0 && -ϵ <= RConicYIntercepts[2] <= 1+ϵ
+                r_val = (r3-r1)*RConicYIntercepts[2] + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 0 && -ϵ <= RConicHIntercepts[1] <= 1+ϵ
+                r_val = (r2-r1)*RConicHIntercepts[1] + (r3-r1)*(1.0-RConicHIntercepts[1]) + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 0 && -ϵ <= RConicHIntercepts[2] <= 1+ϵ
+                r_val = (r2-r1)*RConicHIntercepts[2] + (r3-r1)*(1.0-RConicHIntercepts[2]) + r1
+                if isGreater(r_val,0.0)
+                    rsign = 1
+                elseif isLess(r_val,0.0)
+                    rsign = -1
+                end
+            end
+
+            if rsign == 1
+                RPArray[1] = INTERNAL_ELLIPSE
+            else
+                RNArray[1] = INTERNAL_ELLIPSE
+            end
+            
+        else
+
+            checkDInternal = false
+
+            if vertexTypesEigenvalue[1] == RP
+                checkDInternal = (vertexTypesEigenvalue[2] == RN || vertexTypesEigenvalue[3] == RN)
+            elseif vertexTypesEigenvalue[1] == RN
+                checkDInternal = (vertexTypesEigenvalue[2] == RP || vertexTypesEigenvalue[3] == RP)
+            end
+
+            if checkDInternal
+                dsign::Int8 = 0 # 1 means positive, -1 means negative, 0 means not done checking yet :)
+
+                if -ϵ <= DConicXIntercepts[1] <= 1+ϵ
+                    d_val = (d2-d1)*DConicXIntercepts[1] + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 0 && -ϵ <= DConicXIntercepts[2] <= 1+ϵ
+                    d_val = (d2-d1)*DConicXIntercepts[2] + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 0 && -ϵ <= DConicYIntercepts[1] <= 1+ϵ
+                    d_val = (d3-d1)*DConicYIntercepts[1] + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 0 && -ϵ <= DConicYIntercepts[2] <= 1+ϵ
+                    d_val = (d3-d1)*DConicYIntercepts[2] + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 0 && -ϵ <= DConicHIntercepts[1] <= 1+ϵ
+                    d_val = (d2-d1)*RConicHIntercepts[1] + (d3-d1)*(1.0-DConicHIntercepts[1]) + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 0 && -ϵ <= DConicHIntercepts[2] <= 1+ϵ
+                    d_val = (d2-d1)*DConicHIntercepts[2] + (d3-d1)*(1.0-DConicHIntercepts[2]) + d1
+                    if isGreater(d_val,0.0)
+                        dsign = 1
+                    elseif isLess(d_val,0.0)
+                        dsign = -1
+                    end
+                end
+    
+                if dsign == 1
+                    DPArray[1] = INTERNAL_ELLIPSE
+                else
+                    DNArray[1] = INTERNAL_ELLIPSE
+                end
+
+            end
+
+        end
+
+    end
+
+    # we only check d1 since either all are greater than s1 or all are less
     if d_type == ELLIPSE && !any_d_intercepts && length(DPPoints) == 0 && length(DNPoints) == 0 && is_inside_triangle(d_center[1], d_center[2]) && (!eigenvector || abs(D1) < S1)
         d_center_class = classifyEllipseCenter(d1, d2, d3, r1, r2, r3, d_center[1], d_center[2])
         if d_center_class == DP
@@ -1547,11 +1876,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             end            
         end
     end
-
-    # fix the corners as needed
-    @checkEqualityAtCorner(1, d1, d2, d3, r1, r2, r3, D1, R1, S1, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(2, d1, d2, d3, r1, r2, r3, D2, R2, S2, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
-    @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, D3, R3, S3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
 
     # what a racket
     # println("return 3")
