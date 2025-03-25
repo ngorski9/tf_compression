@@ -149,7 +149,7 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                     top1 = tensorField.classifyCellEigenvalue(tf1, i, j, t, Bool(k), true)
                     top2 = tensorField.classifyCellEigenvalue(tf2, i, j, t, Bool(k), true)
 
-                    if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && top1.DPArray == top2.DPArray && top1.DNArray == top2.DNArray && top1.RPArray == top2.RPArray && top1.RNArray == top2.RNArray
+                    if top1.vertexTypesEigenvalue == top2.vertexTypesEigenvalue && cyclicMatch(top1.DPArray,top2.DPArray) && cyclicMatch(top1.DNArray,top2.DNArray) && cyclicMatch(top1.RPArray,top2.RPArray) && cyclicMatch(top1.RNArray,top2.RNArray)
                         result[VALSAME] += 1
                     else
                         all_same = false
