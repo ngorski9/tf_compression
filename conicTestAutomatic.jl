@@ -1706,8 +1706,8 @@ function main()
             MArray{Tuple{10},Int8}(E1Z , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E1Z  , 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E1Z  , -2 ,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
-            MArray{Tuple{3},Int8}(1,0,1),
-            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Int8}(E1Z,0,1),
+            MArray{Tuple{3},Int8}(E1Z,1,0),
             MArray{Tuple{3},Bool}(false,false,false)
         )
     ,120)
@@ -1866,8 +1866,8 @@ function main()
             MArray{Tuple{10},Int8}(Z, -E1 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E2, Z  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E3, Z ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
-            MArray{Tuple{3},Int8}(0,2,0), # we'll need to change this later!
-            MArray{Tuple{3},Int8}(1,0,1),
+            MArray{Tuple{3},Int8}(Z,2,0),
+            MArray{Tuple{3},Int8}(1,Z,1),
             MArray{Tuple{3},Bool}(false,false,false)
         )
     , 128)
@@ -1886,8 +1886,8 @@ function main()
             MArray{Tuple{10},Int8}(-DNRN, DNRP, -DNRP, -E1 ,0 , 0, 0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E2, DNRP  ,-DNRP  ,DPRP  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(E3, DNRN ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
-            MArray{Tuple{3},Int8}(0,2,0), # we'll need to change this later!
-            MArray{Tuple{3},Int8}(1,0,1),
+            MArray{Tuple{3},Int8}(Z,2,0),
+            MArray{Tuple{3},Int8}(1,Z,1),
             MArray{Tuple{3},Bool}(false,false,false)
         )
     , 129)
@@ -1906,11 +1906,111 @@ function main()
             MArray{Tuple{10},Int8}(E3, Z, -E1 , 0 ,0 , 0, 0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
             MArray{Tuple{10},Int8}(0,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
-            MArray{Tuple{3},Int8}(0,0,0), # we'll need to change this later!
+            MArray{Tuple{3},Int8}(0,0,0),
             MArray{Tuple{3},Int8}(0,0,0),
             MArray{Tuple{3},Bool}(false,false,false)
         )
     , 130)
+
+    # special case of the type where one region is covered up, except that the hyperbola has a zero on the edge.
+    D = (5, -5.5, 5.7)
+    W = (0, 0, 3.2)
+    R = (0, 0, 4.6)
+    θ = (1.82, 3.48, 4)
+
+    @add_full_test(full_tests, D,R,W,θ,
+    cellTopology.cellTopologyEigenvalue(
+        MArray{Tuple{3},Int8}(DP,DN,DP),
+        SArray{Tuple{3},Int8}(Z,Z,RRP),
+        MArray{Tuple{10},Int8}(E1Z, 0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z, 0, 0, 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(0,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+        MArray{Tuple{3},Int8}(0,0,0), 
+        MArray{Tuple{3},Int8}(0,0,0),
+        MArray{Tuple{3},Bool}(false,false,false)
+    )
+    , 131)
+
+    # Previous case but flip the sign of R
+    D = (5, -5.5, 5.7)
+    W = (0, 0, 3.2)
+    R = (0, 0, -4.6)
+    θ = (1.82, 3.48, 4)
+
+    @add_full_test(full_tests, D,R,W,θ,
+    cellTopology.cellTopologyEigenvalue(
+        MArray{Tuple{3},Int8}(DP,DN,DP),
+        SArray{Tuple{3},Int8}(Z,Z,RRN),
+        MArray{Tuple{10},Int8}(E1Z, 0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z, 0, 0, 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(0,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+        MArray{Tuple{3},Int8}(0,0,0), 
+        MArray{Tuple{3},Int8}(0,0,0),
+        MArray{Tuple{3},Bool}(false,false,false)
+    )
+    , 132)
+
+    # same special case but this time R gets the corners
+    D = (0, 0, 4.6)
+    W = (0, 0, 3.2)
+    R = (5, -5.5, 5.7)
+    θ = (1.82, 3.48, 4)
+
+    @add_full_test(full_tests, D,R,W,θ,
+    cellTopology.cellTopologyEigenvalue(
+        MArray{Tuple{3},Int8}(RP,RN,RP),
+        SArray{Tuple{3},Int8}(RRP,RRN,RRP),
+        MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(0, 0, 0, 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+        MArray{Tuple{3},Int8}(E1Z,1,0), 
+        MArray{Tuple{3},Int8}(E1Z,1,0),
+        MArray{Tuple{3},Bool}(false,false,false)
+    )
+    , 133)
+
+    # same as above but flip the sign of d
+    D = (0, 0, -4.6)
+    W = (0, 0, 3.2)
+    R = (5, -5.5, 5.7)
+    θ = (1.82, 3.48, 4)
+
+    @add_full_test(full_tests, D,R,W,θ,
+    cellTopology.cellTopologyEigenvalue(
+        MArray{Tuple{3},Int8}(RP,RN,RP),
+        SArray{Tuple{3},Int8}(RRP,RRN,RRP),
+        MArray{Tuple{10},Int8}(0, 0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0, 0, 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,0,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+        MArray{Tuple{3},Int8}(E1Z,1,0), 
+        MArray{Tuple{3},Int8}(E1Z,1,0),
+        MArray{Tuple{3},Bool}(false,false,false)
+    )
+    , 133)
+
+    # two different pairs of intersecting lines and they both share a line.
+    D = (6.2, -3, 4.55)
+    W = (0, 0, 4.55)
+    R = (-6.2, 3, 4.55)
+    θ = (0, 0, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+    cellTopology.cellTopologyEigenvalue(
+        MArray{Tuple{3},Int8}(DP,RP,DPRP),
+        SArray{Tuple{3},Int8}(RRN,RRP,DegenRP),
+        MArray{Tuple{10},Int8}(CORNER_23, E1Z, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z, 0, 0, 0 ,0 , 0, 0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,-CORNER_23,0,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+        MArray{Tuple{10},Int8}(E1Z,0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+        MArray{Tuple{3},Int8}(E1Z,0,0), 
+        MArray{Tuple{3},Int8}(E1Z,0,1),
+        MArray{Tuple{3},Bool}(false,false,false)
+    )
+    , 134)
 
     # ------------------------------------------------------------------
     #                 end of automated tests

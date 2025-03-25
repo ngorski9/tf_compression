@@ -547,20 +547,34 @@ end
 # returns a tuple of bools for whether, assuming that the two conic equations cross a boundary defined by vector axis at point, where inside points inside the triangle,
 # does the conic equation defined by eq1 cross into the boundary or not
 function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEquation, point::Tuple{Float64,Float64}, axis::Tuple{Float64,Float64}, inside::Tuple{Float64,Float64}, tangentVector::Tuple{Float64, Float64}, d::Bool)
+    if dot(tangentVector, inside) < 0
+        tangentVector = (-tangentVector[1],-tangentVector[2])
+    end
+
     tangentVector2 = tangentDerivative(eq2, point[1], point[2])
-    if tangentVector != tangentVector2
+    if dot(tangentVector2, inside) < 0
+        tangentVector2 = (-tangentVector2[1], -tangentVector2[2])
+    end
+    # println(inside)
+    # println((tangentVector, tangentVector2))
+    if !isClose(tangentVector[1],tangentVector2[1]) || !isClose( tangentVector[2], tangentVector2[2] )
         d1DotInside = dot(tangentVector, inside)
         if isClose(d1DotInside, 0.0)
+            # println("ret1")
             return dot(gradient(eq2,point[1],point[2]),axis) < 0
         else
             d2DotInside = dot(tangentVector2, inside)
             if d2DotInside == 0.0
+                # println("ret2")
                 return dot(normalizedGradient(eq2,point[1],point[2]),axis) < 0
             else
                 grad = normalizedGradient(eq2, point[1], point[2])
                 if sign(dot(tangentVector,inside))*dot(tangentVector,axis) < sign(dot(tangentVector2,inside))*dot(tangentVector2,axis)
+                    # println("ret3")
                     return dot(grad,axis) > 0
                 else
+                    # println("ret4")
+                    # println(dot(grad,axis))
                     return dot(grad,axis) < 0
                 end
             end
@@ -569,15 +583,19 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
         grad1 = normalizedGradient(eq1, point[1], point[2])
         grad2 = normalizedGradient(eq2, point[1], point[2])
         if dot(grad1, grad2) < 0
+            # println("ret5")
             return true
         else
             k1 = curvature(eq1, point[1], point[2])
             k2 = curvature(eq2, point[1], point[2])
             if k1 > k2
+                # println("ret6")
                 return false
             elseif k1 == k2
+                # println("ret7")
                 return !d
             else 
+                # println("ret8")
                 return true
             end
         end
@@ -585,6 +603,7 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
 end
 
 function doesConicEquationCrossCorner(eq::conicEquation, x::Float64, y::Float64, in1::Tuple{Float64,Float64}, in2::Tuple{Float64,Float64}, grad::Tuple{Float64,Float64}, tangentVector::Tuple{Float64,Float64})
+    # println("check")
     dot1 = dot(tangentVector, in1)
     if isClose(dot1, 0.0)
         k = curvature(eq, x, y)
@@ -715,6 +734,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
         if isClose($(esc(intercepts))[1],0.0)
             $(esc(any_intercepts)) = true
+
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
@@ -732,6 +752,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
 
         elseif isClose($(esc(intercepts))[1],1.0)
             $(esc(any_intercepts)) = true
+
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[1]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[1])) || 
@@ -783,6 +804,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
         tangentVector = tangentDerivative(grad)        
         if isClose($(esc(intercepts))[2],0.0)
             $(esc(any_intercepts)) = true
+
             if $check_low && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), ($low_coords)[1], $(low_coords)[2], $low_edge_inside, $edge_inside, grad, tangentVector) &&
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
@@ -800,6 +822,7 @@ macro process_intercepts(edge_number, is_d, intercepts, alt_list, class_fun, d1,
  
         elseif isClose($(esc(intercepts))[2],1.0)
             $(esc(any_intercepts)) = true
+
             if $check_high && (class == $Z || (
             doesConicEquationCrossCorner($(esc(conic)), $(high_coords)[1], $(high_coords)[2], $edge_inside, $high_edge_inside, grad, tangentVector) && 
             ($(esc(ignore_other)) || (!isRelativelyClose($(esc(alt_list))[1],$(esc(intercepts))[2]) && !isRelativelyClose($(esc(alt_list))[2],$(esc(intercepts))[2])) || 
@@ -1250,6 +1273,7 @@ macro adjustClosestVals(edgeNo, DP, DN, RP, RN, lowestWhich, lowestIndex, highes
     end)
 end
 
+
 # While technically we use a barycentric interpolation scheme which is agnostic to the locations of the actual cell vertices,
 # for mathematical ease we assume that point 1 is at (0,0), point 2 is at (1,0), and point 3 is at (0,1). Choosing a specific
 # embedding will not affect the topology.
@@ -1601,8 +1625,8 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             @checkIntersectionPoint(rnd_intersections[2],DConic, RConic, d_center,r_center,DVector1,DVector2,RVector1,RVector2,DPPoints,DNPoints,RPPoints,RNPoints,d_ellipse,r_ellipse,d_orientation,r_orientation,rnd_intersection_2)
         end
 
-        if d_type == INTERSECTING_LINES && r_type == INTERSECTING_LINES && rpd_intersections[1] == rpd_intersections[2] && rpd_intersections[1] != Inf && is_inside_triangle(rpd_intersections[1][1], rpd_intersections[1][2]) && !isClose(rpd_intersections[1][1],0.0) && !isClose(rpd_intersections[1][2],0.0)
-            # println("Z1")
+        if d_type == INTERSECTING_LINES && r_type == INTERSECTING_LINES && rpd_intersections[1] == rpd_intersections[2] && rpd_intersections[1][1] != Inf && isGreater(d_center[1],0.0) && isGreater(d_center[2],0.0) && isLess(d_center[1]+d_center[2],1.0)
+            println("Z1")
             push!(DPPoints, Intersection(0.0,-1.0,Z))
             push!(DNPoints, Intersection(0.0,-1.0,Z))
             push!(RPPoints, Intersection(0.0,-1.0,Z))
@@ -1611,14 +1635,49 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 
     end
 
-    if d_type == INTERSECTING_LINES && isClose(r1,0.0) && isClose(r2,0.0) && isClose(r3,0.0) && !isClose(d_center[1], 0.0) && !isClose(d_center[2], 0.0) && is_inside_triangle(d_center[1], d_center[2])
-        # println("Z2")
+    if r_type == INTERSECTING_LINES && is_inside_triangle(r_center[1],r_center[2])
+
+        if isClose(r_center[1], 0.0)
+            if !isClose(r_center[2], 0.0) && !isClose(r_center[2], 1.0)
+                RPArrayVec[3] = E3Z
+                RNArrayVec[3] = E3Z
+            end
+        elseif isClose(r_center[2], 0.0)
+            if !isClose(r_center[1], 1.0)
+                RPArrayVec[1] = E1Z
+                RNArrayVec[1] = E1Z
+            end
+        elseif isClose(r_center[1]+r_center[2],1.0)
+            RPArrayVec[1] = E2Z
+            RNArrayVec[1] = E2Z
+        else
+            if RPArrayVec[1] == 0
+                RPArrayVec[1] = Z
+            elseif RPArrayVec[2] == 0
+                RPArrayVec[2] = Z
+            else
+                RPArrayVec[3] = Z
+            end
+
+            if RNArrayVec[1] == 0
+                RNArrayVec[1] = Z
+            elseif RNArrayVec[2] == 0
+                RNArrayVec[2] = Z
+            else
+                RNArrayVec[3] = Z
+            end
+
+            if isClose(d1,0.0) && isClose(d2,0.0) && isClose(d3,0.0) && !isClose(d_center[1],0.0) && !isClose(d_center[2],0.0) && !isClose(d_center[1]+d_center[2],1.0)
+                println("Z2")
+                push!(DPPoints, Intersection(0.0,-1.0,Z))
+                push!(DNPoints, Intersection(0.0,-1.0,Z))
+            end
+        end
+
+    elseif d_type == INTERSECTING_LINES && isClose(r1,0.0) && isClose(r2,0.0) && isClose(r3,0.0) && !isClose(d_center[1], 0.0) && !isClose(d_center[2], 0.0) && !isClose(d_center[1]+d_center[2],1.0) && is_inside_triangle(d_center[1], d_center[2])
+        println("Z3")
         push!(DPPoints, Intersection(0.0,-1.0,Z))
         push!(DNPoints, Intersection(0.0,-1.0,Z))
-    elseif r_type == INTERSECTING_LINES && isClose(d1,0.0) && isClose(d2,0.0) && isClose(d3,0.0) && !isClose(r_center[1], 0.0) && !isClose(r_center[2], 0.0) && is_inside_triangle(d_center[1], d_center[2])
-        # println("Z3")
-        push!(RPPoints, Intersection(0.0,-1.0,Z))
-        push!(RNPoints, Intersection(0.0,-1.0,Z))
     end
 
     # custom sort function that ensures the clockwise ordering that we were shooting for.
@@ -1650,7 +1709,7 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     @checkEqualityAtCorner(3, d1, d2, d3, r1, r2, r3, D3, R3, S3, DConic, RConic, vertexTypesEigenvalue, ignore_d, ignore_r)
 
     # check for the weird case where there are no intersections yet three colors (none of which are white)
-    if length(DPPoints) == 0 && length(DNPoints) == 0 && length(RPPoints) == 0 && length(RNPoints) == 0
+    if length(DPPoints) <= 1 && length(DNPoints) <= 1 && length(RPPoints) <= 1 && length(RNPoints) <= 1
         checkRInternal = false
 
         if vertexTypesEigenvalue[1] == DP
@@ -1718,8 +1777,18 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
 
             if rsign == 1
                 RPArray[1] = INTERNAL_ELLIPSE
-            else
+            elseif rsign == 1
                 RNArray[1] = INTERNAL_ELLIPSE
+            else
+                # This implies that all intersections are zero.
+                # Thus, the yr=yd is a zero line on one of the edges.
+                # we can determine the region type by inspecting the signs of the vertices.
+
+                if isGreater(r1,0.0) || isGreater(r2,0.0) || isGreater(r3,0.0)
+                    RPArray[1] = INTERNAL_ELLIPSE
+                else
+                    RNArray[1] = INTERNAL_ELLIPSE
+                end
             end
             
         else
@@ -1791,8 +1860,14 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
     
                 if dsign == 1
                     DPArray[1] = INTERNAL_ELLIPSE
-                else
+                elseif dsign == -1
                     DNArray[1] = INTERNAL_ELLIPSE
+                else
+                    if isGreater(d1,0.0) || isGreater(d2,0.0) || isGreater(d3,0.0)
+                        DPArray[1] = INTERNAL_ELLIPSE
+                    else
+                        DNArray[1] = INTERNAL_ELLIPSE
+                    end
                 end
 
             end
@@ -1951,7 +2026,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
     RConic = sub(RBase, sinPlusCos)
 
     # check if the conic is not basically null (I don't believe this is even possible.)
-    class, _ = classifyAndReturnCenter(RConic)
+    class, center = classifyAndReturnCenter(RConic)
     if class == POINT || class == EMPTY || class == LINE_NO_REGION
         return cellTopologyEigenvector(vertexTypes, RPArray, RNArray)
     end
@@ -1975,7 +2050,7 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
             if isGreater(r, 0.0)
                 RPArray[1] += 1
             elseif isClose(r, 0.0)
-                RPArray[1] += 1            
+                RPArray[1] += 1
                 RNArray[1] += 1
             else
                 RNArray[1] += 1
@@ -2100,14 +2175,45 @@ function classifyCellEigenvector(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float
         end
     end
 
-    class, center = classifyAndReturnCenter(RConic)
-
     if class == ELLIPSE && RPArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3)) && RNArray == MArray{Tuple{3}, Int8}(zeros(Int8, 3))
         if is_inside_triangle(center[1], center[2])
             if (r2-r1)*center[1] + (r3-r1)*center[2] + r1 > 0
                 RPArray[1] = INTERNAL_ELLIPSE
             else
                 RNArray[1] = INTERNAL_ELLIPSE
+            end
+        end
+    end
+
+    if class == INTERSECTING_LINES && is_inside_triangle(center[1],center[2])
+        if isClose(center[1], 0.0)
+            if !isClose(center[2],0.0) && !isClose(center[2],1.0)
+                RPArray[3] = E3Z
+                RNArray[3] = E3Z
+            end
+        elseif isClose(center[2],0.0)
+            if !isClose(center[1],1.0)
+                RPArray[1] = E1Z
+                RNArray[1] = E1Z
+            end
+        elseif isClose(center[1]+center[2],1.0)
+            RPArray[1] = E2Z
+            RNArray[1] = E2Z
+        else
+            if RPArray[1] == 0
+                RPArray[1] = Z
+            elseif RPArray[2] == 0
+                RPArray[2] = Z
+            else
+                RPArray[3] = Z
+            end
+
+            if RNArray[1] == 0
+                RNArray[1] = Z
+            elseif RNArray[2] == 0
+                RNArray[2] = Z
+            else
+                RNArray[3] = Z
             end
         end
     end
