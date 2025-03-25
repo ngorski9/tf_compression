@@ -98,8 +98,8 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
     ALLSAME = 14
     ALLDIF = 15
 
-    outfVal = "../valDifs.txt"
-    outfVec = "../vecDifs.txt"
+    # outfVal = "../valDifs.txt"
+    # outfVec = "../vecDifs.txt"
 
     if outfVal != ""
         removeIfExists(outfVal)
@@ -155,11 +155,11 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         all_same = false
                         result[VALDIF] += 1
 
-                        if outfVal != ""
-                            outf = open(outfVal, "a")
-                            write(outf,"$((i,j,k))\n")
-                            close(outf)
-                        end
+                        # if outfVal != ""
+                        #     outf = open(outfVal, "a")
+                        #     write(outf,"$((i,j,k))\n")
+                        #     close(outf)
+                        # end
 
                         # println(top1)
                         # println(top2)
@@ -198,11 +198,11 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
                         result[VECDIF] += 1
                         result[VECPLUSCIRCDIF] += 1
 
-                        if outfVec != ""
-                            outf = open(outfVec, "a")
-                            write(outf,"$((i,j,k))\n")
-                            close(outf)
-                        end
+                        # if outfVec != ""
+                        #     outf = open(outfVec, "a")
+                        #     write(outf,"$((i,j,k))\n")
+                        #     close(outf)
+                        # end
 
                         # println(top1)
                         # println(top2)
