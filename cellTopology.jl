@@ -555,26 +555,19 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
     if dot(tangentVector2, inside) < 0
         tangentVector2 = (-tangentVector2[1], -tangentVector2[2])
     end
-    # println(inside)
-    # println((tangentVector, tangentVector2))
     if !isClose(tangentVector[1],tangentVector2[1]) || !isClose( tangentVector[2], tangentVector2[2] )
         d1DotInside = dot(tangentVector, inside)
         if isClose(d1DotInside, 0.0)
-            # println("ret1")
             return dot(gradient(eq2,point[1],point[2]),axis) < 0
         else
             d2DotInside = dot(tangentVector2, inside)
             if d2DotInside == 0.0
-                # println("ret2")
                 return dot(normalizedGradient(eq2,point[1],point[2]),axis) < 0
             else
                 grad = normalizedGradient(eq2, point[1], point[2])
                 if sign(dot(tangentVector,inside))*dot(tangentVector,axis) < sign(dot(tangentVector2,inside))*dot(tangentVector2,axis)
-                    # println("ret3")
                     return dot(grad,axis) > 0
                 else
-                    # println("ret4")
-                    # println(dot(grad,axis))
                     return dot(grad,axis) < 0
                 end
             end
@@ -583,19 +576,15 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
         grad1 = normalizedGradient(eq1, point[1], point[2])
         grad2 = normalizedGradient(eq2, point[1], point[2])
         if dot(grad1, grad2) < 0
-            # println("ret5")
             return true
         else
             k1 = curvature(eq1, point[1], point[2])
             k2 = curvature(eq2, point[1], point[2])
             if k1 > k2
-                # println("ret6")
                 return false
             elseif k1 == k2
-                # println("ret7")
                 return !d
             else 
-                # println("ret8")
                 return true
             end
         end
@@ -603,7 +592,6 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
 end
 
 function doesConicEquationCrossCorner(eq::conicEquation, x::Float64, y::Float64, in1::Tuple{Float64,Float64}, in2::Tuple{Float64,Float64}, grad::Tuple{Float64,Float64}, tangentVector::Tuple{Float64,Float64})
-    # println("check")
     dot1 = dot(tangentVector, in1)
     if isClose(dot1, 0.0)
         k = curvature(eq, x, y)
@@ -1626,7 +1614,6 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
         end
 
         if d_type == INTERSECTING_LINES && r_type == INTERSECTING_LINES && rpd_intersections[1] == rpd_intersections[2] && rpd_intersections[1][1] != Inf && isGreater(d_center[1],0.0) && isGreater(d_center[2],0.0) && isLess(d_center[1]+d_center[2],1.0)
-            println("Z1")
             push!(DPPoints, Intersection(0.0,-1.0,Z))
             push!(DNPoints, Intersection(0.0,-1.0,Z))
             push!(RPPoints, Intersection(0.0,-1.0,Z))
@@ -1668,14 +1655,12 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             end
 
             if isClose(d1,0.0) && isClose(d2,0.0) && isClose(d3,0.0) && !isClose(d_center[1],0.0) && !isClose(d_center[2],0.0) && !isClose(d_center[1]+d_center[2],1.0)
-                println("Z2")
                 push!(DPPoints, Intersection(0.0,-1.0,Z))
                 push!(DNPoints, Intersection(0.0,-1.0,Z))
             end
         end
 
     elseif d_type == INTERSECTING_LINES && isClose(r1,0.0) && isClose(r2,0.0) && isClose(r3,0.0) && !isClose(d_center[1], 0.0) && !isClose(d_center[2], 0.0) && !isClose(d_center[1]+d_center[2],1.0) && is_inside_triangle(d_center[1], d_center[2])
-        println("Z3")
         push!(DPPoints, Intersection(0.0,-1.0,Z))
         push!(DNPoints, Intersection(0.0,-1.0,Z))
     end
