@@ -101,9 +101,9 @@ function topologyCellMatching(tf1::TensorField2d, tf2::TensorField2d)
     # outfVal = "../valDifs.txt"
     # outfVec = "../vecDifs.txt"
 
-    if outfVal != ""
-        removeIfExists(outfVal)
-    end
+    # if outfVal != ""
+    #     removeIfExists(outfVal)
+    # end
 
     x, y, T = tf1.dims
     x -= 1
