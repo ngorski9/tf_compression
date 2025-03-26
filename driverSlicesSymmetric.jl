@@ -25,6 +25,7 @@ function main()
     output = ""
     baseCompressor = "sz3"
     skipEval = false
+    verbose = false
 
     i = 1
     while i <= length(ARGS)
@@ -60,6 +61,9 @@ function main()
             i += 2
         elseif ARGS[i] == "--skipEval"
             skipEval = true
+            i += 1
+        elseif ARGS[i] == "--verbose"
+            verbose = true
             i += 1
         else
             println("ERROR: Unknown argument $(ARGS[i])")
@@ -121,7 +125,9 @@ function main()
 
         println("t = $t")
 
-        redirect_stdout(devnull)
+        if !verbose
+            redirect_stdout(devnull)
+        end
 
         try
             run(`rm -r $output`)
@@ -169,7 +175,9 @@ function main()
 
         totalCompressionTime += ct
         totalDecompressionTime += dt
-        redirect_stdout(stdout_)
+        if !verbose
+            redirect_stdout(stdout_)
+        end
 
         if !skipEval
             metrics = evaluationList2dSymmetric("$output/slice", "$output/reconstructed", (dims[1], dims[2], 1), eb, compressed_size)

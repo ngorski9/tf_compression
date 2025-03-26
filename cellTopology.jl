@@ -580,10 +580,21 @@ function doesConicEquationCrossDoubleBoundary(eq1::conicEquation, eq2::conicEqua
         else
             k1 = curvature(eq1, point[1], point[2])
             k2 = curvature(eq2, point[1], point[2])
-            if k1 > k2
+
+            if isGreater(k1,k2)
                 return false
-            elseif k1 == k2
-                return !d
+            elseif isRelativelyClose(k1,k2) || (isClose(k1,0.0) && isClose(k2,0.0))
+                unnormalizedGradient1 = gradient(eq1, point[1], point[2])
+                unnormalizedGradient2 = gradient(eq2, point[1], point[2])
+                directional1 = abs(dot(unnormalizedGradient1, axis))
+                directional2 = abs(dot(unnormalizedGradient2, axis))
+                if isRelativelyGreater(directional1, directional2)
+                    return true
+                elseif isRelativelyClose(directional1, directional2)
+                    return !d
+                else
+                    return false
+                end
             else 
                 return true
             end

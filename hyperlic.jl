@@ -111,20 +111,22 @@ function extractCP(tf::TensorField, cp_array, ctypes_array, cp_frobenius_array, 
 
                 if cp == 1 || cp == 2
                     mat = [ Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1 ]
-                    μ = (mat^-1) * [0 ; 0 ; 1]
+                    if abs(det(mat)) > 10e-10
+                        μ = (mat^-1) * [0 ; 0 ; 1]
 
-                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
-                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
+                        cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
+                        cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
 
-                    t = interpolate(tf, Vec(cx,cy))
+                        t = interpolate(tf, Vec(cx,cy))
 
-                    cx = (cx - 1)*scale + 1
-                    cy = (cy - 1)*scale + 1
+                        cx = (cx - 1)*scale + 1
+                        cy = (cy - 1)*scale + 1
 
-                    frobenius = sqrt(t.a^2 + t.b^2 + t.c^2 + t.d^2)
-                    push!(cp_array, (cx,cy))
-                    push!(ctypes_array, cp)
-                    push!(cp_frobenius_array, frobenius)
+                        frobenius = sqrt(t.a^2 + t.b^2 + t.c^2 + t.d^2)
+                        push!(cp_array, (cx,cy))
+                        push!(ctypes_array, cp)
+                        push!(cp_frobenius_array, frobenius)
+                    end
                 end
 
             end
@@ -299,10 +301,10 @@ function main()
     t1 = time()
 
     if length(ARGS) == 0
-        folder = "../output/reconstructed"
+        folder = "../output/slice"
         saveName = "../LIC"
-        size = (65, 65)
-        scale = 16
+        size = (66, 108)
+        scale = 3
         evecScale=0.0
         power = 1.0
     else
@@ -357,6 +359,10 @@ function main()
     else
         c_array = b_array
     end
+
+    # for i in 1:dims[2]
+    #     println((a_array[1,i],b_array[1,i],c_array[1,i]))
+    # end
 
     tf = TensorField(size[1], size[2], a_array, b_array, c_array, d_array)
 
