@@ -66,7 +66,7 @@ function main()
     if length(ARGS) == 0
         folder = "../output/slice"
         saveName = "../test"
-        dims = (101,101)
+        dims = (150,450)
         scale = 10 # how many extra points do we add between the actual grid points (so the quadratic interp is more accurate).
     else
         try
@@ -296,7 +296,7 @@ function main()
         end # end for i
     end # end for j
 
-    vtk_grid(saveName, 0:1:a_y-1,0:1:a_x-1,0:1:0) do vtk
+    vtk_grid(saveName, 0:1:a_x-1,0:1:a_y-1,0:1:0) do vtk
         vtk["frobenius"] = frobenius
         vtk["categorical val"] = categorical_val
         vtk["categorical vec"] = categorical_vec
