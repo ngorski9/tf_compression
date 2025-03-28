@@ -1338,7 +1338,67 @@ function classifyCellEigenvalue(M1::SMatrix{2,2,Float64}, M2::SMatrix{2,2,Float6
             (!isRelativelyClose(abs(D1),abs(R1)) && !isRelativelyClose(abs(D2),abs(R2)) && !isRelativelyClose(abs(D3),abs(R3))) )   ||
        (isClose(S1,0.0) && isClose(S2,0.0) && isClose(S3,0.0))
        # in this case, s is dominated by d or r throughout the entire triangle, so the topology follows from the vertices.
+       # actually, it doesn't! We have to check further.
     #    println("return 1")
+
+        if vertexTypesEigenvalue[1] == DP
+            if vertexTypesEigenvalue[2] == DN && (vertexTypesEigenvalue[3] == DP || vertexTypesEigenvalue[3] == DN)
+                if isGreater(r1,0.0)
+                    RPArray[1] = INTERNAL_ELLIPSE
+                else
+                    RNArray[1] = INTERNAL_ELLIPSE
+                end
+            elseif vertexTypesEigenvalue[2] == DP && vertexTypesEigenvalue[3] == DN
+                if isGreater(r1,0.0)
+                    RPArray[1] = INTERNAL_ELLIPSE
+                else
+                    RNArray[1] = INTERNAL_ELLIPSE
+                end
+            end
+        elseif vertexTypesEigenvalue[1] == DN
+            if vertexTypesEigenvalue[2] == DP && (vertexTypesEigenvalue[3] == DP || vertexTypesEigenvalue[3] == DN)
+                if isGreater(r1,0.0)
+                    RPArray[1] = INTERNAL_ELLIPSE
+                else
+                    RNArray[1] = INTERNAL_ELLIPSE
+                end
+            elseif vertexTypesEigenvalue[2] == DN && vertexTypesEigenvalue[3] == DP
+                if isGreater(r1,0.0)
+                    RPArray[1] = INTERNAL_ELLIPSE
+                else
+                    RNArray[1] = INTERNAL_ELLIPSE
+                end
+            end
+        elseif vertexTypesEigenvalue[1] == RP
+            if vertexTypesEigenvalue[2] == RN && (vertexTypesEigenvalue[3] == RP || vertexTypesEigenvalue[3] == RN)
+                if isGreater(d1,0.0)
+                    DPArray[1] = INTERNAL_ELLIPSE
+                else
+                    DNArray[1] = INTERNAL_ELLIPSE
+                end
+            elseif vertexTypesEigenvalue[2] == RP && vertexTypesEigenvalue[3] == RN
+                if isGreater(d1,0.0)
+                    DPArray[1] = INTERNAL_ELLIPSE
+                else
+                    DNArray[1] = INTERNAL_ELLIPSE
+                end
+            end
+        elseif vertexTypesEigenvalue[1] == RN
+            if vertexTypesEigenvalue[2] == RP && (vertexTypesEigenvalue[3] == RP || vertexTypesEigenvalue[3] == RN)
+                if isGreater(d1,0.0)
+                    DPArray[1] = INTERNAL_ELLIPSE
+                else
+                    DNArray[1] = INTERNAL_ELLIPSE
+                end
+            elseif vertexTypesEigenvalue[2] == RN && vertexTypesEigenvalue[3] == RP
+                if isGreater(d1,0.0)
+                    DPArray[1] = INTERNAL_ELLIPSE
+                else
+                    DNArray[1] = INTERNAL_ELLIPSE
+                end
+            end
+        end
+
         return cellTopologyEigenvalue(vertexTypesEigenvalue, vertexTypesEigenvector, DPArray, DNArray, RPArray, RNArray, RPArrayVec, RNArrayVec, hits_corners)
     end
 

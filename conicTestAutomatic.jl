@@ -113,6 +113,8 @@ function test_full_topology(decomp1, decomp2, decomp3, expect::cellTopology.cell
     d2, r2, w2, θ2 = decomp2
     d3, r3, w3, θ3 = decomp3
     
+
+
     M1 = SMatrix{2,2,Float64}(( d1 + w1*cos(θ1), r1 + w1*sin(θ1), -r1+w1*sin(θ1), d1-w1*cos(θ1) ))
     M2 = SMatrix{2,2,Float64}(( d2 + w2*cos(θ2), r2 + w2*sin(θ2), -r2+w2*sin(θ2), d2-w2*cos(θ2) ))
     M3 = SMatrix{2,2,Float64}(( d3 + w3*cos(θ3), r3 + w3*sin(θ3), -r3+w3*sin(θ3), d3-w3*cos(θ3) ))
@@ -2011,6 +2013,69 @@ function main()
         MArray{Tuple{3},Bool}(false,false,false)
     )
     , 134)
+
+    
+    # corners are D but the region in the middle is R+
+    # but rigged up so that the early stop condition doesnt work properly.
+    D = (7.4, -7.6, 8.1)
+    W = (3.3, 1.53, 4.55)
+    R = (3.9, 4.3, 5.1)
+    θ = (2.2, 3.95, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DP,DN,DP),
+            SArray{Tuple{3},Int8}(RRP,RRP,RRP),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 135)
+
+    # above with r sign swapped
+    D = (7.4, -7.6, 8.1)
+    W = (3.3, 1.53, 4.55)
+    R = (-3.9, -4.3, -5.1)
+    θ = (2.2, 3.95, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(DP,DN,DP),
+            SArray{Tuple{3},Int8}(RRN,RRN,RRN),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Int8}(0,0,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 135)
+
+    # 134 but with D and r swapped
+
+    D = (-3.9, -4.3, -5.1)
+    W = (3.3, 1.53, 4.55)
+    R = (7.4, -7.6, 8.1)
+    θ = (2.2, 3.95, 4.05)
+
+    @add_full_test(full_tests, D,R,W,θ,
+        cellTopology.cellTopologyEigenvalue(
+            MArray{Tuple{3},Int8}(RP,RN,RP),
+            SArray{Tuple{3},Int8}(RRP,RRN,RRP),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(INTERNAL_ELLIPSE, 0 ,0 , 0, 0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ),
+            MArray{Tuple{10},Int8}(0, 0 ,0, 0  ,0  ,0  ,0  ,0  ,0  ,0  ),            
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Int8}(1,1,0),
+            MArray{Tuple{3},Bool}(false,false,false)
+        )
+    , 135)
 
     # ------------------------------------------------------------------
     #                 end of automated tests
