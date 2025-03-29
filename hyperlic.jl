@@ -389,7 +389,7 @@ function main()
             yL = (j-0.7)/scale+1.0
             yH = (j-0.3)/scale+1.0
 
-            if isZerp(interpolate(tf, Vec(xo, yL) )) && isZero(interpolate(tf, Vec(xo,yH)))
+            if isZero(interpolate(tf, Vec(xo, yL) )) && isZero(interpolate(tf, Vec(xo,yH)))
                 noise[i,j] = 0.0
             end
 
