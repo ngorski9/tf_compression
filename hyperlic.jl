@@ -22,6 +22,10 @@ struct Tensor
     d::Float64
 end
 
+function isZero(t::Tensor)
+    return t.a == 0.0 && t.b == 0.0 && t.c == 0.0 && t.d == 0.0
+end
+
 struct Vec
     u::Float64
     v::Float64
@@ -385,7 +389,7 @@ function main()
             yL = (j-0.7)/scale+1.0
             yH = (j-0.3)/scale+1.0
 
-            if interpolate(tf, Vec(xo, yL) ) == Tensor(0.0,0.0,0.0,0.0) && interpolate(tf, Vec(xo,yH)) == Tensor(0.0,0.0,0.0,0.0)
+            if isZerp(interpolate(tf, Vec(xo, yL) )) && isZero(interpolate(tf, Vec(xo,yH)))
                 noise[i,j] = 0.0
             end
 
