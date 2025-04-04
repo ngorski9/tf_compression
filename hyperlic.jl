@@ -114,23 +114,37 @@ function extractCP(tf::TensorField, cp_array, ctypes_array, cp_frobenius_array, 
                 end
 
                 if cp == 1 || cp == 2
-                    mat = [ Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1 ]
-                    if abs(det(mat)) > 10e-10
-                        μ = (mat^-1) * [0 ; 0 ; 1]
-
-                        cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
-                        cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
-
-                        t = interpolate(tf, Vec(cx,cy))
-
-                        cx = (cx - 1)*scale + 1
-                        cy = (cy - 1)*scale + 1
-
-                        frobenius = sqrt(t.a^2 + t.b^2 + t.c^2 + t.d^2)
-                        push!(cp_array, (cx,cy))
-                        push!(ctypes_array, cp)
-                        push!(cp_frobenius_array, frobenius)
+                    quot = 1.0
+                    for val in (Δ1, Δ2, Δ3, F1, F2, F3)
+                        if 0 < abs(val) < quot
+                            quot = abs(val)
+                        end
                     end
+
+                        Δ1 /= quot
+                        Δ2 /= quot
+                        Δ3 /= quot
+                        F1 /= quot
+                        F2 /= quot
+                        F3 /= quot
+
+                    mat = [ Δ1 Δ2 Δ3 ; F1 F2 F3 ; 1 1 1 ]
+
+                    μ = (mat^-1) * [0 ; 0 ; 1]
+
+                    cx = μ[1] * Float64(x1) + μ[2] * Float64(x2) + μ[3] * Float64(x3)
+                    cy = μ[1] * Float64(y1) + μ[2] * Float64(y2) + μ[3] * Float64(y3)
+
+                    t = interpolate(tf, Vec(cx,cy))
+
+                    cx = (cx - 1)*scale + 1
+                    cy = (cy - 1)*scale + 1
+
+                    frobenius = sqrt(t.a^2 + t.b^2 + t.c^2 + t.d^2)
+                    push!(cp_array, (cx,cy))
+                    push!(ctypes_array, cp)
+                    push!(cp_frobenius_array, frobenius)
+
                 end
 
             end
@@ -305,8 +319,8 @@ function main()
     t1 = time()
 
     if length(ARGS) == 0
-        folder = "../output/slice"
-        saveName = "../LIC"
+        folder = "../output/reconstructed"
+        saveName = "../LIC2"
         size = (66, 108)
         scale = 3
         evecScale=0.0
